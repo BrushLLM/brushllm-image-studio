@@ -1,0 +1,70 @@
+[package]
+name = "image-studio"
+version = "0.0.1"
+description = "BrushLLM Image Studio — local-first AI image toolbox"
+authors = ["BrushLLM"]
+edition = "2021"
+
+[lib]
+name = "image_studio_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["protocol-asset"] }
+tauri-plugin-opener = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-clipboard-manager = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Local image engine — all permissive-licensed, pure Rust (no C deps to ship).
+# Only formats the embedded WebView can also render are accepted, so every
+# queued thumbnail stays visible.
+image = { version = "0.25", default-features = false, features = [
+    "jpeg",
+    "png",
+    "webp",
+    "gif",
+    "bmp",
+    "tiff",
+    "ico",
+] }
+# SVG input rasterization (pure Rust, MPL-2.0).
+resvg = "0.48"
+fast_image_resize = "5"
+ravif = { version = "0.12", default-features = false }
+rgb = "0.8"
+imgref = "1.9"
+kamadak-exif = "0.5"
+crc32fast = "1"
+
+# Cloud API client — rustls is pure Rust, so the same client builds for
+# desktop, Android and iOS without any system TLS library.
+reqwest = { version = "0.12", default-features = false, features = [
+    "json",
+    "multipart",
+    "rustls-tls",
+] }
+base64 = "0.22"
+
+# Secrets + errors
+thiserror = "2"
+
+# keyring is desktop-only (no Android/iOS backend); mobile falls back to a
+# file in the app's private config dir — see src/api_key.rs.
+# (cargo target-cfg cannot use tauri's custom `desktop` flag, so this keys
+# off the mobile target OSes instead.)
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+keyring = { version = "3", features = ["apple-native", "windows-native"] }
+
+[profile.release]
+codegen-units = 1
+# Thin LTO: near-identical codegen quality to fat LTO, but far lower peak
+# memory — the 7 GB GitHub macOS runner gets OOM-killed with fat LTO.
+lto = "thin"
+opt-level = 3
+panic = "abort"
+strip = true

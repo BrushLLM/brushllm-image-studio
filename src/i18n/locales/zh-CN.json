@@ -465,7 +465,8 @@
     "before": "处理前",
     "after": "处理后",
     "original": "原图",
-    "smallerBadge": "缩小 {{pct}}%"
+    "smallerBadge": "缩小 {{pct}}%",
+    "clipboard": "无法访问剪贴板"
   },
   "footer": {
     "website": "brushllm.com",

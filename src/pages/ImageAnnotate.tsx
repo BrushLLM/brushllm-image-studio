@@ -216,11 +216,17 @@ export default function ImageAnnotate({ onBack }: Props) {
     activeRef.current = { tool, from: toNatural(event), to: toNatural(event), size: strokeSize, color };
   };
 
+  const rafRef = useRef(0);
   const onPointerMove = (event: ReactPointerEvent<HTMLCanvasElement>) => {
     const active = activeRef.current;
     if (!active) return;
     active.to = toNatural(event);
-    redraw(active);
+    // Coalesce redraws to one per frame.
+    if (rafRef.current) return;
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = 0;
+      redraw(activeRef.current);
+    });
   };
 
   const onPointerUp = () => {

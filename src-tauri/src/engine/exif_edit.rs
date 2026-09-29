@@ -40,6 +40,7 @@ pub struct ExifEdits {
 }
 
 impl ExifEdits {
+    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         nonempty(&self.date_time).is_none()
             && nonempty(&self.make).is_none()
@@ -82,10 +83,14 @@ pub fn read_fields(container: &[u8]) -> Result<Vec<FieldInfo>> {
                         .map(|raw| {
                             String::from_utf8_lossy(raw)
                                 .replace(
-                                    |c: char| c == ':' && raw.starts_with(
-                                        // only the date separators, not time
-                                        &raw[..4].to_vec(),
-                                    ) && false,
+                                    |c: char| {
+                                        c == ':'
+                                            && raw.starts_with(
+                                                // only the date separators, not time
+                                                &raw[..4],
+                                            )
+                                            && false
+                                    },
                                     "-",
                                 )
                                 .to_string()
@@ -94,12 +99,7 @@ pub fn read_fields(container: &[u8]) -> Result<Vec<FieldInfo>> {
                             // "2024:05:06 07:08:09" → "2024-05-06 07:08:09"
                             let bytes = s.as_bytes();
                             if bytes.len() == 19 && bytes[4] == b':' {
-                                format!(
-                                    "{}-{}-{}",
-                                    &s[..4],
-                                    &s[5..7],
-                                    &s[8..]
-                                )
+                                format!("{}-{}-{}", &s[..4], &s[5..7], &s[8..])
                             } else {
                                 s
                             }
@@ -127,11 +127,7 @@ pub fn read_fields(container: &[u8]) -> Result<Vec<FieldInfo>> {
 }
 
 /// Decimal degrees for a GPS coordinate, sign-corrected via its Ref field.
-fn gps_decimal(
-    exif_data: &exif::Exif,
-    coord_tag: exif::Tag,
-    negative_ref: u8,
-) -> Option<f64> {
+fn gps_decimal(exif_data: &exif::Exif, coord_tag: exif::Tag, negative_ref: u8) -> Option<f64> {
     let fields: Vec<&exif::Field> = exif_data.fields().collect();
     let coord = fields.iter().find(|f| f.tag == coord_tag)?;
     let ref_tag = if coord_tag == exif::Tag::GPSLatitude {
@@ -249,14 +245,13 @@ fn apply_edits(
         Some(v) => Some(parse_gps(v, 180.0)?),
         None => None,
     };
-    if lat.is_some() || lon.is_some() {
-        if !fields.iter().any(|f| f.tag == exif::Tag::GPSVersionID) {
-            fields.push(exif::Field {
-                tag: exif::Tag::GPSVersionID,
-                ifd_num: exif::In::PRIMARY,
-                value: exif::Value::Byte(vec![2, 3, 0, 0]),
-            });
-        }
+    if (lat.is_some() || lon.is_some()) && !fields.iter().any(|f| f.tag == exif::Tag::GPSVersionID)
+    {
+        fields.push(exif::Field {
+            tag: exif::Tag::GPSVersionID,
+            ifd_num: exif::In::PRIMARY,
+            value: exif::Value::Byte(vec![2, 3, 0, 0]),
+        });
     }
     if let Some(lat) = lat {
         fields.upsert(
@@ -305,7 +300,11 @@ impl UpsertExt for Vec<exif::Field> {
         if let Some(existing) = self.iter_mut().find(|f| f.tag == tag) {
             existing.value = value;
         } else {
-            self.push(exif::Field { tag, ifd_num, value });
+            self.push(exif::Field {
+                tag,
+                ifd_num,
+                value,
+            });
         }
     }
 }
@@ -376,7 +375,9 @@ pub fn jpeg_strip_metadata(input: &[u8]) -> Result<Vec<u8>> {
                 .ok_or_else(|| StudioError::Param("truncated JPEG".into()))?,
         ]) as usize;
         if seg_len < 2 {
-            return Err(StudioError::Param("corrupt JPEG: bad segment length".into()));
+            return Err(StudioError::Param(
+                "corrupt JPEG: bad segment length".into(),
+            ));
         }
         let seg_end = len_pos + seg_len;
         if seg_end > input.len() {
@@ -409,13 +410,12 @@ pub fn jpeg_replace_exif(input: &[u8], exif_block: &[u8]) -> Result<Vec<u8>> {
 
 /// Apply edits (and optionally drop GPS fields) to a JPEG's EXIF.
 pub fn jpeg_edit_exif(input: &[u8], edits: &ExifEdits, strip_gps: bool) -> Result<Vec<u8>> {
-    let fields: Vec<exif::Field> = match exif::Reader::new()
-        .read_from_container(&mut Cursor::new(input))
-    {
-        Ok(exif_data) => exif_data.fields().cloned().collect(),
-        // No readable EXIF: start from scratch so edits can still add fields.
-        Err(_) => Vec::new(),
-    };
+    let fields: Vec<exif::Field> =
+        match exif::Reader::new().read_from_container(&mut Cursor::new(input)) {
+            Ok(exif_data) => exif_data.fields().cloned().collect(),
+            // No readable EXIF: start from scratch so edits can still add fields.
+            Err(_) => Vec::new(),
+        };
 
     let fields = apply_edits(fields, edits, strip_gps)?;
     if fields.is_empty() {
@@ -437,12 +437,8 @@ pub fn png_strip_metadata(input: &[u8]) -> Result<Vec<u8>> {
     let mut out = PNG_SIG.to_vec();
     let mut pos = 8;
     while pos + 8 <= input.len() {
-        let len = u32::from_be_bytes([
-            input[pos],
-            input[pos + 1],
-            input[pos + 2],
-            input[pos + 3],
-        ]) as usize;
+        let len = u32::from_be_bytes([input[pos], input[pos + 1], input[pos + 2], input[pos + 3]])
+            as usize;
         let chunk_type = &input[pos + 4..pos + 8];
         let total = 12 + len;
         if pos + total > input.len() {
@@ -486,12 +482,8 @@ pub fn png_edit_exif(input: &[u8], edits: &ExifEdits, strip_gps: bool) -> Result
     let mut existing: Option<Vec<exif::Field>> = None;
     let mut pos = 8;
     while pos + 8 <= input.len() {
-        let len = u32::from_be_bytes([
-            input[pos],
-            input[pos + 1],
-            input[pos + 2],
-            input[pos + 3],
-        ]) as usize;
+        let len = u32::from_be_bytes([input[pos], input[pos + 1], input[pos + 2], input[pos + 3]])
+            as usize;
         let chunk_type = &input[pos + 4..pos + 8];
         let total = 12 + len;
         if pos + total > input.len() {
@@ -525,12 +517,8 @@ pub fn png_edit_exif(input: &[u8], edits: &ExifEdits, strip_gps: bool) -> Result
     let mut out = PNG_SIG.to_vec();
     let mut pos = 8;
     while pos + 8 <= input.len() {
-        let len = u32::from_be_bytes([
-            input[pos],
-            input[pos + 1],
-            input[pos + 2],
-            input[pos + 3],
-        ]) as usize;
+        let len = u32::from_be_bytes([input[pos], input[pos + 1], input[pos + 2], input[pos + 3]])
+            as usize;
         let chunk_type = &input[pos + 4..pos + 8];
         let total = 12 + len;
         if chunk_type == b"eXIf" {
@@ -675,8 +663,14 @@ mod tests {
             .find(|f| f.tag == "GPSLongitude")
             .and_then(|f| f.edit_value.clone())
             .expect("gps longitude");
-        assert!((lat.parse::<f64>().unwrap() - 31.2304).abs() < 0.001, "{lat}");
-        assert!((lon.parse::<f64>().unwrap() - -118.4912).abs() < 0.001, "{lon}");
+        assert!(
+            (lat.parse::<f64>().unwrap() - 31.2304).abs() < 0.001,
+            "{lat}"
+        );
+        assert!(
+            (lon.parse::<f64>().unwrap() - -118.4912).abs() < 0.001,
+            "{lon}"
+        );
     }
 
     #[test]

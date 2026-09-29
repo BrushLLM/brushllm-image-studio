@@ -3,6 +3,7 @@ pub mod compose;
 pub mod decode;
 pub mod encode;
 pub mod exif_edit;
+pub mod guard;
 pub mod metadata;
 pub mod ops;
 pub mod stitch;

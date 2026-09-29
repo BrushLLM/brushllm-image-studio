@@ -8,14 +8,15 @@ use crate::engine::batch::{
 };
 use crate::engine::encode::{self, EncodeSettings, OutFormat};
 use crate::engine::stitch;
-use crate::engine::{compose, decode};
+use crate::engine::{compose, decode, guard};
 use crate::settings::Settings;
 
 /// Mutable app state managed by Tauri.
 pub struct AppState {
     pub settings: std::sync::Mutex<Settings>,
-    /// Set to true to abort the running batch at the next file boundary.
-    pub cancel: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    /// One active batch at a time; the token belongs to that job only, so
+    /// cancelling never leaks into a later run.
+    pub active_batch: std::sync::Mutex<Option<std::sync::Arc<std::sync::atomic::AtomicBool>>>,
 }
 
 #[derive(Serialize, Clone)]
@@ -28,12 +29,28 @@ struct BatchProgress {
 }
 
 #[tauri::command]
-pub async fn run_batch(app: AppHandle, state: State<'_, AppState>, job: BatchJob) -> Result<BatchReport, String> {
-    use std::sync::atomic::Ordering;
-
-    state.cancel.store(false, Ordering::Relaxed);
-    let cancel = state.cancel.clone();
-    tauri::async_runtime::spawn_blocking(move || {
+pub async fn run_batch(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    job: BatchJob,
+) -> Result<BatchReport, String> {
+    if job.files.len() > guard::limits::MAX_BATCH_FILES {
+        return Err(format!(
+            "too many files ({}); the limit is {}",
+            job.files.len(),
+            guard::limits::MAX_BATCH_FILES
+        ));
+    }
+    let cancel = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    {
+        let mut slot = state.active_batch.lock().unwrap();
+        if slot.is_some() {
+            return Err("a batch is already running — wait for it or cancel it first".into());
+        }
+        *slot = Some(cancel.clone());
+    }
+    let app_for_cleanup = app.clone();
+    let result = tauri::async_runtime::spawn_blocking(move || {
         let emitter = app.clone();
         batch::run(job, Some(&cancel), move |index, total, outcome| {
             let _ = emitter.emit(
@@ -41,7 +58,9 @@ pub async fn run_batch(app: AppHandle, state: State<'_, AppState>, job: BatchJob
                 BatchProgress {
                     index,
                     total,
-                    file: outcome.file.clone(),
+                    // Full input path: queue thumbnails match on this, so
+                    // same-named files in different folders never cross-wire.
+                    file: outcome.input.clone(),
                     status: outcome.status.clone(),
                     error: outcome.error.clone(),
                 },
@@ -49,7 +68,13 @@ pub async fn run_batch(app: AppHandle, state: State<'_, AppState>, job: BatchJob
         })
     })
     .await
-    .map_err(|e| format!("batch task failed: {e}"))
+    .map_err(|e| format!("batch task failed: {e}"));
+    // Release the job slot so the next batch can start.
+    use tauri::Manager;
+    if let Some(state) = app_for_cleanup.try_state::<AppState>() {
+        *state.active_batch.lock().unwrap() = None;
+    }
+    result
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -67,12 +92,16 @@ pub async fn run_stitch(job: StitchJob) -> Result<String, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let mut images = Vec::with_capacity(job.files.len());
         for file in &job.files {
-            images.push(decode::decode_file(std::path::Path::new(file)).map_err(|e| e.to_string())?);
+            images
+                .push(decode::decode_file(std::path::Path::new(file)).map_err(|e| e.to_string())?);
         }
         let stitched = stitch::stitch(images, &job.opts).map_err(|e| e.to_string())?;
         let encoded = encode::encode(
             &stitched,
-            &EncodeSettings { format: job.format, quality: job.quality },
+            &EncodeSettings {
+                format: job.format,
+                quality: job.quality,
+            },
         )
         .map_err(|e| e.to_string())?;
         let out_path = single_output_path(&job.files[0], &job.format, &job.output)?;
@@ -103,10 +132,9 @@ pub async fn apply_overlay(job: OverlayJob) -> Result<String, String> {
     use base64::Engine;
     tauri::async_runtime::spawn_blocking(move || {
         use image::GenericImageView;
-        let bytes = decode::read_bytes(std::path::Path::new(&job.image_path))
-            .map_err(|e| e.to_string())?;
-        let base = decode::decode_file(std::path::Path::new(&job.image_path))
-            .map_err(|e| e.to_string())?;
+        let bytes =
+            decode::read_bytes(std::path::Path::new(&job.image_path)).map_err(|e| e.to_string())?;
+        let base = decode::decode_from_buffer(&bytes).map_err(|e| e.to_string())?;
         let overlay_raw = base64::engine::general_purpose::STANDARD
             .decode(&job.overlay_b64)
             .map_err(|e| format!("invalid overlay data: {e}"))?;
@@ -123,10 +151,15 @@ pub async fn apply_overlay(job: OverlayJob) -> Result<String, String> {
             ));
         }
         let composed = compose::compose(base, overlay).map_err(|e| e.to_string())?;
-        let format = job.format.unwrap_or_else(|| decode::same_output_format(&bytes));
+        let format = job
+            .format
+            .unwrap_or_else(|| decode::same_output_format(&bytes));
         let mut encoded = encode::encode(
             &composed,
-            &EncodeSettings { format, quality: job.quality },
+            &EncodeSettings {
+                format,
+                quality: job.quality,
+            },
         )
         .map_err(|e| e.to_string())?;
         if job.preserve_exif && format == OutFormat::Jpeg {
@@ -155,22 +188,23 @@ fn single_output_path(
         .file_stem()
         .map(|s| s.to_string_lossy().to_string())
         .unwrap_or_default();
-    let out_dir = output
-        .dir
-        .as_ref()
-        .map(std::path::PathBuf::from)
-        .unwrap_or_else(|| {
-            input
-                .parent()
-                .map(std::path::Path::to_path_buf)
-                .unwrap_or_default()
-        });
-    let file_name = format!("{}{}.{}", stem, output.suffix, format.extension());
-    let path = out_dir.join(&file_name);
-    match resolve_collision(&path, output.collision) {
-        CollisionDecision::Skip => {
-            Err(format!("skipped: {} already exists", path.display()))
+    // Suffix and directory go through the central guard — no separators,
+    // no traversal, no control characters, dir must be a real folder.
+    let suffix = guard::validate_suffix(&output.suffix).map_err(|e| e.to_string())?;
+    let out_dir = match &output.dir {
+        Some(dir) => {
+            guard::validate_output_dir(std::path::Path::new(dir)).map_err(|e| e.to_string())?
         }
+        None => input
+            .parent()
+            .map(std::path::Path::to_path_buf)
+            .unwrap_or_default(),
+    };
+    let file_name = format!("{}{}.{}", stem, suffix, format.extension());
+    let path = out_dir.join(&file_name);
+    let path = guard::validate_output_path(&path).map_err(|e| e.to_string())?;
+    match resolve_collision(&path, output.collision) {
+        CollisionDecision::Skip => Err(format!("skipped: {} already exists", path.display())),
         CollisionDecision::Write(final_path) => Ok(final_path),
     }
 }
@@ -180,6 +214,7 @@ fn single_output_path(
 #[tauri::command]
 pub fn read_asset(path: String) -> Result<String, String> {
     use base64::Engine;
+    guard::validate_input_file(std::path::Path::new(&path)).map_err(|e| e.to_string())?;
     let bytes = std::fs::read(&path).map_err(|e| format!("cannot read {path}: {e}"))?;
     let mime = sniff_image_mime(&bytes, &path);
     Ok(format!(
@@ -201,6 +236,7 @@ pub fn pictures_dir(app: AppHandle) -> Option<String> {
 /// Lightweight file facts (name + size) for queue thumbnails.
 #[tauri::command]
 pub fn file_meta(path: String) -> Result<serde_json::Value, String> {
+    guard::validate_input_file(std::path::Path::new(&path)).map_err(|e| e.to_string())?;
     let meta = std::fs::metadata(&path).map_err(|e| format!("cannot stat {path}: {e}"))?;
     let name = std::path::Path::new(&path)
         .file_name()
@@ -223,7 +259,13 @@ fn sniff_image_mime(bytes: &[u8], path: &str) -> String {
     } else if bytes.starts_with(&[0x49, 0x49]) || bytes.starts_with(&[0x4D, 0x4D]) {
         "image/tiff".into()
     } else {
-        match path.rsplit('.').next().unwrap_or("").to_ascii_lowercase().as_str() {
+        match path
+            .rsplit('.')
+            .next()
+            .unwrap_or("")
+            .to_ascii_lowercase()
+            .as_str()
+        {
             "jpg" | "jpeg" => "image/jpeg".into(),
             "webp" => "image/webp".into(),
             "gif" => "image/gif".into(),
@@ -307,10 +349,9 @@ impl ExifAction {
 pub async fn apply_exif(job: ExifJob) -> Result<String, String> {
     tauri::async_runtime::spawn_blocking(move || {
         use crate::engine::exif_edit;
-        let bytes =
-            std::fs::read(&job.image_path).map_err(|e| format!("cannot read: {e}"))?;
-        let format = image::guess_format(&bytes)
-            .map_err(|e| format!("unrecognized image format: {e}"))?;
+        let bytes = std::fs::read(&job.image_path).map_err(|e| format!("cannot read: {e}"))?;
+        let format =
+            image::guess_format(&bytes).map_err(|e| format!("unrecognized image format: {e}"))?;
 
         let strip_all = matches!(job.action, ExifAction::StripAll);
         let strip_gps = matches!(job.action, ExifAction::StripGps);
@@ -395,14 +436,11 @@ pub async fn preview_batch(
     use base64::Engine;
     tauri::async_runtime::spawn_blocking(move || {
         let bytes = decode::read_bytes(std::path::Path::new(&file)).map_err(|e| e.to_string())?;
-        let img = decode::decode_file(std::path::Path::new(&file)).map_err(|e| e.to_string())?;
+        let img = decode::decode_from_buffer(&bytes).map_err(|e| e.to_string())?;
         let processed = crate::engine::ops::apply_steps(img, &steps).map_err(|e| e.to_string())?;
         let format = format.unwrap_or_else(|| decode::same_output_format(&bytes));
-        let encoded = encode::encode(
-            &processed,
-            &EncodeSettings { format, quality },
-        )
-        .map_err(|e| e.to_string())?;
+        let encoded = encode::encode(&processed, &EncodeSettings { format, quality })
+            .map_err(|e| e.to_string())?;
         let len = encoded.len() as u64;
         let mime = match format {
             OutFormat::Jpeg => "image/jpeg",
@@ -438,14 +476,16 @@ pub async fn preview_stitch(
         let files = &files[..files.len().min(MAX_PREVIEW_IMAGES)];
         let mut images = Vec::with_capacity(files.len());
         for file in files {
-            images.push(
-                decode::decode_file(std::path::Path::new(file)).map_err(|e| e.to_string())?,
-            );
+            images
+                .push(decode::decode_file(std::path::Path::new(file)).map_err(|e| e.to_string())?);
         }
         let stitched = stitch::stitch(images, &opts).map_err(|e| e.to_string())?;
         let encoded = encode::encode(
             &stitched,
-            &EncodeSettings { format: OutFormat::Jpeg, quality: 85 },
+            &EncodeSettings {
+                format: OutFormat::Jpeg,
+                quality: 85,
+            },
         )
         .map_err(|e| e.to_string())?;
         let len = encoded.len() as u64;
@@ -465,7 +505,10 @@ pub async fn preview_stitch(
 #[tauri::command]
 pub fn batch_cancel(state: State<'_, AppState>) {
     use std::sync::atomic::Ordering;
-    state.cancel.store(true, Ordering::Relaxed);
+    let slot = state.active_batch.lock().unwrap();
+    if let Some(cancel) = slot.as_ref() {
+        cancel.store(true, Ordering::Relaxed);
+    }
 }
 
 #[derive(Serialize)]
@@ -507,7 +550,6 @@ pub async fn ai_generate(
     quality: Option<String>,
     n: Option<u8>,
 ) -> Result<EditResult, String> {
-
     let settings = state.settings.lock().unwrap().clone();
     let api_key = api_key::get(&app)
         .ok_or_else(|| "no API key configured — add one in Settings first".to_string())?;
@@ -528,6 +570,7 @@ pub async fn ai_generate(
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub async fn ai_edit(
     app: AppHandle,
     state: State<'_, AppState>,
@@ -539,7 +582,6 @@ pub async fn ai_edit(
     quality: Option<String>,
     n: Option<u8>,
 ) -> Result<EditResult, String> {
-
     let settings = state.settings.lock().unwrap().clone();
     use base64::Engine;
     let api_key = api_key::get(&app)
@@ -548,10 +590,27 @@ pub async fn ai_edit(
     if image_paths.is_empty() {
         return Err("no image provided".into());
     }
+    if image_paths.len() > guard::limits::MAX_AI_IMAGES {
+        return Err(format!(
+            "too many images ({}); the limit is {}",
+            image_paths.len(),
+            guard::limits::MAX_AI_IMAGES
+        ));
+    }
+    if prompt.chars().count() > guard::limits::MAX_PROMPT_CHARS {
+        return Err(format!(
+            "prompt is too long ({} chars); the limit is {}",
+            prompt.chars().count(),
+            guard::limits::MAX_PROMPT_CHARS
+        ));
+    }
     let mut images: Vec<(Vec<u8>, String)> = Vec::with_capacity(image_paths.len());
     for path in &image_paths {
-        let bytes = std::fs::read(path)
-            .map_err(|e| format!("cannot read image {path}: {e}"))?;
+        if !guard::has_no_parent_traversal(path) {
+            return Err(format!("unsafe image path: {path}"));
+        }
+        guard::validate_input_file(std::path::Path::new(path)).map_err(|e| e.to_string())?;
+        let bytes = std::fs::read(path).map_err(|e| format!("cannot read image {path}: {e}"))?;
         let ext = path.rsplit('.').next().unwrap_or("").to_ascii_lowercase();
         let mime = match ext.as_str() {
             "jpg" | "jpeg" => "image/jpeg",
@@ -668,8 +727,15 @@ pub fn save_bytes(path: String, data_b64: String) -> Result<(), String> {
     let bytes = base64::engine::general_purpose::STANDARD
         .decode(&data_b64)
         .map_err(|e| format!("invalid data: {e}"))?;
-    if let Some(parent) = std::path::Path::new(&path).parent() {
-        let _ = std::fs::create_dir_all(parent);
+    // Full guard: parent must be a real directory (or be creatable), the
+    // file name must be a safe component — no silent create_dir failures.
+    let out =
+        guard::validate_output_path(std::path::Path::new(&path)).map_err(|e| e.to_string())?;
+    if let Some(parent) = out.parent() {
+        if !parent.exists() {
+            std::fs::create_dir_all(parent)
+                .map_err(|e| format!("cannot create folder {}: {e}", parent.display()))?;
+        }
     }
-    std::fs::write(&path, bytes).map_err(|e| format!("cannot write {path}: {e}"))
+    std::fs::write(&out, bytes).map_err(|e| format!("cannot write {}: {e}", out.display()))
 }

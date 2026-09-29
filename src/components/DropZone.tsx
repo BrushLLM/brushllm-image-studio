@@ -115,7 +115,13 @@ export default function DropZone({
       onClick={pick}
       role="button"
       tabIndex={0}
-      onKeyDown={(e) => e.key === "Enter" && pick()}
+      aria-label={label ?? t("common.dropHere")}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          pick();
+        }
+      }}
     >
       <div className="dz-icon">
         <ImagePlus />

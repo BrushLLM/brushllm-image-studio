@@ -47,7 +47,9 @@ pub enum Step {
     /// Kaleidoscope mirror: original + its reflection joined side by side
     /// ("horizontal" → A|A, doubling width) or top to bottom
     /// ("vertical" → A over A, doubling height).
-    Mirror { direction: MirrorDir },
+    Mirror {
+        direction: MirrorDir,
+    },
     Rotate90,
     Rotate180,
     Rotate270,
@@ -127,7 +129,12 @@ fn mirror(img: DynamicImage, direction: MirrorDir) -> Result<DynamicImage> {
 /// Per-pixel brightness / contrast / saturation, each on a -100..=100 scale.
 /// Brightness is a linear offset; contrast scales around the midpoint;
 /// saturation lerps between grayscale and the original color.
-fn adjust(img: DynamicImage, brightness: i32, contrast: i32, saturation: i32) -> Result<DynamicImage> {
+fn adjust(
+    img: DynamicImage,
+    brightness: i32,
+    contrast: i32,
+    saturation: i32,
+) -> Result<DynamicImage> {
     let b = brightness.clamp(-100, 100) as f32 / 100.0; // -1..=1
     let c = contrast.clamp(-100, 100) as f32 / 100.0;
     let s = saturation.clamp(-100, 100) as f32 / 100.0;
@@ -229,8 +236,7 @@ fn fir_resize(img: DynamicImage, dw: u32, dh: u32) -> Result<DynamicImage> {
         .map_err(|e| StudioError::Param(format!("resize source: {e}")))?;
     let mut dst = FImage::new(dw, dh, PixelType::U8x4);
     let mut resizer = Resizer::new();
-    let opts = ResizeOptions::new()
-        .resize_alg(ResizeAlg::Convolution(FilterType::Lanczos3));
+    let opts = ResizeOptions::new().resize_alg(ResizeAlg::Convolution(FilterType::Lanczos3));
     resizer
         .resize(&src, &mut dst, &opts)
         .map_err(|e| StudioError::Param(format!("resize: {e}")))?;
@@ -406,5 +412,4 @@ mod tests {
         assert_eq!(px[1], 0); // far below midpoint → 0
         assert_eq!(px[2], 255); // far above → 255
     }
-
 }

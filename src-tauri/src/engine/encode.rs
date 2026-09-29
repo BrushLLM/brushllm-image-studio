@@ -31,6 +31,7 @@ impl OutFormat {
     }
 
     /// Lossless formats ignore the quality setting entirely.
+    #[allow(dead_code)]
     pub fn uses_quality(self) -> bool {
         matches!(self, OutFormat::Jpeg | OutFormat::Png | OutFormat::Avif)
     }
@@ -128,9 +129,7 @@ fn encode_avif(img: &DynamicImage, q: u8) -> Result<Vec<u8>> {
     let width = rgba.width() as usize;
     let height = rgba.height() as usize;
     let frame = imgref::Img::new(pixels.as_slice(), width, height);
-    let encoder = ravif::Encoder::new()
-        .with_quality(q as f32)
-        .with_speed(8);
+    let encoder = ravif::Encoder::new().with_quality(q as f32).with_speed(8);
     let encoded = encoder
         .encode_rgba(frame)
         .map_err(|e| StudioError::Encode(format!("avif: {e}")))?;
@@ -213,9 +212,7 @@ fn flatten_to_rgb(img: &DynamicImage) -> image::RgbImage {
             let mut out = image::RgbImage::new(rgba.width(), rgba.height());
             for (x, y, px) in rgba.enumerate_pixels() {
                 let a = px[3] as u32;
-                let blend = |c: u8| -> u8 {
-                    ((c as u32 * a + 255 * (255 - a)) / 255) as u8
-                };
+                let blend = |c: u8| -> u8 { ((c as u32 * a + 255 * (255 - a)) / 255) as u8 };
                 out.put_pixel(x, y, image::Rgb([blend(px[0]), blend(px[1]), blend(px[2])]));
             }
             out
@@ -250,7 +247,14 @@ mod tests {
             OutFormat::Svg,
             OutFormat::Ico,
         ] {
-            let bytes = encode(&img, &EncodeSettings { format, quality: 80 }).unwrap();
+            let bytes = encode(
+                &img,
+                &EncodeSettings {
+                    format,
+                    quality: 80,
+                },
+            )
+            .unwrap();
             assert!(!bytes.is_empty(), "{format:?} produced empty output");
             if !matches!(format, OutFormat::Avif | OutFormat::Svg) {
                 // AVIF/SVG decode is not enabled in the image crate; the
@@ -273,7 +277,10 @@ mod tests {
         }
         let bytes = encode(
             &DynamicImage::ImageRgba8(img),
-            &EncodeSettings { format: OutFormat::Jpeg, quality: 90 },
+            &EncodeSettings {
+                format: OutFormat::Jpeg,
+                quality: 90,
+            },
         )
         .unwrap();
         let decoded = image::load_from_memory(&bytes).unwrap().to_rgb8();
@@ -286,15 +293,15 @@ mod tests {
         let img = sample();
         let bytes = encode(
             &img,
-            &EncodeSettings { format: OutFormat::Webp, quality: 50 },
+            &EncodeSettings {
+                format: OutFormat::Webp,
+                quality: 50,
+            },
         )
         .unwrap();
         let decoded = image::load_from_memory(&bytes).unwrap();
         assert_eq!(decoded.dimensions(), (64, 48));
         // Lossless: pixels must round-trip exactly.
-        assert_eq!(
-            decoded.to_rgba8().as_raw(),
-            img.to_rgba8().as_raw()
-        );
+        assert_eq!(decoded.to_rgba8().as_raw(), img.to_rgba8().as_raw());
     }
 }

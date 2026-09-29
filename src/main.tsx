@@ -9,9 +9,16 @@ import { initTheme } from "./lib/theme";
 // let App refine once the saved preferences arrive over IPC.
 async function boot() {
   initTheme();
+  // Render FIRST with the English/system fallback so a slow settings IPC
+  // never shows a blank window; the saved language applies as soon as it
+  // arrives (i18next re-renders mounted components).
+  ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>,
+  );
   let language = "system";
   try {
-    // Never let a slow/hung IPC call block the whole UI from rendering.
     language = await Promise.race([
       getSettings().then((s) => s.language || "system"),
       new Promise<string>((resolve) => setTimeout(() => resolve("system"), 3000)),
@@ -22,14 +29,8 @@ async function boot() {
   try {
     await initI18n(language);
   } catch {
-    // i18n failure must never blank the app — English fallback loads below.
+    // i18n failure must never blank the app — English fallback stays.
   }
-
-  ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
-    <React.StrictMode>
-      <App />
-    </React.StrictMode>,
-  );
 }
 
 boot();

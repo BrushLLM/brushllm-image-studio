@@ -4,24 +4,27 @@ import { ChevronLeft, ChevronRight, Search, Settings as SettingsIcon } from "luc
 import brushLogo from "./assets/brush.svg";
 import CommandPalette from "./components/CommandPalette";
 import ErrorBoundary from "./components/ErrorBoundary";
-import AiRepaint from "./pages/AiRepaint";
-import Compress from "./pages/Compress";
-import Convert from "./pages/Convert";
-import CropRotate from "./pages/CropRotate";
-import Exif from "./pages/Exif";
-import ImageAnnotate from "./pages/ImageAnnotate";
-import ColorPicker from "./pages/ColorPicker";
-import Adjust from "./pages/Adjust";
-import Mirror from "./pages/Mirror";
-import Mosaic from "./pages/Mosaic";
-import ShadowPage from "./pages/Shadow";
-import ColorReplace from "./pages/ColorReplace";
-import RoundedCorners from "./pages/RoundedCorners";
 import Home, { type Page } from "./pages/Home";
-import Resize from "./pages/Resize";
-import Settings from "./pages/Settings";
-import Stitch from "./pages/Stitch";
-import Watermark from "./pages/Watermark";
+import { lazy, Suspense } from "react";
+
+// Tool pages load on demand — the first paint only ships Home + shell.
+const AiRepaint = lazy(() => import("./pages/AiRepaint"));
+const Compress = lazy(() => import("./pages/Compress"));
+const Convert = lazy(() => import("./pages/Convert"));
+const CropRotate = lazy(() => import("./pages/CropRotate"));
+const Exif = lazy(() => import("./pages/Exif"));
+const ImageAnnotate = lazy(() => import("./pages/ImageAnnotate"));
+const ColorPicker = lazy(() => import("./pages/ColorPicker"));
+const Adjust = lazy(() => import("./pages/Adjust"));
+const Mirror = lazy(() => import("./pages/Mirror"));
+const Mosaic = lazy(() => import("./pages/Mosaic"));
+const ShadowPage = lazy(() => import("./pages/Shadow"));
+const ColorReplace = lazy(() => import("./pages/ColorReplace"));
+const RoundedCorners = lazy(() => import("./pages/RoundedCorners"));
+const Resize = lazy(() => import("./pages/Resize"));
+const Settings = lazy(() => import("./pages/Settings"));
+const Stitch = lazy(() => import("./pages/Stitch"));
+const Watermark = lazy(() => import("./pages/Watermark"));
 import { getSettings } from "./lib/ipc";
 import {
   ACCEPTED_EXTENSIONS,
@@ -125,7 +128,12 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.page]);
 
-  const goHome = () => navigate("home");
+  // Going "home" is a jump, not history — it must not push the current
+  // tool onto the back stack (back/forward stay real navigation).
+  const goHome = () => {
+    forwardStack.current = [];
+    setLocation({ page: "home", tool: null, files: null, notice: null });
+  };
 
   const [cmdkOpen, setCmdkOpen] = useState(false);
   const openCmdk = () => setCmdkOpen(true);
@@ -253,6 +261,7 @@ export default function App() {
         </button>
       </header>
       <main className="content">
+        <Suspense fallback={<div className="page" style={{ paddingTop: 80, textAlign: "center", color: "#8a8580" }}>…</div>}>
         <ErrorBoundary>
           {location.page === "home" && <Home onNavigate={navigate} />}
         {location.page === "convert" && (
@@ -286,6 +295,7 @@ export default function App() {
         )}
         {location.page === "settings" && <Settings onBack={goHome} />}
         </ErrorBoundary>
+        </Suspense>
       </main>
       {cmdkOpen && (
         <CommandPalette onNavigate={navigate} onClose={() => setCmdkOpen(false)} />

@@ -13,7 +13,7 @@
   --border-strong: rgba(28, 25, 23, 0.12);
   --text: #1c1917;
   --text-soft: #44403c;
-  --muted: #8a8580;
+  --muted: #6f6a64;
   --violet: #7c3aed;
   --violet-deep: #6336e7;
   --fuchsia: #d946ef;
@@ -1829,6 +1829,23 @@ label.check {
 
 .result-grid-item figcaption {
   margin-top: 6px;
+}
+
+/* Narrow windows: path row and action buttons wrap instead of overflowing. */
+@media (max-width: 760px) {
+  .path-row {
+    flex-wrap: wrap;
+  }
+  .path-display {
+    flex: 1 1 100%;
+  }
+  .row {
+    flex-wrap: wrap;
+  }
+  .row > * {
+    flex: 1 1 auto;
+    min-width: 120px;
+  }
 }
 
 /* Read-only output-path row: icon + left-aligned ellipsized path,

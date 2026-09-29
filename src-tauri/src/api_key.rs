@@ -13,7 +13,8 @@ pub fn get(_app: &tauri::AppHandle) -> Option<String> {
 
 #[cfg(desktop)]
 pub fn set(_app: &tauri::AppHandle, key: &str) -> Result<(), String> {
-    let entry = keyring::Entry::new(SERVICE, ACCOUNT).map_err(|e| format!("keychain error: {e}"))?;
+    let entry =
+        keyring::Entry::new(SERVICE, ACCOUNT).map_err(|e| format!("keychain error: {e}"))?;
     entry
         .set_password(key)
         .map_err(|e| format!("cannot store API key: {e}"))
@@ -21,7 +22,8 @@ pub fn set(_app: &tauri::AppHandle, key: &str) -> Result<(), String> {
 
 #[cfg(desktop)]
 pub fn clear(_app: &tauri::AppHandle) -> Result<(), String> {
-    let entry = keyring::Entry::new(SERVICE, ACCOUNT).map_err(|e| format!("keychain error: {e}"))?;
+    let entry =
+        keyring::Entry::new(SERVICE, ACCOUNT).map_err(|e| format!("keychain error: {e}"))?;
     match entry.delete_credential() {
         Ok(()) => Ok(()),
         Err(keyring::Error::NoEntry) => Ok(()),

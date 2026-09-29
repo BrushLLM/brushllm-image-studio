@@ -465,7 +465,8 @@
     "before": "変換前",
     "after": "変換後",
     "original": "元画像",
-    "smallerBadge": "−{{pct}}% 縮小"
+    "smallerBadge": "−{{pct}}% 縮小",
+    "clipboard": "クリップボードにアクセスできません"
   },
   "footer": {
     "website": "brushllm.com",

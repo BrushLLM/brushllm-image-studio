@@ -6,6 +6,50 @@ use serde::Deserialize;
 
 pub const DEFAULT_BASE_URL: &str = "https://api.brushllm.com/v1";
 
+/// Validate a gateway base URL: http/https only, no credentials, no query
+/// or fragment. Loopback HTTP is allowed for development.
+fn validate_base_url(base_url: &str) -> Result<reqwest::Url, String> {
+    let trimmed = base_url.trim();
+    if trimmed.is_empty() {
+        return Err("API base URL is empty".into());
+    }
+    let url = reqwest::Url::parse(trimmed).map_err(|e| format!("invalid API base URL: {e}"))?;
+    match url.scheme() {
+        "https" => {}
+        "http" => {
+            let host = url.host_str().unwrap_or("");
+            let is_loopback = matches!(host, "localhost" | "127.0.0.1" | "::1")
+                || host.starts_with("127.")
+                || host.starts_with("192.168.")
+                || host.starts_with("10.");
+            if !is_loopback {
+                return Err(
+                    "API base URL must use https (plain http is only allowed for localhost)".into(),
+                );
+            }
+        }
+        other => {
+            return Err(format!(
+                "API base URL scheme must be http or https, got {other}"
+            ))
+        }
+    }
+    if !url.username().is_empty() || url.password().is_some() {
+        return Err("API base URL must not contain credentials".into());
+    }
+    if url.query().is_some() || url.fragment().is_some() {
+        return Err("API base URL must not contain a query or fragment".into());
+    }
+    Ok(url)
+}
+
+/// Build a request URL from a validated base + path segment.
+fn join_url(base_url: &str, path: &str) -> Result<reqwest::Url, String> {
+    let mut url = validate_base_url(base_url)?;
+    url.set_path(&format!("{}/{}", url.path().trim_matches('/'), path));
+    Ok(url)
+}
+
 const EDIT_TIMEOUT_SECS: u64 = 300;
 const PROBE_TIMEOUT_SECS: u64 = 15;
 
@@ -48,8 +92,12 @@ pub struct EditResponse {
 
 /// Ask the gateway to regenerate an image. Assumes an OpenAI-compatible
 /// `POST {base}/images/edits` multipart endpoint.
-pub async fn edit_image(base_url: &str, api_key: &str, req: EditRequest<'_>) -> Result<EditResponse, String> {
-    let url = format!("{}/images/edits", base_url.trim_end_matches('/'));
+pub async fn edit_image(
+    base_url: &str,
+    api_key: &str,
+    req: EditRequest<'_>,
+) -> Result<EditResponse, String> {
+    let url = join_url(base_url, "images/edits")?;
 
     let mut form = reqwest::multipart::Form::new()
         .text("model", req.model.to_string())
@@ -92,7 +140,7 @@ pub async fn edit_image(base_url: &str, api_key: &str, req: EditRequest<'_>) -> 
 
     let http = client(EDIT_TIMEOUT_SECS)?;
     let resp = http
-        .post(&url)
+        .post(url.as_str())
         .bearer_auth(api_key)
         .multipart(form)
         .send()
@@ -122,7 +170,7 @@ pub async fn generate_image(
     quality: Option<&str>,
     n: Option<u8>,
 ) -> Result<EditResponse, String> {
-    let url = format!("{}/images/generations", base_url.trim_end_matches('/'));
+    let url = join_url(base_url, "images/generations")?;
     let mut body = serde_json::json!({
         "model": model,
         "prompt": prompt,
@@ -138,7 +186,7 @@ pub async fn generate_image(
         body["n"] = serde_json::json!(n);
     }
     let resp = client(EDIT_TIMEOUT_SECS)?
-        .post(&url)
+        .post(url.as_str())
         .bearer_auth(api_key)
         .json(&body)
         .send()
@@ -181,19 +229,29 @@ async fn parse_image_response(resp: reqwest::Response) -> Result<EditResponse, S
                 .decode(b64)
                 .map_err(|e| format!("invalid base64 image: {e}"))?;
             let mime = sniff_mime(&bytes);
-            images.push(EditImage {
-                image: bytes,
-                mime,
-            });
+            images.push(EditImage { image: bytes, mime });
         } else if let Some(remote_url) = &item.url {
             // URL results are downloaded synchronously (DALL-E style).
+            // Only https URLs are followed; the response must be an image
+            // and bounded in size.
+            let dl =
+                reqwest::Url::parse(remote_url).map_err(|e| format!("invalid result URL: {e}"))?;
+            if dl.scheme() != "https" {
+                return Err("result URL must use https".into());
+            }
+            if !dl.username().is_empty() || dl.password().is_some() {
+                return Err("result URL must not contain credentials".into());
+            }
             let img_resp = client(EDIT_TIMEOUT_SECS)?
-                .get(remote_url)
+                .get(dl.as_str())
                 .send()
                 .await
                 .map_err(|e| format!("cannot download result image: {e}"))?;
             if !img_resp.status().is_success() {
-                return Err(format!("result image download failed: {}", img_resp.status()));
+                return Err(format!(
+                    "result image download failed: {}",
+                    img_resp.status()
+                ));
             }
             let mime = img_resp
                 .headers()
@@ -201,7 +259,17 @@ async fn parse_image_response(resp: reqwest::Response) -> Result<EditResponse, S
                 .and_then(|v| v.to_str().ok())
                 .map(|s| s.split(';').next().unwrap_or(s).to_string())
                 .filter(|s| s.starts_with("image/"))
-                .unwrap_or_else(|| "image/png".to_string());
+                .ok_or("result URL did not return an image")?
+                .to_string();
+            let cap = img_resp
+                .headers()
+                .get(reqwest::header::CONTENT_LENGTH)
+                .and_then(|v| v.to_str().ok())
+                .and_then(|v| v.parse::<u64>().ok())
+                .unwrap_or(0);
+            if cap > 100 * 1024 * 1024 {
+                return Err("result image is larger than 100 MB".into());
+            }
             let image = img_resp
                 .bytes()
                 .await
@@ -223,9 +291,9 @@ async fn parse_image_response(resp: reqwest::Response) -> Result<EditResponse, S
 
 /// Verify the key by listing models (free call on OpenAI-compatible gateways).
 pub async fn test_key(base_url: &str, api_key: &str) -> Result<ProbeResult, String> {
-    let url = format!("{}/models", base_url.trim_end_matches('/'));
+    let url = join_url(base_url, "models")?;
     let resp = client(PROBE_TIMEOUT_SECS)?
-        .get(&url)
+        .get(url.as_str())
         .bearer_auth(api_key)
         .send()
         .await

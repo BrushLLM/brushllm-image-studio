@@ -9,8 +9,19 @@ import { useCallback, useEffect, useRef, useState } from "react";
  *
  * The key may change between renders (per-tool state); a key change
  * re-reads the store so each key behaves like an independent slot.
+ *
+ * `clearPersisted`/`clearPersistedByPrefix` notify every MOUNTED hook whose
+ * key was cleared, so the UI resets immediately instead of showing stale
+ * values until the next re-render.
  */
+type Listener = (keys: string[]) => void;
+
 const store = new Map<string, unknown>();
+const listeners = new Set<Listener>();
+
+function notify(keys: string[]) {
+  for (const listener of listeners) listener(keys);
+}
 
 export function usePersistedState<T>(key: string, initial: T) {
   const [value, setValue] = useState<T>(() =>
@@ -23,6 +34,22 @@ export function usePersistedState<T>(key: string, initial: T) {
     const next = store.has(key) ? (store.get(key) as T) : initial;
     ref.current = next;
     setValue(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+
+  // Store-level clears refresh this hook when our key (or prefix) is hit.
+  useEffect(() => {
+    const listener: Listener = (cleared) => {
+      if (cleared.includes(key)) {
+        const next = initial;
+        ref.current = next;
+        setValue(next);
+      }
+    };
+    listeners.add(listener);
+    return () => {
+      listeners.delete(listener);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
@@ -43,17 +70,22 @@ export function usePersistedState<T>(key: string, initial: T) {
 }
 
 /** Drop a persisted value (e.g. the mask strokes when the source image
- *  changes). */
+ *  changes). Mounted hooks on this key reset to their initial value. */
 export function clearPersisted(key: string) {
-  store.delete(key);
+  if (store.delete(key)) notify([key]);
 }
 
 /** Drop every persisted value whose key starts with `prefix` — e.g. clearing
  *  every tool's result slot when the source image changes. */
 export function clearPersistedByPrefix(prefix: string) {
+  const cleared: string[] = [];
   for (const key of [...store.keys()]) {
-    if (key.startsWith(prefix)) store.delete(key);
+    if (key.startsWith(prefix)) {
+      store.delete(key);
+      cleared.push(key);
+    }
   }
+  if (cleared.length > 0) notify(cleared);
 }
 
 /** Read the live stored value (not a React snapshot) — used by async work to

@@ -11,15 +11,25 @@ pub fn decode_file(path: &Path) -> Result<image::DynamicImage> {
     decode_bytes(&bytes)
 }
 
+/// Decode from bytes that were ALREADY read (e.g. for format sniffing) —
+/// avoids reading the same file twice per command.
+pub fn decode_from_buffer(bytes: &[u8]) -> Result<image::DynamicImage> {
+    decode_bytes(bytes)
+}
+
 pub fn decode_bytes(bytes: &[u8]) -> Result<image::DynamicImage> {
-    if is_svg(bytes) {
-        return decode_svg(bytes);
-    }
-    image::load_from_memory(bytes).map_err(|e| {
-        StudioError::Decode(format!(
-            "{e}. Note: HEIC/HEIF and AVIF inputs are not supported."
-        ))
-    })
+    let img = if is_svg(bytes) {
+        decode_svg(bytes)?
+    } else {
+        image::load_from_memory(bytes).map_err(|e| {
+            StudioError::Decode(format!(
+                "{e}. Note: HEIC/HEIF and AVIF inputs are not supported."
+            ))
+        })?
+    };
+    // Central pixel budget — applies to every decode path.
+    super::guard::validate_pixels(img.width() as u64, img.height() as u64, "decoded image")?;
+    Ok(img)
 }
 
 /// SVGs are XML documents starting (after whitespace/BOM) with `<?xml`,
@@ -61,22 +71,37 @@ fn decode_svg(bytes: &[u8]) -> Result<image::DynamicImage> {
         w *= k;
         h *= k;
     }
+    // Total-pixel cap for rasterized SVGs.
+    if (w * h) as u64 > super::guard::limits::MAX_SVG_PIXELS {
+        return Err(StudioError::Param(format!(
+            "SVG rasterizes to too many pixels ({} MP limit)",
+            super::guard::limits::MAX_SVG_PIXELS / 1_000_000
+        )));
+    }
     let wpx = w.round().max(1.0) as u32;
     let hpx = h.round().max(1.0) as u32;
     let mut pixmap = resvg::tiny_skia::Pixmap::new(wpx, hpx)
         .ok_or_else(|| StudioError::Decode("svg: cannot allocate pixmap".into()))?;
-    resvg::render(&tree, resvg::tiny_skia::Transform::default(), &mut pixmap.as_mut());
+    resvg::render(
+        &tree,
+        resvg::tiny_skia::Transform::default(),
+        &mut pixmap.as_mut(),
+    );
     // tiny-skia gives premultiplied RGBA; image::RgbaImage wants straight alpha.
     let data = pixmap.take();
     let mut rgba = image::RgbaImage::new(wpx, hpx);
     for (i, px) in rgba.pixels_mut().enumerate() {
-        let (r, g, b, a) = (data[i * 4], data[i * 4 + 1], data[i * 4 + 2], data[i * 4 + 3]);
+        let (r, g, b, a) = (
+            data[i * 4],
+            data[i * 4 + 1],
+            data[i * 4 + 2],
+            data[i * 4 + 3],
+        );
         if a == 0 || a == 255 {
             *px = image::Rgba([r, g, b, a]);
         } else {
-            let un = |c: u8| -> u8 {
-                (((c as u32) * 255 + (a as u32) / 2) / a as u32).min(255) as u8
-            };
+            let un =
+                |c: u8| -> u8 { (((c as u32) * 255 + (a as u32) / 2) / a as u32).min(255) as u8 };
             *px = image::Rgba([un(r), un(g), un(b), a]);
         }
     }
@@ -84,8 +109,7 @@ fn decode_svg(bytes: &[u8]) -> Result<image::DynamicImage> {
 }
 
 pub fn read_bytes(path: &Path) -> Result<Vec<u8>> {
-    std::fs::read(path)
-        .map_err(|e| StudioError::Io(format!("cannot read {}: {e}", path.display())))
+    std::fs::read(path).map_err(|e| StudioError::Io(format!("cannot read {}: {e}", path.display())))
 }
 
 /// Map the on-disk format of an already-read buffer onto an encodable output
@@ -117,8 +141,8 @@ mod tests {
             return;
         };
         for path in std::iter::once(first).chain(std::env::var("SVG_SAMPLE_2")) {
-            let img = decode_file(std::path::Path::new(&path))
-                .unwrap_or_else(|e| panic!("{path}: {e}"));
+            let img =
+                decode_file(std::path::Path::new(&path)).unwrap_or_else(|e| panic!("{path}: {e}"));
             assert!(img.width() > 0 && img.height() > 0, "{path}: empty image");
             let rgba = img.to_rgba8();
             // Something non-transparent must have been painted.

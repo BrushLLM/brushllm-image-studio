@@ -465,7 +465,8 @@
     "before": "Antes",
     "after": "Después",
     "original": "Original",
-    "smallerBadge": "−{{pct}}% más pequeño"
+    "smallerBadge": "−{{pct}}% más pequeño",
+    "clipboard": "no se puede acceder al portapapeles"
   },
   "batch": {
     "done": "{{count}} listas",

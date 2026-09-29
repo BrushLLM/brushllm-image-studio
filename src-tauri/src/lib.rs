@@ -16,7 +16,7 @@ pub fn run() {
             let loaded = settings::load(app.handle());
             app.manage(commands::AppState {
                 settings: std::sync::Mutex::new(loaded),
-                cancel: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+                active_batch: std::sync::Mutex::new(None),
             });
             Ok(())
         })

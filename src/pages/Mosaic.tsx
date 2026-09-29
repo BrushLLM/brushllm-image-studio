@@ -184,6 +184,7 @@ export default function Mosaic({ onBack }: Props) {
     setStrokes((prev) => [...prev, activeRef.current!]);
   };
 
+  const rafRef = useRef(0);
   const onPointerMove = (event: ReactPointerEvent<HTMLCanvasElement>) => {
     const active = activeRef.current;
     if (!active) return;
@@ -193,7 +194,11 @@ export default function Mosaic({ onBack }: Props) {
     } else {
       active.points.push(point);
     }
-    setStrokes((prev) => [...prev]);
+    if (rafRef.current) return;
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = 0;
+      setStrokes((prev) => [...prev]);
+    });
   };
 
   const onPointerUp = () => {

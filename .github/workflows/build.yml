@@ -13,7 +13,44 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  quality:
+    name: quality gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Frontend tests
+        run: npm run test:run
+
+      - name: Rust format
+        run: cargo fmt --check
+        working-directory: src-tauri
+
+      - name: Rust tests
+        run: cargo test --lib
+        working-directory: src-tauri
+
+      - name: Clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+        working-directory: src-tauri
+
   build:
+    needs: quality
     name: ${{ matrix.target }}
     strategy:
       fail-fast: false
@@ -51,7 +88,7 @@ jobs:
           key: ${{ matrix.target }}
 
       - name: Install frontend dependencies
-        run: npm install
+        run: npm ci
 
       - name: Build app (macOS)
         if: matrix.target == 'aarch64-apple-darwin'
@@ -78,6 +115,7 @@ jobs:
             src-tauri/target/release/bundle/msi/*.msi
 
   android:
+    needs: quality
     name: android-aarch64
     runs-on: ubuntu-latest
     env:
@@ -104,7 +142,7 @@ jobs:
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;$NDK_VERSION" > /dev/null
 
       - name: Install frontend dependencies
-        run: npm install
+        run: npm ci
 
       - name: Init Android project
         run: npx tauri android init
@@ -135,7 +173,9 @@ jobs:
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [build, android]
+    # Android is excluded until a signing keystore is configured: the
+    # debug-signed APK is a CI artifact only, not a release asset.
+    needs: [build]
     runs-on: ubuntu-latest
     permissions:
       contents: write

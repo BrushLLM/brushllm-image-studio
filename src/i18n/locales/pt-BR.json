@@ -465,7 +465,8 @@
     "before": "Antes",
     "after": "Depois",
     "original": "Original",
-    "smallerBadge": "−{{pct}}% menor"
+    "smallerBadge": "−{{pct}}% menor",
+    "clipboard": "não é possível acessar a área de transferência"
   },
   "batch": {
     "done": "{{count}} concluídas",

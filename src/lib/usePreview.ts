@@ -14,32 +14,35 @@ export function usePreview(
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
+    // Request token: only the LATEST request may publish results — a slow
+    // earlier request resolving late can never show stale output.
+    let current = true;
     const timer = setTimeout(() => {
       const request = build();
       if (!request) {
+        if (!current) return;
         setResult(null);
         setError(null);
         setLoading(false);
         return;
       }
-      setLoading(true);
+      if (current) setLoading(true);
       request
         .then((r) => {
-          if (cancelled) return;
+          if (!current) return;
           setResult(r);
           setError(null);
         })
         .catch((e) => {
-          if (cancelled) return;
+          if (!current) return;
           setError(String(e));
         })
         .finally(() => {
-          if (!cancelled) setLoading(false);
+          if (current) setLoading(false);
         });
     }, 350);
     return () => {
-      cancelled = true;
+      current = false;
       clearTimeout(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

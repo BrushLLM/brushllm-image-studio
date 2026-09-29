@@ -99,7 +99,7 @@ export default function ColorPicker({ onBack }: Props) {
       await writeText(text);
       setCopied(text);
     } catch {
-      setError("cannot access the clipboard");
+      setError(t("errors.clipboard"));
     }
   };
 

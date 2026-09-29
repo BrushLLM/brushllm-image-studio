@@ -465,7 +465,8 @@
     "before": "이전",
     "after": "이후",
     "original": "원본",
-    "smallerBadge": "−{{pct}}% 축소"
+    "smallerBadge": "−{{pct}}% 축소",
+    "clipboard": "클립보드에 접근할 수 없습니다"
   },
   "footer": {
     "website": "brushllm.com",

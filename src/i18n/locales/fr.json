@@ -465,7 +465,8 @@
     "before": "Avant",
     "after": "Après",
     "original": "Original",
-    "smallerBadge": "−{{pct}}% plus léger"
+    "smallerBadge": "−{{pct}}% plus léger",
+    "clipboard": "impossible d'accéder au presse-papiers"
   },
   "batch": {
     "done": "{{count}} terminées",

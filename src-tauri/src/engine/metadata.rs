@@ -46,7 +46,9 @@ mod tests {
         let mut writer = exif::experimental::Writer::new();
         writer.push_field(&field);
         let mut tiff = Vec::new();
-        writer.write(&mut std::io::Cursor::new(&mut tiff), true).unwrap();
+        writer
+            .write(&mut std::io::Cursor::new(&mut tiff), true)
+            .unwrap();
         tiff
     }
 
@@ -54,7 +56,10 @@ mod tests {
     fn exif_insert_then_extract_roundtrip() {
         let mut plain_buf = Vec::new();
         DynamicImage::ImageRgba8(RgbaImage::new(16, 16))
-            .write_to(&mut std::io::Cursor::new(&mut plain_buf), image::ImageFormat::Jpeg)
+            .write_to(
+                &mut std::io::Cursor::new(&mut plain_buf),
+                image::ImageFormat::Jpeg,
+            )
             .unwrap();
 
         let tiff = exif_tiff_block();
@@ -75,7 +80,10 @@ mod tests {
     fn jpeg_without_exif_extracts_none() {
         let mut plain_buf = Vec::new();
         DynamicImage::ImageRgba8(RgbaImage::new(8, 8))
-            .write_to(&mut std::io::Cursor::new(&mut plain_buf), image::ImageFormat::Jpeg)
+            .write_to(
+                &mut std::io::Cursor::new(&mut plain_buf),
+                image::ImageFormat::Jpeg,
+            )
             .unwrap();
         assert!(extract_exif_jpeg(&plain_buf).is_none());
     }

@@ -12,13 +12,15 @@ pub enum Collision {
 
 /// Where results go. `dir = None` writes next to each input file.
 #[derive(Debug, Clone, Deserialize)]
-pub struct OutputSettings {    pub dir: Option<String>,
+pub struct OutputSettings {
+    pub dir: Option<String>,
     pub suffix: String,
     pub collision: Collision,
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct BatchJob {    pub files: Vec<String>,
+pub struct BatchJob {
+    pub files: Vec<String>,
     pub steps: Vec<ops::Step>,
     /// `None` keeps the input format when encodable (GIF/BMP/TIFF fall back to PNG).
     pub format: Option<encode::OutFormat>,
@@ -135,10 +137,15 @@ fn process_one(file: &str, job: &BatchJob) -> FileOutcome {
         Err(e) => return fail(e.to_string(), in_bytes),
     };
 
-    let format = job.format.unwrap_or_else(|| decode::same_output_format(&bytes));
+    let format = job
+        .format
+        .unwrap_or_else(|| decode::same_output_format(&bytes));
     let encoded = match encode::encode(
         &processed,
-        &encode::EncodeSettings { format, quality: job.quality },
+        &encode::EncodeSettings {
+            format,
+            quality: job.quality,
+        },
     ) {
         Ok(b) => b,
         Err(e) => return fail(e.to_string(), in_bytes),
@@ -161,7 +168,11 @@ fn process_one(file: &str, job: &BatchJob) -> FileOutcome {
         .dir
         .as_ref()
         .map(std::path::PathBuf::from)
-        .unwrap_or_else(|| path.parent().map(std::path::Path::to_path_buf).unwrap_or_default());
+        .unwrap_or_else(|| {
+            path.parent()
+                .map(std::path::Path::to_path_buf)
+                .unwrap_or_default()
+        });
     let out_name = format!("{}{}.{}", stem, job.output.suffix, format.extension());
     let out_path = out_dir.join(&out_name);
 
@@ -181,7 +192,10 @@ fn process_one(file: &str, job: &BatchJob) -> FileOutcome {
                 let _ = std::fs::create_dir_all(parent);
             }
             if let Err(e) = std::fs::write(&final_path, &encoded) {
-                return fail(format!("cannot write {}: {e}", final_path.display()), in_bytes);
+                return fail(
+                    format!("cannot write {}: {e}", final_path.display()),
+                    in_bytes,
+                );
             }
             FileOutcome {
                 input: file.to_string(),
@@ -197,6 +211,7 @@ fn process_one(file: &str, job: &BatchJob) -> FileOutcome {
     }
 }
 
+#[derive(Debug)]
 pub(crate) enum CollisionDecision {
     Skip,
     Write(std::path::PathBuf),
@@ -233,6 +248,52 @@ pub(crate) fn resolve_collision(path: &std::path::Path, policy: Collision) -> Co
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn collision_rename_finds_free_slot() {
+        let dir = std::env::temp_dir().join(format!("bs-collision-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let base = dir.join("photo.png");
+        std::fs::write(&base, b"x").unwrap();
+        match resolve_collision(&base, Collision::Rename) {
+            CollisionDecision::Write(p) => {
+                assert_eq!(p.file_name().unwrap().to_str().unwrap(), "photo (2).png")
+            }
+            other => panic!("unexpected: {other:?}"),
+        }
+        // Occupy (2) too — next free is (3).
+        std::fs::write(dir.join("photo (2).png"), b"x").unwrap();
+        match resolve_collision(&base, Collision::Rename) {
+            CollisionDecision::Write(p) => {
+                assert_eq!(p.file_name().unwrap().to_str().unwrap(), "photo (3).png")
+            }
+            other => panic!("unexpected: {other:?}"),
+        }
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn collision_skip_and_overwrite() {
+        let dir = std::env::temp_dir().join(format!("bs-skip-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let target = dir.join("a.png");
+        std::fs::write(&target, b"x").unwrap();
+        assert!(matches!(
+            resolve_collision(&target, Collision::Skip),
+            CollisionDecision::Skip
+        ));
+        assert!(matches!(
+            resolve_collision(&target, Collision::Overwrite),
+            CollisionDecision::Write(_)
+        ));
+        // Nonexistent target writes directly regardless of policy.
+        let fresh = dir.join("fresh.png");
+        assert!(matches!(
+            resolve_collision(&fresh, Collision::Skip),
+            CollisionDecision::Write(_)
+        ));
+        std::fs::remove_dir_all(&dir).ok();
+    }
 
     fn job(steps: Vec<ops::Step>, format: Option<encode::OutFormat>) -> BatchJob {
         BatchJob {

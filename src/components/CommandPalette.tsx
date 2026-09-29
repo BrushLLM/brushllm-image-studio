@@ -148,6 +148,9 @@ export default function CommandPalette({ onNavigate, onClose }: Props) {
     <div className="cmdk-overlay" onPointerDown={onClose}>
       <div
         className="cmdk"
+        role="dialog"
+        aria-modal="true"
+        aria-label={t("cmdk.placeholder")}
         onPointerDown={(e) => e.stopPropagation()}
         onKeyDown={onKeyDown}
       >
@@ -176,6 +179,8 @@ export default function CommandPalette({ onNavigate, onClose }: Props) {
                 <button
                   className={`cmdk-item${index === selected ? " selected" : ""}`}
                   data-index={index}
+                  role="option"
+                  aria-selected={index === selected}
                   onPointerEnter={() => setSelected(index)}
                   onClick={() => run(item)}
                 >

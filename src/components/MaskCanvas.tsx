@@ -162,6 +162,7 @@ const MaskCanvas = forwardRef<MaskCanvasHandle, Props>(function MaskCanvas(
     setStrokes((prev) => [...prev, activeStroke.current!]);
   };
 
+  const rafRef = useRef(0);
   const onPointerMove = (event: React.PointerEvent<HTMLCanvasElement>) => {
     if (!activeStroke.current) return;
     const point = toNatural(event);
@@ -171,8 +172,13 @@ const MaskCanvas = forwardRef<MaskCanvasHandle, Props>(function MaskCanvas(
     } else {
       stroke.points.push(point);
     }
-    // Mutated the same object; force a re-render by cloning the array.
-    setStrokes((prev) => [...prev]);
+    // Coalesce redraws to one per frame — high-frequency pointer events
+    // no longer trigger a React render each.
+    if (rafRef.current) return;
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = 0;
+      setStrokes((prev) => [...prev]);
+    });
   };
 
   const onPointerUp = () => {

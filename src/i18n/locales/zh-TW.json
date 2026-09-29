@@ -465,7 +465,8 @@
     "before": "處理前",
     "after": "處理後",
     "original": "原圖",
-    "smallerBadge": "縮小 {{pct}}%"
+    "smallerBadge": "縮小 {{pct}}%",
+    "clipboard": "無法存取剪貼簿"
   },
   "footer": {
     "website": "brushllm.com",

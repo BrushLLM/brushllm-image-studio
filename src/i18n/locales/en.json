@@ -465,7 +465,8 @@
     "before": "Before",
     "after": "After",
     "original": "Original",
-    "smallerBadge": "−{{pct}}% smaller"
+    "smallerBadge": "−{{pct}}% smaller",
+    "clipboard": "cannot access the clipboard"
   },
   "footer": {
     "website": "brushllm.com",

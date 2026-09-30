@@ -518,7 +518,13 @@
     "targetColor": "새 색상",
     "tolerance": "허용 범위",
     "toleranceHint": "높일수록 비슷한 색까지 교체. 부드럽게 블렌드되어 경계가 없습니다.",
-    "hint": "바꾸고 싶은 색을 이미지에서 클릭."
+    "hint": "바꾸고 싶은 색을 이미지에서 클릭.",
+    "pairs": "색상 쌍",
+    "pairHint": "이미지를 클릭해 바꿀 색을 선택하고 새 색을 고르세요. 최대 6쌍.",
+    "addPair": "색상 쌍 추가",
+    "remove": "제거",
+    "pairSource": "원본 색",
+    "pairTarget": "바꿀 색"
   },
   "mirror": {
     "title": "미러",

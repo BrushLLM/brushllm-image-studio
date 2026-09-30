@@ -518,7 +518,13 @@
     "targetColor": "新顏色",
     "tolerance": "容差",
     "toleranceHint": "越高替換越多的相近色調；平滑混合無硬邊。",
-    "hint": "點擊圖片選取要替換的顏色。"
+    "hint": "點擊圖片選取要替換的顏色。",
+    "pairs": "顏色配對",
+    "pairHint": "點擊圖片選取要替換的顏色，再選擇新顏色。最多 6 組。",
+    "addPair": "新增顏色配對",
+    "remove": "移除",
+    "pairSource": "原色",
+    "pairTarget": "替換為"
   },
   "mirror": {
     "title": "鏡像",

@@ -518,7 +518,13 @@
     "targetColor": "Neue Farbe",
     "tolerance": "Toleranz",
     "toleranceHint": "Höher ersetzt ähnlichere Töne; weiche Übergänge ohne harte Kanten.",
-    "hint": "Bild anklicken, um die zu ersetzende Farbe zu wählen."
+    "hint": "Bild anklicken, um die zu ersetzende Farbe zu wählen.",
+    "pairs": "Farbpaare",
+    "pairHint": "Bild anklicken, um eine Quellfarbe zu wählen, dann die Ersatzfarbe wählen. Bis zu 6 Paare.",
+    "addPair": "Farbpaar hinzufügen",
+    "remove": "Entfernen",
+    "pairSource": "Quelle",
+    "pairTarget": "Ersetzen durch"
   },
   "mirror": {
     "title": "Spiegeln",

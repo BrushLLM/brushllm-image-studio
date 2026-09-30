@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { Pipette } from "lucide-react";
+import { ArrowRight, Plus, X } from "lucide-react";
 import DropZone from "../components/DropZone";
 import PageShell from "../components/PageShell";
 import { useTranslation } from "react-i18next";
@@ -14,6 +14,13 @@ interface Rgb {
   r: number;
   g: number;
   b: number;
+}
+
+/** One source → target replacement rule. */
+interface ColorPair {
+  id: number;
+  source: Rgb | null;
+  target: string;
 }
 
 function toHex({ r, g, b }: Rgb): string {
@@ -70,59 +77,67 @@ function hueDist(a: number, b: number): number {
 }
 
 /**
- * Replace colors near `from` with `to`, keeping the ORIGINAL saturation and
- * value (shadows, highlights and texture survive); strength falls off
- * smoothly toward the tolerance edge so there are no hard seams.
+ * Apply every pair in order. Each replacement keeps the ORIGINAL saturation
+ * and value (shadows, highlights and texture survive); strength falls off
+ * smoothly toward the tolerance edge so there are no hard seams. A pixel
+ * already rewritten by an earlier pair is skipped by later ones.
  */
-function replaceColor(
+function replaceColors(
   data: Uint8ClampedArray,
-  from: Rgb,
-  toHexColor: string,
+  pairs: { source: Rgb; target: string }[],
   tolerance: number,
 ) {
-  const [fh, fs, fv] = rgbToHsv(from);
-  const [th] = rgbToHsv(hexToRgb(toHexColor));
-  // Tolerance maps to ~60° of hue at 100, scaled by how colorful the source
-  // is (grayscale sources match on value instead of hue).
+  const rules = pairs.map(({ source, target }) => {
+    const [fh, fs, fv] = rgbToHsv(source);
+    const [th] = rgbToHsv(hexToRgb(target));
+    return { fh, fs, fv, th };
+  });
   const tolHue = (tolerance / 100) * 60;
   for (let i = 0; i < data.length; i += 4) {
     const [h, s, v] = rgbToHsv({ r: data[i], g: data[i + 1], b: data[i + 2] });
-    let match: number; // 0..1 strength
-    if (fs < 0.12 && s < 0.12) {
-      // Grayscale source → match on value distance.
-      match = 1 - Math.min(1, Math.abs(v - fv) / 0.25);
-    } else {
-      const dh = hueDist(h, fh);
-      const ds = Math.abs(s - fs);
-      match = dh <= tolHue ? 1 - dh / Math.max(1, tolHue) : 0;
-      // Very unsaturated pixels of any hue are not "the source color".
-      if (s < 0.08) match = 0;
-      match *= 1 - Math.min(1, ds / 0.9);
+    for (const { fh, fs, fv, th } of rules) {
+      let match: number;
+      if (fs < 0.12 && s < 0.12) {
+        match = 1 - Math.min(1, Math.abs(v - fv) / 0.25);
+      } else {
+        const dh = hueDist(h, fh);
+        const ds = Math.abs(s - fs);
+        match = dh <= tolHue ? 1 - dh / Math.max(1, tolHue) : 0;
+        if (s < 0.08) match = 0;
+        match *= 1 - Math.min(1, ds / 0.9);
+      }
+      if (match <= 0) continue;
+      const mixed = hsvToRgb(th, s, v);
+      data[i] = Math.round(data[i] + (mixed.r - data[i]) * match);
+      data[i + 1] = Math.round(data[i + 1] + (mixed.g - data[i + 1]) * match);
+      data[i + 2] = Math.round(data[i + 2] + (mixed.b - data[i + 2]) * match);
+      break; // first matching rule wins for this pixel
     }
-    if (match <= 0) continue;
-    const mixed = hsvToRgb(th, s, v);
-    data[i] = Math.round(data[i] + (mixed.r - data[i]) * match);
-    data[i + 1] = Math.round(data[i + 1] + (mixed.g - data[i + 1]) * match);
-    data[i + 2] = Math.round(data[i + 2] + (mixed.b - data[i + 2]) * match);
   }
 }
 
 const PREVIEW_MAX = 1400;
+const MAX_PAIRS = 6;
+
+let pairId = 1;
 
 export default function ColorReplace({ onBack }: Props) {
   const { t } = useTranslation();
   const [file, setFile] = useState<string | null>(null);
   const [dataUrl, setDataUrl] = useState<string | null>(null);
   const [naturalSize, setNaturalSize] = useState<{ width: number; height: number } | null>(null);
-  const [sourceColor, setSourceColor] = useState<Rgb | null>(null);
-  const [targetColor, setTargetColor] = useState("#3b82f6");
+  const [pairs, setPairs] = useState<ColorPair[]>([{ id: 0, source: null, target: "#3b82f6" }]);
   const [tolerance, setTolerance] = useState(25);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [savedTo, setSavedTo] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const offscreenRef = useRef<HTMLCanvasElement | null>(null);
-  const previewScaleRef = useRef(1);
+
+  const activePairs = pairs.filter((p): p is ColorPair & { source: Rgb } => p.source !== null);
+  const pairsJson = JSON.stringify(
+    activePairs.map(({ source, target }) => ({ source: toHex(source), target })),
+  );
 
   const loadFile = (paths: string[]) => {
     const path = paths[0];
@@ -130,13 +145,12 @@ export default function ColorReplace({ onBack }: Props) {
     setFile(path);
     setError(null);
     setSavedTo(null);
-    setSourceColor(null);
+    setPairs([{ id: pairId++, source: null, target: "#3b82f6" }]);
     readAssetDataUrl(path).then((url) => {
       const image = new Image();
       image.onload = () => {
         setNaturalSize({ width: image.naturalWidth, height: image.naturalHeight });
         const scale = Math.min(1, PREVIEW_MAX / Math.max(image.naturalWidth, image.naturalHeight));
-        previewScaleRef.current = scale;
         const canvas = document.createElement("canvas");
         canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
         canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
@@ -158,32 +172,43 @@ export default function ColorReplace({ onBack }: Props) {
     const ctx = canvas.getContext("2d")!;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(off, 0, 0);
-    if (sourceColor) {
+    if (activePairs.length > 0) {
       const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      replaceColor(img.data, sourceColor, targetColor, tolerance);
+      replaceColors(img.data, activePairs, tolerance);
       ctx.putImageData(img, 0, 0);
     }
-  }, [dataUrl, sourceColor, targetColor, tolerance]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataUrl, pairsJson, tolerance]);
 
+  // Clicking the image picks a source color: it fills the first pair without
+  // one, or starts a new pair when every existing pair already has a source.
   const pickSource = (event: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = event.currentTarget;
     const rect = canvas.getBoundingClientRect();
     const x = Math.floor(((event.clientX - rect.left) / rect.width) * canvas.width);
     const y = Math.floor(((event.clientY - rect.top) / rect.height) * canvas.height);
     if (x < 0 || y < 0 || x >= canvas.width || y >= canvas.height) return;
-    const [r, g, b] = canvas
-      .getContext("2d")!
-      .getImageData(x, y, 1, 1).data;
     // Sample from the ORIGINAL offscreen (pre-replacement) copy.
     const orig = offscreenRef.current!
       .getContext("2d")!
       .getImageData(x, y, 1, 1).data;
-    setSourceColor({ r: orig[0], g: orig[1], b: orig[2] });
-    void [r, g, b];
+    const picked: Rgb = { r: orig[0], g: orig[1], b: orig[2] };
+    setPairs((prev) => {
+      const idx = prev.findIndex((p) => p.source === null);
+      if (idx !== -1) {
+        const next = [...prev];
+        next[idx] = { ...next[idx], source: picked };
+        return next;
+      }
+      if (prev.length < MAX_PAIRS) {
+        return [...prev, { id: pairId++, source: picked, target: "#3b82f6" }];
+      }
+      return prev;
+    });
   };
 
   const exportImage = async () => {
-    if (!naturalSize || !dataUrl) return;
+    if (!naturalSize || !dataUrl || activePairs.length === 0) return;
     setBusy(true);
     try {
       const image = new Image();
@@ -198,7 +223,7 @@ export default function ColorReplace({ onBack }: Props) {
       const ctx = canvas.getContext("2d")!;
       ctx.drawImage(image, 0, 0);
       const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      replaceColor(img.data, sourceColor!, targetColor, tolerance);
+      replaceColors(img.data, activePairs, tolerance);
       ctx.putImageData(img, 0, 0);
       const out = canvas.toDataURL("image/png");
       const dir = await loadDefaultOutputDir();
@@ -238,8 +263,11 @@ export default function ColorReplace({ onBack }: Props) {
         <div className="split">
           <div>
             <div className="canvas-wrap" style={{ cursor: "crosshair" }}>
-              <img src={dataUrl} alt="source" draggable={false} style={{ display: "none" }} />
-              <canvas ref={canvasRef} onClick={pickSource} style={{ position: "static", maxWidth: "100%", maxHeight: 480 }} />
+              <canvas
+                ref={canvasRef}
+                onClick={pickSource}
+                style={{ position: "static", maxWidth: "100%", maxHeight: 480 }}
+              />
             </div>
             <p className="status-note" style={{ marginTop: 8 }}>
               {t("recolor.hint")}
@@ -247,40 +275,63 @@ export default function ColorReplace({ onBack }: Props) {
           </div>
           <div className="side-col">
             <div className="card">
-              <h2 className="card-title">{t("common.settingsCard")}</h2>
-              <div className="field">
-                <label>{t("recolor.sourceColor")}</label>
-                <div className="row" style={{ alignItems: "center" }}>
-                  <div
-                    style={{
-                      width: 46,
-                      height: 34,
-                      borderRadius: 8,
-                      border: "1px solid var(--border-strong)",
-                      background: sourceColor ? toHex(sourceColor) : "var(--bg-soft)",
-                      flex: "0 0 auto",
-                    }}
-                  />
-                  <span className="status-note" style={{ userSelect: "text" }}>
-                    <Pipette size={13} /> {sourceColor ? toHex(sourceColor).toUpperCase() : t("recolor.clickToPick")}
-                  </span>
+              <h2 className="card-title">{t("recolor.pairs")}</h2>
+              <p className="hint" style={{ marginBottom: 12 }}>{t("recolor.pairHint")}</p>
+              {pairs.map((pair, index) => (
+                <div className="field" key={pair.id}>
+                  <div className="row" style={{ alignItems: "center" }}>
+                    <div
+                      style={{
+                        width: 40,
+                        height: 30,
+                        borderRadius: 7,
+                        border: "1px solid var(--border-strong)",
+                        background: pair.source ? toHex(pair.source) : "var(--bg-soft)",
+                        flex: "0 0 auto",
+                      }}
+                      title={t("recolor.pairSource")}
+                    />
+                    <span className="status-note" style={{ userSelect: "text", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {pair.source ? toHex(pair.source).toUpperCase() : t("recolor.clickToPick")}
+                    </span>
+                    <ArrowRight size={14} style={{ flex: "0 0 auto", opacity: 0.6 }} />
+                    <input
+                      type="color"
+                      value={pair.target}
+                      onChange={(e) =>
+                        setPairs((prev) => {
+                          const next = [...prev];
+                          next[index] = { ...next[index], target: e.target.value };
+                          return next;
+                        })
+                      }
+                      style={{ width: 44, height: 30, padding: 2, flex: "0 0 auto" }}
+                      title={t("recolor.pairTarget")}
+                    />
+                    {pairs.length > 1 && (
+                      <button
+                        className="btn btn-sm"
+                        style={{ flex: "0 0 auto" }}
+                        onClick={() => setPairs((prev) => prev.filter((_, i) => i !== index))}
+                        title={t("recolor.remove")}
+                      >
+                        <X />
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-              <div className="field">
-                <label>{t("recolor.targetColor")}</label>
-                <div className="row" style={{ alignItems: "center" }}>
-                  <input
-                    type="color"
-                    value={targetColor}
-                    onChange={(e) => setTargetColor(e.target.value)}
-                    style={{ width: 60, height: 34, padding: 2, flex: "0 0 auto" }}
-                  />
-                  <span className="status-note" style={{ userSelect: "text" }}>
-                    {targetColor.toUpperCase()}
-                  </span>
-                </div>
-              </div>
-              <div className="field">
+              ))}
+              {pairs.length < MAX_PAIRS && (
+                <button
+                  className="btn btn-sm"
+                  onClick={() =>
+                    setPairs((prev) => [...prev, { id: pairId++, source: null, target: "#3b82f6" }])
+                  }
+                >
+                  <Plus /> {t("recolor.addPair")}
+                </button>
+              )}
+              <div className="field" style={{ marginTop: 14 }}>
                 <div className="range-head">
                   <label style={{ marginBottom: 0 }}>{t("recolor.tolerance")}</label>
                   <span className="range-value">{tolerance}%</span>
@@ -299,7 +350,7 @@ export default function ColorReplace({ onBack }: Props) {
               <button
                 className="btn btn-primary btn-block"
                 onClick={exportImage}
-                disabled={busy || !sourceColor}
+                disabled={busy || activePairs.length === 0}
               >
                 {busy ? (
                   <>
@@ -326,7 +377,7 @@ export default function ColorReplace({ onBack }: Props) {
                 setFile(null);
                 setDataUrl(null);
                 setNaturalSize(null);
-                setSourceColor(null);
+                setPairs([{ id: pairId++, source: null, target: "#3b82f6" }]);
               }}
             >
               {t("common.chooseDifferentImage")}

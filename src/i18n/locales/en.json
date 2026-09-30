@@ -518,7 +518,13 @@
     "targetColor": "New color",
     "tolerance": "Tolerance",
     "toleranceHint": "Higher replaces more similar shades; the blend is smooth — no hard edges.",
-    "hint": "Click the image to pick the color to replace."
+    "hint": "Click the image to pick the color to replace.",
+    "pairs": "Color pairs",
+    "pairHint": "Click the image to pick a source color, then choose its replacement. Add up to 6 pairs.",
+    "addPair": "Add color pair",
+    "remove": "Remove",
+    "pairSource": "Source",
+    "pairTarget": "Replace with"
   },
   "mirror": {
     "title": "Mirror",

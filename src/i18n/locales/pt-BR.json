@@ -518,7 +518,13 @@
     "targetColor": "Nova cor",
     "tolerance": "Tolerância",
     "toleranceHint": "Maior substitui mais tons parecidos; a mistura é suave, sem bordas duras.",
-    "hint": "Clique na imagem para escolher a cor a substituir."
+    "hint": "Clique na imagem para escolher a cor a substituir.",
+    "pairs": "Pares de cor",
+    "pairHint": "Clique na imagem para escolher a cor de origem e depois escolha a substituta. Até 6 pares.",
+    "addPair": "Adicionar par de cor",
+    "remove": "Remover",
+    "pairSource": "Origem",
+    "pairTarget": "Substituir por"
   },
   "mirror": {
     "title": "Espelhar",

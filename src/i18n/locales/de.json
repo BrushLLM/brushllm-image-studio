@@ -520,7 +520,7 @@
     "toleranceHint": "Höher ersetzt ähnlichere Töne; weiche Übergänge ohne harte Kanten.",
     "hint": "Bild anklicken, um die zu ersetzende Farbe zu wählen.",
     "pairs": "Farbpaare",
-    "pairHint": "Bild anklicken, um eine Quellfarbe zu wählen, dann die Ersatzfarbe wählen. Bis zu 6 Paare.",
+    "pairHint": "Bild oder linkes Farbfeld anklicken, um die Quellfarbe zu wählen, dann die Ersatzfarbe wählen. Bis zu 6 Paare.",
     "addPair": "Farbpaar hinzufügen",
     "remove": "Entfernen",
     "pairSource": "Quelle",

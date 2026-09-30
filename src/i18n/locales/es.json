@@ -520,7 +520,7 @@
     "toleranceHint": "Más alto reemplaza más tonos parecidos; la mezcla es suave, sin bordes duros.",
     "hint": "Haz clic en la imagen para elegir el color a reemplazar.",
     "pairs": "Pares de color",
-    "pairHint": "Haz clic en la imagen para elegir el color de origen y luego elige su reemplazo. Hasta 6 pares.",
+    "pairHint": "Haz clic en la imagen (o en la muestra izquierda) para elegir el color de origen y luego su reemplazo. Hasta 6 pares.",
     "addPair": "Añadir par de color",
     "remove": "Quitar",
     "pairSource": "Origen",

@@ -1128,6 +1128,27 @@ input[type="range"].range::-moz-range-thumb {
   box-shadow: 0 1px 4px rgb(28 25 23 / 0.18);
 }
 
+/* Compact color swatch used as a pickable input (Color Replace pairs). */
+input[type="color"].swatch-input {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 40px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+  background: transparent;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+input[type="color"].swatch-input::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+input[type="color"].swatch-input::-webkit-color-swatch {
+  border: none;
+  border-radius: 6px;
+}
+
 /* Quality/value readout pill next to a slider label. */
 .range-head {
   display: flex;

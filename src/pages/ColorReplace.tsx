@@ -77,10 +77,16 @@ function hueDist(a: number, b: number): number {
 }
 
 /**
- * Apply every pair in order. Each replacement keeps the ORIGINAL saturation
- * and value (shadows, highlights and texture survive); strength falls off
- * smoothly toward the tolerance edge so there are no hard seams. A pixel
- * already rewritten by an earlier pair is skipped by later ones.
+ * Apply every pair in order. A pixel is claimed by the FIRST rule that
+ * matches it (later pairs never re-process rewritten pixels). The normal
+ * case swaps only the hue and keeps the pixel's saturation/value, so
+ * shadows, highlights and texture survive; strength falls off smoothly
+ * toward the tolerance edge so there are no hard seams. Two special
+ * cases matter just as much: a GRAY source has no hue to match on (it
+ * matches on brightness instead and must adopt the target's saturation,
+ * otherwise the swap is invisible), and a NEUTRAL target (white/black/
+ * gray) has no meaningful hue (pixels must desaturate and move toward
+ * the target's brightness instead).
  */
 function replaceColors(
   data: Uint8ClampedArray,
@@ -89,25 +95,38 @@ function replaceColors(
 ) {
   const rules = pairs.map(({ source, target }) => {
     const [fh, fs, fv] = rgbToHsv(source);
-    const [th] = rgbToHsv(hexToRgb(target));
-    return { fh, fs, fv, th };
+    const [th, ts, tv] = rgbToHsv(hexToRgb(target));
+    return { fh, fs, fv, th, ts, tv };
   });
   const tolHue = (tolerance / 100) * 60;
   for (let i = 0; i < data.length; i += 4) {
     const [h, s, v] = rgbToHsv({ r: data[i], g: data[i + 1], b: data[i + 2] });
-    for (const { fh, fs, fv, th } of rules) {
+    for (const { fh, fs, fv, th, ts, tv } of rules) {
       let match: number;
+      let mixed: Rgb;
       if (fs < 0.12 && s < 0.12) {
+        // Grayscale source → match on value distance.
         match = 1 - Math.min(1, Math.abs(v - fv) / 0.25);
+        // Gray pixels carry no hue: take the target's saturation (and
+        // brightness for neutral targets) so the change is visible.
+        mixed = ts < 0.12 ? hsvToRgb(th, 0, tv) : hsvToRgb(th, ts, v);
       } else {
         const dh = hueDist(h, fh);
         const ds = Math.abs(s - fs);
         match = dh <= tolHue ? 1 - dh / Math.max(1, tolHue) : 0;
+        // Very unsaturated pixels of any hue are not "the source color".
         if (s < 0.08) match = 0;
         match *= 1 - Math.min(1, ds / 0.9);
+        if (ts < 0.12) {
+          // Neutral target: hue is meaningless — desaturate and move
+          // toward the target's brightness instead.
+          mixed = hsvToRgb(h, 0, tv);
+        } else {
+          // Hue swap; the pixel keeps its own saturation and value.
+          mixed = hsvToRgb(th, s, v);
+        }
       }
       if (match <= 0) continue;
-      const mixed = hsvToRgb(th, s, v);
       data[i] = Math.round(data[i] + (mixed.r - data[i]) * match);
       data[i + 1] = Math.round(data[i + 1] + (mixed.g - data[i + 1]) * match);
       data[i + 2] = Math.round(data[i + 2] + (mixed.b - data[i + 2]) * match);
@@ -135,9 +154,8 @@ export default function ColorReplace({ onBack }: Props) {
   const offscreenRef = useRef<HTMLCanvasElement | null>(null);
 
   const activePairs = pairs.filter((p): p is ColorPair & { source: Rgb } => p.source !== null);
-  const pairsJson = JSON.stringify(
-    activePairs.map(({ source, target }) => ({ source: toHex(source), target })),
-  );
+  // The pair the next image click will fill (highlighted in the list).
+  const nextIdx = pairs.findIndex((p) => p.source === null);
 
   const loadFile = (paths: string[]) => {
     const path = paths[0];
@@ -178,7 +196,7 @@ export default function ColorReplace({ onBack }: Props) {
       ctx.putImageData(img, 0, 0);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dataUrl, pairsJson, tolerance]);
+  }, [dataUrl, pairs, tolerance]);
 
   // Clicking the image picks a source color: it fills the first pair without
   // one, or starts a new pair when every existing pair already has a source.
@@ -278,17 +296,27 @@ export default function ColorReplace({ onBack }: Props) {
               <h2 className="card-title">{t("recolor.pairs")}</h2>
               <p className="hint" style={{ marginBottom: 12 }}>{t("recolor.pairHint")}</p>
               {pairs.map((pair, index) => (
-                <div className="field" key={pair.id}>
+                <div
+                  className="field"
+                  key={pair.id}
+                  style={
+                    index === nextIdx
+                      ? { outline: "1.5px dashed var(--violet)", outlineOffset: 4, borderRadius: 10 }
+                      : undefined
+                  }
+                >
                   <div className="row" style={{ alignItems: "center" }}>
-                    <div
-                      style={{
-                        width: 40,
-                        height: 30,
-                        borderRadius: 7,
-                        border: "1px solid var(--border-strong)",
-                        background: pair.source ? toHex(pair.source) : "var(--bg-soft)",
-                        flex: "0 0 auto",
-                      }}
+                    <input
+                      type="color"
+                      className="swatch-input"
+                      value={pair.source ? toHex(pair.source) : "#808080"}
+                      onChange={(e) =>
+                        setPairs((prev) => {
+                          const next = [...prev];
+                          next[index] = { ...next[index], source: hexToRgb(e.target.value) };
+                          return next;
+                        })
+                      }
                       title={t("recolor.pairSource")}
                     />
                     <span className="status-note" style={{ userSelect: "text", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>
@@ -297,6 +325,7 @@ export default function ColorReplace({ onBack }: Props) {
                     <ArrowRight size={14} style={{ flex: "0 0 auto", opacity: 0.6 }} />
                     <input
                       type="color"
+                      className="swatch-input"
                       value={pair.target}
                       onChange={(e) =>
                         setPairs((prev) => {
@@ -305,7 +334,6 @@ export default function ColorReplace({ onBack }: Props) {
                           return next;
                         })
                       }
-                      style={{ width: 44, height: 30, padding: 2, flex: "0 0 auto" }}
                       title={t("recolor.pairTarget")}
                     />
                     {pairs.length > 1 && (

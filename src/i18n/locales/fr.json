@@ -520,7 +520,7 @@
     "toleranceHint": "Plus élevée remplace plus de tons proches ; fondu lissé sans bords durs.",
     "hint": "Cliquez sur l'image pour choisir la couleur à remplacer.",
     "pairs": "Paires de couleurs",
-    "pairHint": "Cliquez sur l'image pour choisir la couleur d'origine, puis choisissez son remplacement. Jusqu'à 6 paires.",
+    "pairHint": "Cliquez sur l'image (ou la pastille de gauche) pour choisir la couleur d'origine, puis son remplacement. Jusqu'à 6 paires.",
     "addPair": "Ajouter une paire",
     "remove": "Retirer",
     "pairSource": "Source",

@@ -77,16 +77,26 @@ function hueDist(a: number, b: number): number {
 }
 
 /**
- * Apply every pair in order. A pixel is claimed by the FIRST rule that
- * matches it (later pairs never re-process rewritten pixels). The normal
- * case swaps only the hue and keeps the pixel's saturation/value, so
- * shadows, highlights and texture survive; strength falls off smoothly
- * toward the tolerance edge so there are no hard seams. Two special
- * cases matter just as much: a GRAY source has no hue to match on (it
- * matches on brightness instead and must adopt the target's saturation,
- * otherwise the swap is invisible), and a NEUTRAL target (white/black/
- * gray) has no meaningful hue (pixels must desaturate and move toward
- * the target's brightness instead).
+ * Multi-pair color replacement — NEAREST-MATCH semantics.
+ *
+ * Matching: every pixel is scored against EVERY enabled pair, and the pair
+ * with the highest score (the nearest source color) claims it. Pairs never
+ * short-circuit each other by list order: two similar source colors split
+ * the image by proximity, so #435DFD→purple and #5447FE→green both fire
+ * even when their tolerances overlap. The score is a weighted distance in
+ * HSV space: hue carries the main weight, saturation a soft secondary term
+ * (so shadows and highlights of the source color still match), and a small
+ * capped value term acts only as a brightness tie-breaker between rules.
+ *
+ * All scores are computed from the pixel's ORIGINAL values — each pixel is
+ * written at most once, after every rule has been compared, so no pair's
+ * replacement can ever pollute another pair's matching.
+ *
+ * Replacement: the winning pair swaps the hue and keeps the pixel's own
+ * saturation/value (shading and texture survive). Gray sources have no hue
+ * to swap, so they adopt the target's saturation; neutral targets (white/
+ * black/gray) have no meaningful hue, so pixels desaturate toward the
+ * target's brightness instead.
  */
 function replaceColors(
   data: Uint8ClampedArray,
@@ -101,37 +111,45 @@ function replaceColors(
   const tolHue = (tolerance / 100) * 60;
   for (let i = 0; i < data.length; i += 4) {
     const [h, s, v] = rgbToHsv({ r: data[i], g: data[i + 1], b: data[i + 2] });
-    for (const { fh, fs, fv, th, ts, tv } of rules) {
+    let best = -1;
+    let bestMatch = 0;
+    for (let r = 0; r < rules.length; r++) {
+      const rule = rules[r];
       let match: number;
-      let mixed: Rgb;
-      if (fs < 0.12 && s < 0.12) {
-        // Grayscale source → match on value distance.
-        match = 1 - Math.min(1, Math.abs(v - fv) / 0.25);
-        // Gray pixels carry no hue: take the target's saturation (and
-        // brightness for neutral targets) so the change is visible.
-        mixed = ts < 0.12 ? hsvToRgb(th, 0, tv) : hsvToRgb(th, ts, v);
+      if (rule.fs < 0.12) {
+        // Grayscale source: only near-gray pixels are eligible; the score
+        // is brightness distance (a gray pixel has no hue to compare).
+        if (s >= 0.12) continue;
+        match = 1 - Math.min(1, Math.abs(v - rule.fv) / 0.25);
       } else {
-        const dh = hueDist(h, fh);
-        const ds = Math.abs(s - fs);
+        const dh = hueDist(h, rule.fh);
+        const ds = Math.abs(s - rule.fs);
         match = dh <= tolHue ? 1 - dh / Math.max(1, tolHue) : 0;
         // Very unsaturated pixels of any hue are not "the source color".
         if (s < 0.08) match = 0;
         match *= 1 - Math.min(1, ds / 0.9);
-        if (ts < 0.12) {
-          // Neutral target: hue is meaningless — desaturate and move
-          // toward the target's brightness instead.
-          mixed = hsvToRgb(h, 0, tv);
-        } else {
-          // Hue swap; the pixel keeps its own saturation and value.
-          mixed = hsvToRgb(th, s, v);
-        }
+        // Brightness tie-breaker between rules with similar color scores;
+        // capped at 0.1 so it can never outvote the hue/saturation terms
+        // (shadows and highlights of the source color still match).
+        match -= Math.abs(v - rule.fv) * 0.1;
       }
-      if (match <= 0) continue;
-      data[i] = Math.round(data[i] + (mixed.r - data[i]) * match);
-      data[i + 1] = Math.round(data[i + 1] + (mixed.g - data[i + 1]) * match);
-      data[i + 2] = Math.round(data[i + 2] + (mixed.b - data[i + 2]) * match);
-      break; // first matching rule wins for this pixel
+      if (match <= bestMatch) continue;
+      bestMatch = match;
+      best = r;
     }
+    if (best < 0) continue;
+    const winner = rules[best];
+    const mixed: Rgb =
+      winner.fs < 0.12
+        ? winner.ts < 0.12
+          ? hsvToRgb(winner.th, 0, winner.tv)
+          : hsvToRgb(winner.th, winner.ts, v)
+        : winner.ts < 0.12
+          ? hsvToRgb(h, 0, winner.tv)
+          : hsvToRgb(winner.th, s, v);
+    data[i] = Math.round(data[i] + (mixed.r - data[i]) * bestMatch);
+    data[i + 1] = Math.round(data[i + 1] + (mixed.g - data[i + 1]) * bestMatch);
+    data[i + 2] = Math.round(data[i + 2] + (mixed.b - data[i + 2]) * bestMatch);
   }
 }
 

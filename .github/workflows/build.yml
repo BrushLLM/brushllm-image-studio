@@ -177,6 +177,19 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
+      # The runner's default Xcode (15.4) cannot open projects written by
+      # current xcodegen (objectVersion 77, Xcode 26 format). Pin 2.42.0,
+      # which emits objectVersion 54 — readable by every Xcode on the image.
+      # Installing it on PATH also makes `tauri ios init` skip its own
+      # `brew install xcodegen`.
+      - name: Pin xcodegen 2.42.0
+        run: |
+          curl -sL -o /tmp/xcodegen.zip https://github.com/yonaskolb/XcodeGen/releases/download/2.42.0/xcodegen.zip
+          unzip -q -o /tmp/xcodegen.zip -d /tmp/xg
+          BIN=$(find /tmp/xg -name xcodegen -type f -perm +111 | head -1)
+          sudo cp "$BIN" /usr/local/bin/xcodegen
+          xcodegen --version
+
       # Generates the Xcode project (installs xcodegen via brew if the
       # image lacks it) and runs pod install.
       - name: Init iOS project

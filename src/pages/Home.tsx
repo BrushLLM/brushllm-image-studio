@@ -216,7 +216,7 @@ export default function Home({ onNavigate }: Props) {
     <div className="page">
       {showUpdateBanner && update && (
         <div className="banner banner-info">
-          <Sparkles size={15} />
+          <Sparkles size={14} style={{ strokeWidth: 1.8 }} />
           <span style={{ flex: 1 }}>
             {t("home.updateBanner", { version: update.latest })}{" "}
             <span

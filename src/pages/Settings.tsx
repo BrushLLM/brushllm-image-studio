@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { open, message } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { Coins, Download, FolderOpen, Monitor, Moon, RefreshCw, Sun } from "lucide-react";
+import { Coins, Download, FolderOpen, Monitor, Moon, RotateCw, Sun } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import PageShell from "../components/PageShell";
 import {
@@ -590,7 +590,7 @@ export default function Settings({ onBack }: Props) {
                     </>
                   ) : (
                     <>
-                      <RefreshCw /> {t("settings.checkUpdate")}
+                      <RotateCw size={14} style={{ strokeWidth: 1.8 }} /> {t("settings.checkUpdate")}
                     </>
                   )}
                 </button>
@@ -647,7 +647,7 @@ export default function Settings({ onBack }: Props) {
                           </>
                         ) : (
                           <>
-                            <Download /> {t("settings.downloadUpdate")}
+                            <Download size={14} style={{ strokeWidth: 1.8 }} /> {t("settings.downloadUpdate")}
                           </>
                         )}
                       </button>

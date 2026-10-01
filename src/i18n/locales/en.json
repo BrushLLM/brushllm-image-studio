@@ -88,7 +88,10 @@
     "recolorName": "Color Replace",
     "recolorDesc": "Swap a color while keeping shadows and texture.",
     "mirrorName": "Mirror",
-    "mirrorDesc": "Join an image with its reflection — A | A."
+    "mirrorDesc": "Join an image with its reflection — A | A.",
+    "updateBanner": "Version {{version}} is available.",
+    "updateGoSettings": "Get it in Settings",
+    "updateDismiss": "Dismiss"
   },
   "convert": {
     "title": "Convert Format",
@@ -421,7 +424,19 @@
     "docs": "Docs",
     "usePictures": "Use my Pictures folder",
     "changeFolder": "Change folder",
-    "resetToDefault": "Reset to default"
+    "resetToDefault": "Reset to default",
+    "version": "Version",
+    "checkUpdate": "Check for updates",
+    "checking": "Checking…",
+    "upToDate": "You're up to date — v{{version}} is the latest.",
+    "updateAvailable": "Version {{version}} is available",
+    "downloadUpdate": "Download update",
+    "downloading": "Downloading…",
+    "updateDownloaded": "Saved to {{path}} — run the installer to update.",
+    "updateNotes": "Release notes",
+    "openReleasePage": "Open release page",
+    "updateCheckFailed": "Update check failed — the repository must be public for update checks to work.",
+    "noPlatformAsset": "No installer for this platform in the release."
   },
   "cmdk": {
     "placeholder": "Search tools…",

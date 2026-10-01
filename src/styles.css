@@ -1939,6 +1939,12 @@ label.check {
   user-select: text;
 }
 
+.banner-info {
+  background: var(--tint-violet-bg);
+  border: 1px solid var(--tint-violet-border);
+  color: var(--tint-violet-text);
+}
+
 .banner .banner-link {
   color: var(--violet);
   font-weight: 650;

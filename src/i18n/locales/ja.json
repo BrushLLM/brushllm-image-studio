@@ -88,7 +88,10 @@
     "recolorName": "色置換",
     "recolorDesc": "影や質感を保ったまま色を入れ替え。",
     "mirrorName": "ミラー",
-    "mirrorDesc": "画像と反転を結合 — A | A。"
+    "mirrorDesc": "画像と反転を結合 — A | A。",
+    "updateBanner": "バージョン {{version}} が利用可能です。",
+    "updateGoSettings": "設定から入手",
+    "updateDismiss": "閉じる"
   },
   "convert": {
     "title": "フォーマット変換",
@@ -421,7 +424,19 @@
     "docs": "ドキュメント",
     "usePictures": "Pictures フォルダを使う",
     "changeFolder": "フォルダを変更",
-    "resetToDefault": "デフォルトに戻す"
+    "resetToDefault": "デフォルトに戻す",
+    "version": "バージョン",
+    "checkUpdate": "更新を確認",
+    "checking": "確認中…",
+    "upToDate": "最新です — v{{version}}。",
+    "updateAvailable": "バージョン {{version}} が利用可能",
+    "downloadUpdate": "更新をダウンロード",
+    "downloading": "ダウンロード中…",
+    "updateDownloaded": "{{path}} に保存しました — インストーラーを実行して更新してください。",
+    "updateNotes": "リリースノート",
+    "openReleasePage": "リリースページを開く",
+    "updateCheckFailed": "更新の確認に失敗しました — リポジトリが公開されている必要があります。",
+    "noPlatformAsset": "このリリースに現在のプラットフォーム用のインストーラーがありません。"
   },
   "cmdk": {
     "placeholder": "ツールを検索…",

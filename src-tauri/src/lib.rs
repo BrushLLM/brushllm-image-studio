@@ -3,6 +3,7 @@ mod api_key;
 mod commands;
 mod engine;
 mod settings;
+mod update;
 
 use tauri::Manager;
 
@@ -41,6 +42,8 @@ pub fn run() {
             commands::get_settings,
             commands::save_settings,
             commands::save_bytes,
+            update::check_update,
+            update::download_update,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

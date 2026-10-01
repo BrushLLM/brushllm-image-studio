@@ -88,7 +88,10 @@
     "recolorName": "색상 교체",
     "recolorDesc": "그림자와 질감을 유지하며 색 교체.",
     "mirrorName": "미러",
-    "mirrorDesc": "이미지와 반전을 결합 — A | A."
+    "mirrorDesc": "이미지와 반전을 결합 — A | A.",
+    "updateBanner": "버전 {{version}} 사용 가능.",
+    "updateGoSettings": "설정에서 받기",
+    "updateDismiss": "닫기"
   },
   "convert": {
     "title": "포맷 변환",
@@ -421,7 +424,19 @@
     "docs": "문서",
     "usePictures": "내 사진 폴더 사용",
     "changeFolder": "폴더 변경",
-    "resetToDefault": "기본값으로 재설정"
+    "resetToDefault": "기본값으로 재설정",
+    "version": "버전",
+    "checkUpdate": "업데이트 확인",
+    "checking": "확인 중…",
+    "upToDate": "최신 버전입니다 — v{{version}}.",
+    "updateAvailable": "버전 {{version}} 사용 가능",
+    "downloadUpdate": "업데이트 다운로드",
+    "downloading": "다운로드 중…",
+    "updateDownloaded": "{{path}}에 저장됨 — 설치 파일을 실행해 업데이트하세요.",
+    "updateNotes": "릴리스 노트",
+    "openReleasePage": "릴리스 페이지 열기",
+    "updateCheckFailed": "업데이트 확인 실패 — 저장소가 공개 상태여야 합니다.",
+    "noPlatformAsset": "이 릴리스에는 현재 플랫폼용 설치 파일이 없습니다."
   },
   "cmdk": {
     "placeholder": "도구 검색…",

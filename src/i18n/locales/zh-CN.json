@@ -88,7 +88,10 @@
     "recolorName": "颜色替换",
     "recolorDesc": "保留阴影和纹理的颜色替换。",
     "mirrorName": "镜像",
-    "mirrorDesc": "图片与自身镜像拼接 — A | A。"
+    "mirrorDesc": "图片与自身镜像拼接 — A | A。",
+    "updateBanner": "新版本 {{version}} 可用。",
+    "updateGoSettings": "到设置中获取",
+    "updateDismiss": "忽略"
   },
   "convert": {
     "title": "格式转换",
@@ -421,7 +424,19 @@
     "docs": "文档",
     "usePictures": "使用系统图片文件夹",
     "changeFolder": "更改文件夹",
-    "resetToDefault": "重置为默认"
+    "resetToDefault": "重置为默认",
+    "version": "版本",
+    "checkUpdate": "检查更新",
+    "checking": "检查中…",
+    "upToDate": "已是最新版本 — v{{version}}。",
+    "updateAvailable": "新版本 {{version}} 可用",
+    "downloadUpdate": "下载更新",
+    "downloading": "下载中…",
+    "updateDownloaded": "已保存到 {{path}} — 运行安装包即可更新。",
+    "updateNotes": "更新说明",
+    "openReleasePage": "打开发布页面",
+    "updateCheckFailed": "检查更新失败 — 仓库需设为公开后才能检查更新。",
+    "noPlatformAsset": "此版本中没有适配当前平台的安装包。"
   },
   "cmdk": {
     "placeholder": "搜索工具…",

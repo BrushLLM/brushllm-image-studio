@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { open, message } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { Coins, FolderOpen, Monitor, Moon, Sun } from "lucide-react";
+import { Coins, Download, FolderOpen, Monitor, Moon, RefreshCw, Sun } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import PageShell from "../components/PageShell";
 import {
@@ -9,10 +9,14 @@ import {
   apiKeySet,
   apiKeyStatus,
   apiTest,
+  checkUpdate,
+  downloadUpdate,
   getSettings,
   saveSettings,
   picturesDir,
+  type UpdateInfo,
 } from "../lib/ipc";
+import { platformAsset } from "../lib/update";
 import { setAppearance, type Appearance } from "../lib/theme";
 import { LANGUAGES, resolveLanguage } from "../i18n";
 import { usePersistedState } from "../lib/persistedState";
@@ -58,6 +62,11 @@ export default function Settings({ onBack }: Props) {
     "settings.availableModels",
     [],
   );
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [downloadedTo, setDownloadedTo] = useState<string | null>(null);
+  const [updateError, setUpdateError] = useState<string | null>(null);
 
   useEffect(() => {
     apiKeyStatus().then(setHasKey);
@@ -548,6 +557,130 @@ export default function Settings({ onBack }: Props) {
                 https://brushllm.com/docs
               </span>
             </p>
+
+            <div className="field" style={{ borderTop: "1px solid var(--border)", marginTop: 14, paddingTop: 14 }}>
+              <div className="range-head">
+                <label style={{ marginBottom: 0 }}>{t("settings.version")}</label>
+                <span className="status-note" style={{ userSelect: "text" }}>
+                  v{updateInfo?.current ?? "0.0.1"}
+                </span>
+              </div>
+              <div className="row" style={{ marginTop: 10 }}>
+                <button
+                  className="btn"
+                  style={{ flex: "0 0 auto" }}
+                  disabled={checking || downloading}
+                  onClick={async () => {
+                    setChecking(true);
+                    setUpdateError(null);
+                    setDownloadedTo(null);
+                    try {
+                      setUpdateInfo(await checkUpdate());
+                    } catch (e) {
+                      setUpdateInfo(null);
+                      setUpdateError(String(e));
+                    } finally {
+                      setChecking(false);
+                    }
+                  }}
+                >
+                  {checking ? (
+                    <>
+                      <span className="spinner" /> {t("settings.checking")}
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw /> {t("settings.checkUpdate")}
+                    </>
+                  )}
+                </button>
+                {updateInfo && (
+                  <span
+                    className="banner-link"
+                    onClick={() => openUrl(updateInfo.release_url)}
+                    style={{ flex: "0 0 auto", alignSelf: "center" }}
+                  >
+                    {t("settings.openReleasePage")}
+                  </span>
+                )}
+              </div>
+
+              {updateError && (
+                <div className="banner banner-error" style={{ marginTop: 10 }}>
+                  {t("settings.updateCheckFailed")}
+                </div>
+              )}
+              {updateInfo && !updateInfo.update_available && (
+                <div className="banner banner-ok" style={{ marginTop: 10 }}>
+                  {t("settings.upToDate", { version: updateInfo.latest })}
+                </div>
+              )}
+              {updateInfo?.update_available && (
+                <div className="banner banner-info" style={{ marginTop: 10 }}>
+                  <div style={{ fontWeight: 650 }}>
+                    {t("settings.updateAvailable", { version: updateInfo.latest })}
+                  </div>
+                  {platformAsset(updateInfo) ? (
+                    <div className="row" style={{ marginTop: 8 }}>
+                      <button
+                        className="btn btn-primary"
+                        style={{ flex: "0 0 auto" }}
+                        disabled={downloading}
+                        onClick={async () => {
+                          const asset = platformAsset(updateInfo);
+                          if (!asset) return;
+                          setDownloading(true);
+                          setUpdateError(null);
+                          try {
+                            const saved = await downloadUpdate(asset.url, asset.name);
+                            setDownloadedTo(saved);
+                          } catch (e) {
+                            setUpdateError(String(e));
+                          } finally {
+                            setDownloading(false);
+                          }
+                        }}
+                      >
+                        {downloading ? (
+                          <>
+                            <span className="spinner" /> {t("settings.downloading")}
+                          </>
+                        ) : (
+                          <>
+                            <Download /> {t("settings.downloadUpdate")}
+                          </>
+                        )}
+                      </button>
+                      <span className="status-note" style={{ alignSelf: "center", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {platformAsset(updateInfo)?.name}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="status-note" style={{ marginTop: 6 }}>
+                      {t("settings.noPlatformAsset")}
+                    </div>
+                  )}
+                  {downloadedTo && (
+                    <div className="status-note" style={{ marginTop: 8, wordBreak: "break-all" }}>
+                      {t("settings.updateDownloaded", { path: downloadedTo })}
+                    </div>
+                  )}
+                  {updateInfo.notes.trim() && (
+                    <details style={{ marginTop: 8 }}>
+                      <summary className="status-note" style={{ cursor: "pointer" }}>
+                        {t("settings.updateNotes")}
+                      </summary>
+                      <pre
+                        className="status-note"
+                        style={{ whiteSpace: "pre-wrap", userSelect: "text", maxHeight: 200, overflow: "auto", margin: "8px 0 0" }}
+                      >
+                        {updateInfo.notes}
+                      </pre>
+                    </details>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

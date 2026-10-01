@@ -23,8 +23,14 @@ import {
   Stamp,
   Tags,
   Wand2,
+  X,
   type LucideIcon,
 } from "lucide-react";
+import {
+  dismissUpdateBanner,
+  isUpdateDismissed,
+  readUpdateBanner,
+} from "../lib/update";
 
 type Page =
   | "home"
@@ -204,8 +210,32 @@ interface Props {
 
 export default function Home({ onNavigate }: Props) {
   const { t } = useTranslation();
+  const update = readUpdateBanner();
+  const showUpdateBanner = update !== null && !isUpdateDismissed(update.latest);
   return (
     <div className="page">
+      {showUpdateBanner && update && (
+        <div className="banner banner-info">
+          <Sparkles size={15} />
+          <span style={{ flex: 1 }}>
+            {t("home.updateBanner", { version: update.latest })}{" "}
+            <span
+              className="banner-link"
+              onClick={() => onNavigate("settings")}
+            >
+              {t("home.updateGoSettings")}
+            </span>
+          </span>
+          <button
+            className="btn btn-sm"
+            style={{ flex: "0 0 auto" }}
+            title={t("home.updateDismiss")}
+            onClick={() => dismissUpdateBanner(update.latest)}
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
       <div className="home-hero">
         <h1>{t('home.heroTitle')}</h1>
         <p>{t('home.heroSub')}</p>

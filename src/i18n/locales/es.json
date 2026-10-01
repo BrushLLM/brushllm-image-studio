@@ -88,7 +88,10 @@
     "recolorName": "Reemplazar color",
     "recolorDesc": "Cambia un color conservando sombras y textura.",
     "mirrorName": "Espejo",
-    "mirrorDesc": "Une la imagen con su reflejo — A | A."
+    "mirrorDesc": "Une la imagen con su reflejo — A | A.",
+    "updateBanner": "Versión {{version}} disponible.",
+    "updateGoSettings": "Obtenerla en Ajustes",
+    "updateDismiss": "Descartar"
   },
   "convert": {
     "title": "Convertir formato",
@@ -421,7 +424,19 @@
     "docs": "Documentación",
     "usePictures": "Usar mi carpeta de imágenes",
     "changeFolder": "Cambiar carpeta",
-    "resetToDefault": "Restablecer al valor predeterminado"
+    "resetToDefault": "Restablecer al valor predeterminado",
+    "version": "Versión",
+    "checkUpdate": "Buscar actualizaciones",
+    "checking": "Comprobando…",
+    "upToDate": "Está actualizado — v{{version}}.",
+    "updateAvailable": "Versión {{version}} disponible",
+    "downloadUpdate": "Descargar actualización",
+    "downloading": "Descargando…",
+    "updateDownloaded": "Guardado en {{path}} — ejecute el instalador para actualizar.",
+    "updateNotes": "Notas de la versión",
+    "openReleasePage": "Abrir página de lanzamiento",
+    "updateCheckFailed": "No se pudo comprobar la actualización — el repositorio debe ser público.",
+    "noPlatformAsset": "Este lanzamiento no incluye un instalador para esta plataforma."
   },
   "cmdk": {
     "placeholder": "Buscar herramientas…",

@@ -198,3 +198,26 @@ export function saveSettings(settings: Settings): Promise<void> {
 export function saveBytes(path: string, dataB64: string): Promise<void> {
   return invoke("save_bytes", { path, dataB64 });
 }
+
+export interface UpdateAsset {
+  name: string;
+  url: string;
+  size: number;
+}
+
+export interface UpdateInfo {
+  current: string;
+  latest: string;
+  notes: string;
+  assets: UpdateAsset[];
+  update_available: boolean;
+  release_url: string;
+}
+
+export function checkUpdate(): Promise<UpdateInfo> {
+  return invoke("check_update");
+}
+
+export function downloadUpdate(url: string, fileName: string): Promise<string> {
+  return invoke("download_update", { url, fileName });
+}

@@ -67,15 +67,12 @@ jobs:
           # from OOM-killing the link step)
           - os: macos-14
             target: aarch64-apple-darwin
-            args: "--target aarch64-apple-darwin --bundles app,dmg"
           # Windows 11 — x64
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-            args: ""
           # Windows 11 — ARM64 (native hosted runner)
           - os: windows-11-arm
             target: aarch64-pc-windows-msvc
-            args: ""
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -124,19 +121,8 @@ jobs:
 
       - name: Build app (Windows)
         if: matrix.target != 'aarch64-apple-darwin'
-        run: npm run tauri build ${{ matrix.args }}
-
-      # The WiX msi filename carries the installer locale (e.g. _en-US),
-      # which reads like an English-only build for a multilingual app —
-      # strip it; the NSIS setup.exe carries the language selector.
-      - name: Normalize msi names (drop locale suffix)
-        if: runner.os == 'Windows'
-        shell: bash
-        run: |
-          find src-tauri/target -path "*bundle/msi/*_en-US.msi" | while read -r f; do
-            mv "$f" "${f%_en-US.msi}.msi"
-          done
-          find src-tauri/target -path "*bundle/msi/*.msi" -exec ls -lh {} \;
+        # NSIS only — the msi flavor is dropped from the release line.
+        run: npm run tauri build -- --bundles nsis
 
       - name: Upload bundles
         uses: actions/upload-artifact@v4
@@ -147,11 +133,9 @@ jobs:
             src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
             src-tauri/target/${{ matrix.target }}/release/bundle/macos/*.app
             src-tauri/target/${{ matrix.target }}/release/bundle/nsis/*.exe
-            src-tauri/target/${{ matrix.target }}/release/bundle/msi/*.msi
             src-tauri/target/release/bundle/dmg/*.dmg
             src-tauri/target/release/bundle/macos/*.app
             src-tauri/target/release/bundle/nsis/*.exe
-            src-tauri/target/release/bundle/msi/*.msi
 
   ios:
     needs: quality
@@ -270,10 +254,60 @@ jobs:
         with:
           path: artifacts
           merge-multiple: true
+
+      # Per-platform install instructions, bilingual (EN + 简体中文).
+      - name: Compose release notes
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          cat > /tmp/release-notes.md << EOF
+          # BrushLLM Studio v${VERSION}
+
+          A 9-language image toolbox — 17 local tools + 7 AI tools. Local tools run entirely on your machine; AI tools use your own API key.
+
+          ## Downloads
+
+          | File | System |
+          |---|---|
+          | \`BrushLLM.Studio_${VERSION}_aarch64.dmg\` | **macOS** — Apple Silicon (M1/M2/M3/M4) |
+          | \`BrushLLM.Studio_${VERSION}_x64-setup.exe\` | **Windows 10/11** — x64 (Intel/AMD) |
+          | \`BrushLLM.Studio_${VERSION}_arm64-setup.exe\` | **Windows 10/11** — ARM64 (Snapdragon) |
+          | \`BrushLLM-Studio_${VERSION}_android-arm64.apk\` | **Android** — arm64 phones/tablets |
+          | \`BrushLLM-Studio_${VERSION}_ios-arm64-unsigned.ipa\` | **iOS/iPadOS** — arm64, unsigned |
+
+          ## How to install
+
+          - **macOS**: open the \`.dmg\` and drag **BrushLLM Studio** into *Applications*. The app is unsigned — on first launch, right-click the app and choose **Open**.
+          - **Windows**: run the \`-setup.exe\` matching your CPU. The installer opens with a **language selector** (9 languages). SmartScreen may warn about an unknown publisher — choose *Run anyway*.
+          - **Android**: allow *installing unknown apps* for your browser/file manager, then open the \`.apk\`.
+          - **iOS**: the \`.ipa\` is unsigned — sideload it with **Sideloadly** or **AltStore** using your own (free) Apple ID. The signature is valid for 7 days and can be refreshed.
+
+          ---
+
+          # 简体中文
+
+          ## 下载
+
+          | 文件 | 系统 |
+          |---|---|
+          | \`BrushLLM.Studio_${VERSION}_aarch64.dmg\` | **macOS** — Apple 芯片（M1/M2/M3/M4） |
+          | \`BrushLLM.Studio_${VERSION}_x64-setup.exe\` | **Windows 10/11** — x64（Intel/AMD） |
+          | \`BrushLLM.Studio_${VERSION}_arm64-setup.exe\` | **Windows 10/11** — ARM64（骁龙） |
+          | \`BrushLLM-Studio_${VERSION}_android-arm64.apk\` | **Android** — arm64 手机/平板 |
+          | \`BrushLLM-Studio_${VERSION}_ios-arm64-unsigned.ipa\` | **iOS/iPadOS** — arm64，未签名 |
+
+          ## 安装方法
+
+          - **macOS**：打开 \`.dmg\`，把 **BrushLLM Studio** 拖入「应用程序」。应用未签名 — 首次启动请右键点击应用并选择「打开」。
+          - **Windows**：运行与 CPU 对应的 \`-setup.exe\`。安装器首屏有**语言选择**（九种语言）。SmartScreen 可能提示未知发布者 — 选择「仍要运行」。
+          - **Android**：允许浏览器/文件管理器「安装未知应用」后打开 \`.apk\`。
+          - **iOS**：\`.ipa\` 未签名 — 用 **Sideloadly** 或 **AltStore** 以自己的（免费）Apple ID 侧载。签名有效期 7 天，可续签。
+          EOF
+          echo "notes written: $(wc -c < /tmp/release-notes.md) bytes"
+
       - uses: softprops/action-gh-release@v2
         with:
+          body_path: /tmp/release-notes.md
           files: |
             artifacts/**/*.dmg
             artifacts/**/*.exe
-            artifacts/**/*.msi
             artifacts/**/*.ipa

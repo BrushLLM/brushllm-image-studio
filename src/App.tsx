@@ -26,6 +26,7 @@ const Settings = lazy(() => import("./pages/Settings"));
 const Stitch = lazy(() => import("./pages/Stitch"));
 const Watermark = lazy(() => import("./pages/Watermark"));
 import { getSettings } from "./lib/ipc";
+import { silentUpdateCheck } from "./lib/update";
 import {
   ACCEPTED_EXTENSIONS,
   blockedInputError,
@@ -87,6 +88,9 @@ export default function App() {
         }
       })
       .catch(() => {});
+    // Silent update probe — persists a banner state for Home when a newer
+    // release exists; failures (private repo, offline) stay invisible.
+    silentUpdateCheck();
   }, []);
 
   const navigate = (next: Page, tool?: string, files?: string[], notice?: string) => {

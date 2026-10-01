@@ -6,7 +6,8 @@
 use serde::Serialize;
 use std::path::PathBuf;
 
-const RELEASES_API: &str = "https://api.github.com/repos/BrushLLM/brushllm-image-studio/releases/latest";
+const RELEASES_API: &str =
+    "https://api.github.com/repos/BrushLLM/brushllm-image-studio/releases/latest";
 const MAX_INSTALLER_BYTES: u64 = 200 * 1024 * 1024;
 
 #[derive(Serialize, Clone)]

@@ -1,6 +1,6 @@
 # 项目规则：GitHub Actions 额度保护（最高优先级）
 
-账号 BrushLLM/image-studio 是免费计划，Actions 额度有限且 **macOS runner 按
+账号 BrushLLM/brushllm-image-studio 是免费计划，Actions 额度有限且 **macOS runner 按
 10 倍速率计费**。历史上曾因连续 8 轮 CI 迭代耗光全部额度，导致构建中断。
 以下规则必须遵守：
 

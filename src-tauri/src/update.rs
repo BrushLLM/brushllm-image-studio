@@ -6,7 +6,7 @@
 use serde::Serialize;
 use std::path::PathBuf;
 
-const RELEASES_API: &str = "https://api.github.com/repos/BrushLLm/image-studio/releases/latest";
+const RELEASES_API: &str = "https://api.github.com/repos/BrushLLM/brushllm-image-studio/releases/latest";
 const MAX_INSTALLER_BYTES: u64 = 200 * 1024 * 1024;
 
 #[derive(Serialize, Clone)]
@@ -95,7 +95,7 @@ pub async fn check_update() -> Result<UpdateInfo, String> {
     let release_url = json
         .get("html_url")
         .and_then(|v| v.as_str())
-        .unwrap_or("https://github.com/BrushLLm/image-studio/releases")
+        .unwrap_or("https://github.com/BrushLLM/brushllm-image-studio/releases")
         .to_string();
     let assets = json
         .get("assets")

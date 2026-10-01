@@ -172,8 +172,6 @@ jobs:
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           cat > /tmp/release-notes.md << EOF
-          # BrushLLM Image Studio v${VERSION}
-
           A local-first desktop image toolbox — 17 local tools + 7 AI tools. Local tools run 100% on your machine; AI tools use your own API key. Free and private.
 
           ## New Features
@@ -207,6 +205,7 @@ jobs:
 
       - uses: softprops/action-gh-release@v2
         with:
+          name: "BrushLLM Image Studio ${{ github.ref_name }}"
           body_path: /tmp/release-notes.md
           files: |
             artifacts/**/*.dmg

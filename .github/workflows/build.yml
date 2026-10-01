@@ -172,8 +172,6 @@ jobs:
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           cat > /tmp/release-notes.md << EOF
-          # BrushLLM Image Studio v${VERSION}
-
           A 9-language image toolbox — 17 local tools + 7 AI tools. Local tools run entirely on your machine; AI tools use your own API key.
 
           ## Downloads

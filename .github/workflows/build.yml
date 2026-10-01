@@ -100,7 +100,27 @@ jobs:
       - name: Build app (macOS)
         if: matrix.target == 'aarch64-apple-darwin'
         # npm swallows --flags after `run` unless separated by `--`.
-        run: CARGO_PROFILE_RELEASE_LTO=thin npm run tauri build -- --target aarch64-apple-darwin --bundles app,dmg
+        # dmg bundling is done manually below: tauri's bundle_dmg.sh output
+        # is swallowed by the bundler on failure, and the script depends on
+        # runner-volatile tools (hdiutil mount quirks, SetFile). A plain
+        # hdiutil image with an Applications symlink is deterministic and
+        # equivalent to what tauri produces on CI (Finder cosmetics are
+        # skipped there anyway via --skip-jenkins).
+        run: CARGO_PROFILE_RELEASE_LTO=thin npm run tauri build -- --target aarch64-apple-darwin --bundles app
+
+      - name: Create dmg (macOS)
+        if: matrix.target == 'aarch64-apple-darwin'
+        run: |
+          set -e
+          BUNDLE="src-tauri/target/aarch64-apple-darwin/release/bundle"
+          APP="$BUNDLE/macos/BrushLLM Studio.app"
+          DMG="$BUNDLE/dmg/BrushLLM Studio_0.0.1_aarch64.dmg"
+          STAGING=$(mktemp -d)
+          cp -R "$APP" "$STAGING/"
+          ln -s /Applications "$STAGING/Applications"
+          mkdir -p "$BUNDLE/dmg"
+          hdiutil create -volname "BrushLLM Studio" -srcfolder "$STAGING" -ov -format UDZO "$DMG"
+          ls -lh "$DMG"
 
       - name: Build app (Windows)
         if: matrix.target != 'aarch64-apple-darwin'

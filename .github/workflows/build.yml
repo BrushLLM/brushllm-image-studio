@@ -172,9 +172,22 @@ jobs:
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           cat > /tmp/release-notes.md << EOF
-          A 9-language image toolbox — 17 local tools + 7 AI tools. Local tools run entirely on your machine; AI tools use your own API key.
+          # BrushLLM Image Studio v${VERSION}
 
-          ## Downloads
+          A local-first desktop image toolbox — 17 local tools + 7 AI tools. Local tools run 100% on your machine; AI tools use your own API key. Free and private.
+
+          ## New Features
+
+          - **Update checker** — Check for new versions from Settings → About; the result shows in a status card and opens the release page in your browser
+          - **Installer language selector** — The Windows installer now always opens with a 9-language selector on its first page
+
+          ## Changes
+
+          - **Renamed to BrushLLM Image Studio** — release assets follow the \`BrushLLM.Image.Studio-<version>-<arch>\` naming
+          - **Single Windows installer** — the NSIS \`.exe\` replaces the previous \`.exe\` + \`.msi\` pair
+          - **Mobile builds retired** — Android/iOS packages are no longer published
+
+          ## Installation
 
           | File | System |
           |---|---|
@@ -182,16 +195,18 @@ jobs:
           | \`BrushLLM.Image.Studio-${VERSION}-x64.exe\` | **Windows 10/11** — x64 (Intel/AMD) |
           | \`BrushLLM.Image.Studio-${VERSION}-arm64.exe\` | **Windows 10/11** — ARM64 (Snapdragon) |
 
-          ## How to install
+          - **macOS**: Open the \`.dmg\` and drag **BrushLLM Image Studio** into *Applications*. The app is unsigned — on first launch, right-click the app and choose **Open**.
+          - **Windows**: Run the \`.exe\` matching your CPU. The installer opens with a **language selector** (9 languages). SmartScreen may warn about an unknown publisher — choose *Run anyway*.
 
-          - **macOS**: open the \`.dmg\` and drag **BrushLLM Image Studio** into *Applications*. The app is unsigned — on first launch, right-click the app and choose **Open**.
-          - **Windows**: run the \`.exe\` matching your CPU. The installer opens with a **language selector** (9 languages). SmartScreen may warn about an unknown publisher — choose *Run anyway*.
+          ## Notes
+
+          - Apps are unsigned — macOS Gatekeeper / Windows SmartScreen show a first-run warning.
+          - AI tools need your own API key — set it in Settings → Connection.
           EOF
           echo "notes written: $(wc -c < /tmp/release-notes.md) bytes"
 
       - uses: softprops/action-gh-release@v2
         with:
-          name: "BrushLLM Image Studio ${{ github.ref_name }}"
           body_path: /tmp/release-notes.md
           files: |
             artifacts/**/*.dmg

@@ -195,18 +195,34 @@ jobs:
       - name: Init iOS project
         run: npx tauri ios init --ci
 
-      # xcodegen's iOS default is automatic signing with an "iPhone
-      # Developer" identity, which fails at xcodebuild load time without a
-      # development team. Bake the unsigned-build overrides into the project
-      # itself — the `--` passthrough does NOT reach xcodebuild (tauri
-      # assembles the command with fixed args; the passthrough only feeds
-      # cargo). Validated locally: with these settings xcodebuild passes
-      # signing validation and builds unsigned.
+      # xcodegen's iOS defaults (automatic signing, "iPhone Developer"
+      # identity) make xcodebuild demand a development team at load time.
+      # Bake the unsigned-build overrides into the project spec itself —
+      # explicit settings beat xcodegen defaults AND survive any project
+      # regeneration. Validated locally: xcodebuild passes signing
+      # validation and proceeds into the build phases.
       - name: Patch project for unsigned build
         run: |
-          PBX="src-tauri/gen/apple/image-studio.xcodeproj/project.pbxproj"
-          sed -i '' 's|CODE_SIGN_IDENTITY = "iPhone Developer";|CODE_SIGN_IDENTITY = ""; CODE_SIGN_STYLE = Manual; CODE_SIGNING_ALLOWED = NO; CODE_SIGNING_REQUIRED = NO; DEVELOPMENT_TEAM = "";|g' "$PBX"
-          echo "patched $(grep -c 'CODE_SIGNING_ALLOWED = NO' "$PBX") signing blocks"
+          python3 - << 'EOF'
+          yml = "src-tauri/gen/apple/project.yml"
+          s = open(yml).read()
+          marker = "        ENABLE_BITCODE: false\n"
+          overrides = (
+              "        ENABLE_BITCODE: false\n"
+              "        CODE_SIGN_STYLE: Manual\n"
+              "        CODE_SIGN_IDENTITY: \"\"\n"
+              "        CODE_SIGNING_ALLOWED: \"NO\"\n"
+              "        CODE_SIGNING_REQUIRED: \"NO\"\n"
+              "        DEVELOPMENT_TEAM: \"\"\n"
+          )
+          assert marker in s, "settings marker not found"
+          assert s.count(marker) == 1, "settings marker not unique"
+          s = s.replace(marker, overrides, 1)
+          open(yml, "w").write(s)
+          print("project.yml patched")
+          EOF
+          cd src-tauri/gen/apple && xcodegen generate
+          echo "pbxproj signing blocks: $(grep -c 'CODE_SIGNING_ALLOWED = NO' image-studio.xcodeproj/project.pbxproj)"
 
       # Unsigned DEVICE build (not a simulator build, no Developer signing).
       # tauri's final export step insists on a signing identity and fails —

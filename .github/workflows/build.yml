@@ -114,67 +114,11 @@ jobs:
             src-tauri/target/release/bundle/nsis/*.exe
             src-tauri/target/release/bundle/msi/*.msi
 
-  android:
-    needs: quality
-    name: android-aarch64
-    runs-on: ubuntu-latest
-    env:
-      ANDROID_HOME: /usr/local/lib/android/sdk
-      NDK_VERSION: "27.0.12077973"
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-linux-android
-
-      - uses: swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri
-          key: android-aarch64
-
-      - name: Install NDK
-        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;$NDK_VERSION" > /dev/null
-
-      - name: Install frontend dependencies
-        run: npm ci
-
-      - name: Init Android project
-        run: npx tauri android init
-        env:
-          NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/${{ env.NDK_VERSION }}
-
-      # Debug APK is signed with the auto-generated debug keystore, so it
-      # installs directly on any device.
-      - name: Build Android APK
-        run: npx tauri android build --apk --target aarch64 --debug
-        env:
-          NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/${{ env.NDK_VERSION }}
-
-      - name: Collect APK
-        run: |
-          mkdir -p out
-          # Tauri generates the Android project under src-tauri/gen/android;
-          # the apk flavor dir depends on the --target flag, so find it.
-          find src-tauri/gen/android/app/build/outputs/apk -name "*.apk" -exec cp {} out/ \;
-          ls out/
-
-      - name: Upload bundles
-        uses: actions/upload-artifact@v4
-        with:
-          name: BrushLLM-Studio-android-aarch64
-          if-no-files-found: error
-          path: out/*.apk
-
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    # Android is excluded until a signing keystore is configured: the
-    # debug-signed APK is a CI artifact only, not a release asset.
+    # CI ships the three desktop installers only. Mobile builds (Android
+    # APK, iOS) are produced locally with the Zcode emulator plugins and
+    # attached to this release separately.
     needs: [build]
     runs-on: ubuntu-latest
     permissions:
@@ -190,4 +134,3 @@ jobs:
             artifacts/**/*.dmg
             artifacts/**/*.exe
             artifacts/**/*.msi
-            artifacts/**/*.apk

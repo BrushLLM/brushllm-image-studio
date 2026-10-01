@@ -4,18 +4,13 @@ import { readPersisted, writePersisted } from "./persistedState";
 /** Pick the release asset that installs on the machine running the app. */
 export function platformAsset(info: UpdateInfo): UpdateAsset | null {
   const ua = navigator.userAgent;
-  let pattern: RegExp;
-  if (ua.includes("Android")) {
-    pattern = /\.apk$/i;
-  } else if (/iPhone|iPad|iPod/.test(ua)) {
-    pattern = /\.ipa$/i;
-  } else if (ua.includes("Mac")) {
-    pattern = /\.dmg$/i;
-  } else if (ua.includes("Windows")) {
-    pattern = /ARM64|aarch64/i.test(ua) ? /arm64-setup\.exe$/i : /x64-setup\.exe$/i;
-  } else {
-    pattern = /\.dmg$/i;
-  }
+  // Desktop-only release line: dmg on macOS, arch-matched setup.exe on
+  // Windows.
+  const pattern = ua.includes("Windows")
+    ? /ARM64|aarch64/i.test(ua)
+      ? /arm64-setup\.exe$/i
+      : /x64-setup\.exe$/i
+    : /\.dmg$/i;
   return info.assets.find((a) => pattern.test(a.name)) ?? null;
 }
 

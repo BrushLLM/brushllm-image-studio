@@ -137,115 +137,11 @@ jobs:
             src-tauri/target/release/bundle/macos/*.app
             src-tauri/target/release/bundle/nsis/*.exe
 
-  ios:
-    needs: quality
-    name: ios-aarch64
-    runs-on: macos-14
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-apple-ios
-
-      - uses: swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri
-          key: ios-aarch64
-
-      - name: Install frontend dependencies
-        run: npm ci
-
-      # The runner's default Xcode (15.4) cannot open projects written by
-      # current xcodegen (objectVersion 77, Xcode 26 format). Pin 2.42.0,
-      # which emits objectVersion 54 — readable by every Xcode on the image.
-      # Installing it on PATH also makes `tauri ios init` skip its own
-      # `brew install xcodegen`.
-      - name: Pin xcodegen 2.42.0
-        run: |
-          curl -sL -o /tmp/xcodegen.zip https://github.com/yonaskolb/XcodeGen/releases/download/2.42.0/xcodegen.zip
-          unzip -q -o /tmp/xcodegen.zip -d /tmp/xg
-          BIN=$(find /tmp/xg -name xcodegen -type f -perm +111 | head -1)
-          sudo cp "$BIN" /usr/local/bin/xcodegen
-          xcodegen --version
-
-      # Generates the Xcode project (installs xcodegen via brew if the
-      # image lacks it) and runs pod install.
-      - name: Init iOS project
-        run: npx tauri ios init --ci
-
-      # xcodegen's iOS defaults (automatic signing, "iPhone Developer"
-      # identity) make xcodebuild demand a development team at load time.
-      # Bake the unsigned-build overrides into the project spec itself —
-      # explicit settings beat xcodegen defaults AND survive any project
-      # regeneration. Validated locally: xcodebuild passes signing
-      # validation and proceeds into the build phases.
-      - name: Patch project for unsigned build
-        run: |
-          python3 - << 'EOF'
-          yml = "src-tauri/gen/apple/project.yml"
-          s = open(yml).read()
-          marker = "        ENABLE_BITCODE: false\n"
-          overrides = (
-              "        ENABLE_BITCODE: false\n"
-              "        CODE_SIGN_STYLE: Manual\n"
-              "        CODE_SIGN_IDENTITY: \"\"\n"
-              "        CODE_SIGNING_ALLOWED: \"NO\"\n"
-              "        CODE_SIGNING_REQUIRED: \"NO\"\n"
-              "        DEVELOPMENT_TEAM: \"\"\n"
-          )
-          assert marker in s, "settings marker not found"
-          assert s.count(marker) == 1, "settings marker not unique"
-          s = s.replace(marker, overrides, 1)
-          open(yml, "w").write(s)
-          print("project.yml patched")
-          EOF
-          cd src-tauri/gen/apple && xcodegen generate
-          echo "pbxproj signing blocks: $(grep -c 'CODE_SIGNING_ALLOWED = NO' image-studio.xcodeproj/project.pbxproj)"
-
-      # Unsigned DEVICE build (not a simulator build, no Developer signing).
-      # tauri's final export step insists on a signing identity and fails —
-      # expected; the .app already sits in the .xcarchive, so the next step
-      # salvages it into an unsigned IPA (sideloadable via Sideloadly/
-      # AltStore with the user's own free Apple ID).
-      - name: Build iOS (unsigned)
-        run: >
-          npx tauri ios build --target aarch64 --ci
-          || echo "::warning::export step failed without signing (expected) — salvaging the .app"
-
-      - name: Package unsigned IPA
-        run: |
-          set -e
-          APP=$(find src-tauri/gen/apple -path "*.xcarchive/Products/Applications/*.app" -type d | head -1)
-          if [ -z "$APP" ]; then
-            echo "::error::no .app found in the archive"
-            exit 1
-          fi
-          echo "salvaged: $APP"
-          STAGING=$(mktemp -d)
-          mkdir -p "$STAGING/Payload"
-          cp -R "$APP" "$STAGING/Payload/"
-          (cd "$STAGING" && zip -qry "$GITHUB_WORKSPACE/BrushLLM-Studio_0.0.1_ios-arm64-unsigned.ipa" Payload)
-          ls -lh "$GITHUB_WORKSPACE/BrushLLM-Studio_0.0.1_ios-arm64-unsigned.ipa"
-
-      - name: Upload bundles
-        uses: actions/upload-artifact@v4
-        with:
-          name: BrushLLM-Studio-ios-aarch64
-          if-no-files-found: error
-          path: BrushLLM-Studio_0.0.1_ios-arm64-unsigned.ipa
-
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    # CI ships the three desktop installers plus the unsigned iOS IPA.
-    # Android is built locally with the Zcode plugin toolchain and attached
-    # separately.
-    needs: [build, ios]
+    # CI ships the three desktop installers only — mobile (iOS/Android)
+    # builds are retired.
+    needs: [build]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -271,15 +167,11 @@ jobs:
           | \`BrushLLM.Studio_${VERSION}_aarch64.dmg\` | **macOS** — Apple Silicon (M1/M2/M3/M4) |
           | \`BrushLLM.Studio_${VERSION}_x64-setup.exe\` | **Windows 10/11** — x64 (Intel/AMD) |
           | \`BrushLLM.Studio_${VERSION}_arm64-setup.exe\` | **Windows 10/11** — ARM64 (Snapdragon) |
-          | \`BrushLLM-Studio_${VERSION}_android-arm64.apk\` | **Android** — arm64 phones/tablets |
-          | \`BrushLLM-Studio_${VERSION}_ios-arm64-unsigned.ipa\` | **iOS/iPadOS** — arm64, unsigned |
 
           ## How to install
 
           - **macOS**: open the \`.dmg\` and drag **BrushLLM Studio** into *Applications*. The app is unsigned — on first launch, right-click the app and choose **Open**.
           - **Windows**: run the \`-setup.exe\` matching your CPU. The installer opens with a **language selector** (9 languages). SmartScreen may warn about an unknown publisher — choose *Run anyway*.
-          - **Android**: allow *installing unknown apps* for your browser/file manager, then open the \`.apk\`.
-          - **iOS**: the \`.ipa\` is unsigned — sideload it with **Sideloadly** or **AltStore** using your own (free) Apple ID. The signature is valid for 7 days and can be refreshed.
           EOF
           echo "notes written: $(wc -c < /tmp/release-notes.md) bytes"
 
@@ -289,4 +181,3 @@ jobs:
           files: |
             artifacts/**/*.dmg
             artifacts/**/*.exe
-            artifacts/**/*.ipa

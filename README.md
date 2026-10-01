@@ -44,9 +44,8 @@ Grab the latest installer from [Releases](https://github.com/BrushLLM/brushllm-i
 | Platform | File |
 | --- | --- |
 | macOS (Apple Silicon) | `.dmg` |
-| Windows 11 x64 | `.exe` / `.msi` |
-| Windows 11 ARM64 | `.exe` / `.msi` |
-| Android (arm64) | `.apk` |
+| Windows 11 x64 | `.exe` |
+| Windows 11 ARM64 | `.exe` |
 
 Apps are unsigned — macOS Gatekeeper / Windows SmartScreen show a first-run warning.
 
@@ -90,7 +89,7 @@ Ein lokal-first Desktop-Werkzeugkasten für Bilder — Alltagswerkzeuge laufen k
 
 **Highlights:** UI in 9 Sprachen · Dunkelmodus · ⌘K-Befehlspalette · Stapelverarbeitung · API-Schlüssel im OS-Schlüsselbund · keine Telemetrie.
 
-**📥 Herunterladen:** aktuelle Installationspakete auf [Releases](https://github.com/BrushLLM/brushllm-image-studio/releases) — macOS `.dmg`, Windows `.exe`/`.msi`, Android `.apk`. Unsignierte Apps lösen beim ersten Start eine Warnung aus.
+**📥 Herunterladen:** aktuelle Installationspakete auf [Releases](https://github.com/BrushLLM/brushllm-image-studio/releases) — macOS `.dmg`, Windows `.exe`. Unsignierte Apps lösen beim ersten Start eine Warnung aus.
 
 **🌐 Website:** <https://brushllm.com> · Dokumentation: <https://brushllm.com/docs> · Credits: <https://api.brushllm.com/login>
 
@@ -107,7 +106,7 @@ Una caja de herramientas de imágenes local-first — las operaciones cotidianas
 
 **Lo destacado:** interfaz en 9 idiomas · modo oscuro · paleta de comandos ⌘K · proceso por lotes · clave API en el llavero del sistema · sin telemetría.
 
-**📥 Descargar:** instaladores en [Releases](https://github.com/BrushLLM/brushllm-image-studio/releases) — macOS `.dmg`, Windows `.exe`/`.msi`, Android `.apk`. Apps sin firmar: aviso al primer inicio.
+**📥 Descargar:** instaladores en [Releases](https://github.com/BrushLLM/brushllm-image-studio/releases) — macOS `.dmg`, Windows `.exe`. Apps sin firmar: aviso al primer inicio.
 
 **🌐 Sitio web:** <https://brushllm.com> · Documentación: <https://brushllm.com/docs> · Créditos: <https://api.brushllm.com/login>
 
@@ -124,7 +123,7 @@ Une boîte à outils d'images local-first — les opérations courantes tournent
 
 **Points forts :** interface en 9 langues · mode sombre · palette de commandes ⌘K · traitement par lots · clé API dans le trousseau système · zéro télémétrie.
 
-**📥 Télécharger :** installateurs sur [Releases](https://github.com/BrushLLM/brushllm-image-studio/releases) — macOS `.dmg`, Windows `.exe`/`.msi`, Android `.apk`. Apps non signées : avertissement au premier lancement.
+**📥 Télécharger :** installateurs sur [Releases](https://github.com/BrushLLM/brushllm-image-studio/releases) — macOS `.dmg`, Windows `.exe`. Apps non signées : avertissement au premier lancement.
 
 **🌐 Site web :** <https://brushllm.com> · Documentation : <https://brushllm.com/docs> · Crédits : <https://api.brushllm.com/login>
 
@@ -141,7 +140,7 @@ Uma caixa de ferramentas de imagens local-first — as operações do dia a dia 
 
 **Destaques:** interface em 9 idiomas · modo escuro · paleta de comandos ⌘K · processamento em lote · chave de API no chaveiro do sistema · zero telemetria.
 
-**📥 Baixar:** instaladores em [Releases](https://github.com/BrushLLM/brushllm-image-studio/releases) — macOS `.dmg`, Windows `.exe`/`.msi`, Android `.apk`. Apps não assinados: aviso no primeiro início.
+**📥 Baixar:** instaladores em [Releases](https://github.com/BrushLLM/brushllm-image-studio/releases) — macOS `.dmg`, Windows `.exe`. Apps não assinados: aviso no primeiro início.
 
 **🌐 Site:** <https://brushllm.com> · Documentação: <https://brushllm.com/docs> · Créditos: <https://api.brushllm.com/login>
 
@@ -158,7 +157,7 @@ Desenvolvimento e arquitetura na seção [English](#english).
 
 **亮点：** 九语言界面 · 深色模式 · ⌘K 命令面板 · 批量处理 · API 密钥存系统钥匙串 · 零遥测。
 
-**📥 下载：** 最新安装包见 [Releases](https://github.com/BrushLLM/brushllm-image-studio/releases)——macOS `.dmg`、Windows `.exe`/`.msi`、Android `.apk`。应用未签名，首次运行会有系统提示。
+**📥 下载：** 最新安装包见 [Releases](https://github.com/BrushLLM/brushllm-image-studio/releases)——macOS `.dmg`、Windows `.exe`。应用未签名，首次运行会有系统提示。
 
 **🌐 网站：** <https://brushllm.com> · 文档：<https://brushllm.com/docs> · 充值：<https://api.brushllm.com/login>
 
@@ -175,7 +174,7 @@ Desenvolvimento e arquitetura na seção [English](#english).
 
 **亮點：** 九語言介面 · 深色模式 · ⌘K 命令面板 · 批次處理 · API 金鑰存系統鑰匙圈 · 零遙測。
 
-**📥 下載：** 最新安裝包見 [Releases](https://github.com/BrushLLM/brushllm-image-studio/releases)——macOS `.dmg`、Windows `.exe`/`.msi`、Android `.apk`。應用程式未簽署，首次執行會有系統提示。
+**📥 下載：** 最新安裝包見 [Releases](https://github.com/BrushLLM/brushllm-image-studio/releases)——macOS `.dmg`、Windows `.exe`。應用程式未簽署，首次執行會有系統提示。
 
 **🌐 網站：** <https://brushllm.com> · 文件：<https://brushllm.com/docs> · 儲值：<https://api.brushllm.com/login>
 
@@ -192,7 +191,7 @@ Desenvolvimento e arquitetura na seção [English](#english).
 
 **ハイライト：** 9 言語 UI · ダークモード · ⌘K コマンドパレット · 一括処理 · API キーは OS キーチェーンに保存 · テレメトリなし。
 
-**📥 ダウンロード：** 最新のインストーラーは [Releases](https://github.com/BrushLLM/brushllm-image-studio/releases) — macOS `.dmg`、Windows `.exe`/`.msi`、Android `.apk`。未署名のため初回起動時に警告が出ます。
+**📥 ダウンロード：** 最新のインストーラーは [Releases](https://github.com/BrushLLM/brushllm-image-studio/releases) — macOS `.dmg`、Windows `.exe`。未署名のため初回起動時に警告が出ます。
 
 **🌐 ウェブサイト：** <https://brushllm.com> · ドキュメント: <https://brushllm.com/docs> · クレジット購入: <https://api.brushllm.com/login>
 
@@ -209,7 +208,7 @@ Desenvolvimento e arquitetura na seção [English](#english).
 
 **하이라이트:** 9개 언어 UI · 다크 모드 · ⌘K 커맨드 팔레트 · 일괄 처리 · API 키는 시스템 키체인에 저장 · 텔레메트리 없음.
 
-**📥 다운로드:** 최신 설치 파일은 [Releases](https://github.com/BrushLLM/brushllm-image-studio/releases) — macOS `.dmg`, Windows `.exe`/`.msi`, Android `.apk`. 미서명 앱이라 첫 실행 시 경고가 표시됩니다.
+**📥 다운로드:** 최신 설치 파일은 [Releases](https://github.com/BrushLLM/brushllm-image-studio/releases) — macOS `.dmg`, Windows `.exe`. 미서명 앱이라 첫 실행 시 경고가 표시됩니다.
 
 **🌐 웹사이트:** <https://brushllm.com> · 문서: <https://brushllm.com/docs> · 크레딧 구매: <https://api.brushllm.com/login>
 

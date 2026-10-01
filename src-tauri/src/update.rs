@@ -4,11 +4,9 @@
 //! work; failures surface as plain errors the UI shows next to the button.
 
 use serde::Serialize;
-use std::path::PathBuf;
 
 const RELEASES_API: &str =
     "https://api.github.com/repos/BrushLLM/brushllm-image-studio/releases/latest";
-const MAX_INSTALLER_BYTES: u64 = 200 * 1024 * 1024;
 
 #[derive(Serialize, Clone)]
 pub struct UpdateAsset {
@@ -137,65 +135,6 @@ pub async fn check_update() -> Result<UpdateInfo, String> {
         update_available,
         release_url,
     })
-}
-
-/// Download the chosen installer into the default output folder and return
-/// the saved path. Only plain https asset URLs from the release feed are
-/// accepted.
-#[tauri::command]
-pub async fn download_update(
-    app: tauri::AppHandle,
-    state: tauri::State<'_, crate::commands::AppState>,
-    url: String,
-    file_name: String,
-) -> Result<String, String> {
-    let dl = reqwest::Url::parse(&url).map_err(|e| format!("invalid download URL: {e}"))?;
-    if dl.scheme() != "https" {
-        return Err("download URL must use https".into());
-    }
-    if !dl.username().is_empty() || dl.password().is_some() {
-        return Err("download URL must not contain credentials".into());
-    }
-    crate::engine::guard::validate_file_name(&file_name).map_err(|e| e.to_string())?;
-
-    let dir: PathBuf = {
-        let settings = state.settings.lock().unwrap().clone();
-        match settings.output_dir {
-            Some(d) if !d.trim().is_empty() => PathBuf::from(d),
-            _ => crate::commands::pictures_dir(app)
-                .map(PathBuf::from)
-                .ok_or("cannot resolve the default output folder")?,
-        }
-    };
-    std::fs::create_dir_all(&dir).map_err(|e| format!("cannot create output folder: {e}"))?;
-    let dest = dir.join(&file_name);
-
-    let resp = http_client()?
-        .get(dl.as_str())
-        .send()
-        .await
-        .map_err(|e| format!("cannot start download: {e}"))?;
-    if !resp.status().is_success() {
-        return Err(format!("download failed: HTTP {}", resp.status()));
-    }
-    let total = resp
-        .headers()
-        .get(reqwest::header::CONTENT_LENGTH)
-        .and_then(|v| v.to_str().ok())
-        .and_then(|v| v.parse::<u64>().ok())
-        .unwrap_or(0);
-    if total > MAX_INSTALLER_BYTES {
-        return Err("installer is larger than 200 MB".into());
-    }
-    let bytes = resp
-        .bytes()
-        .await
-        .map_err(|e| format!("download interrupted: {e}"))?;
-    if bytes.len() as u64 > MAX_INSTALLER_BYTES {
-        return Err("installer is larger than 200 MB".into());
-    }
-    std::fs::write(&dest, &bytes).map_err(|e| format!("cannot write installer: {e}"))?;
-    Ok(dest.to_string_lossy().to_string())
 }
 
 #[cfg(test)]

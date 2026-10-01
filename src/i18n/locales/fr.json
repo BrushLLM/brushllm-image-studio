@@ -430,13 +430,9 @@
     "checking": "Vérification…",
     "upToDate": "Vous êtes à jour — v{{version}}.",
     "updateAvailable": "Version {{version}} disponible",
-    "downloadUpdate": "Télécharger la mise à jour",
-    "downloading": "Téléchargement…",
-    "updateDownloaded": "Enregistré dans {{path}} — lancez l'installateur pour mettre à jour.",
     "updateNotes": "Notes de version",
-    "openReleasePage": "Ouvrir la page de version",
-    "updateCheckFailed": "Échec de la vérification — le dépôt doit être public.",
-    "noPlatformAsset": "Aucun installateur pour cette plateforme dans cette version."
+    "openReleasePage": "Télécharger sur GitHub",
+    "updateCheckFailed": "Échec de la vérification — le dépôt doit être public."
   },
   "cmdk": {
     "placeholder": "Rechercher des outils…",

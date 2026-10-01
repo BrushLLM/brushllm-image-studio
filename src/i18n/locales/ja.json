@@ -430,13 +430,9 @@
     "checking": "確認中…",
     "upToDate": "最新です — v{{version}}。",
     "updateAvailable": "バージョン {{version}} が利用可能",
-    "downloadUpdate": "更新をダウンロード",
-    "downloading": "ダウンロード中…",
-    "updateDownloaded": "{{path}} に保存しました — インストーラーを実行して更新してください。",
     "updateNotes": "リリースノート",
-    "openReleasePage": "リリースページを開く",
-    "updateCheckFailed": "更新の確認に失敗しました — リポジトリが公開されている必要があります。",
-    "noPlatformAsset": "このリリースに現在のプラットフォーム用のインストーラーがありません。"
+    "openReleasePage": "GitHub でダウンロード",
+    "updateCheckFailed": "更新の確認に失敗しました — リポジトリが公開されている必要があります。"
   },
   "cmdk": {
     "placeholder": "ツールを検索…",

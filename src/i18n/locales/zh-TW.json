@@ -430,13 +430,9 @@
     "checking": "檢查中…",
     "upToDate": "已是最新版本 — v{{version}}。",
     "updateAvailable": "新版本 {{version}} 可用",
-    "downloadUpdate": "下載更新",
-    "downloading": "下載中…",
-    "updateDownloaded": "已儲存到 {{path}} — 執行安裝包即可更新。",
     "updateNotes": "更新說明",
-    "openReleasePage": "打開發布頁面",
-    "updateCheckFailed": "檢查更新失敗 — 儲存庫需設為公開後才能檢查更新。",
-    "noPlatformAsset": "此版本中沒有適配目前平台的安裝包。"
+    "openReleasePage": "前往 GitHub 下載",
+    "updateCheckFailed": "檢查更新失敗 — 儲存庫需設為公開後才能檢查更新。"
   },
   "cmdk": {
     "placeholder": "搜尋工具…",

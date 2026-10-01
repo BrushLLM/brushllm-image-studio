@@ -430,13 +430,9 @@
     "checking": "Checking…",
     "upToDate": "You're up to date — v{{version}} is the latest.",
     "updateAvailable": "Version {{version}} is available",
-    "downloadUpdate": "Download update",
-    "downloading": "Downloading…",
-    "updateDownloaded": "Saved to {{path}} — run the installer to update.",
     "updateNotes": "Release notes",
-    "openReleasePage": "Open release page",
-    "updateCheckFailed": "Update check failed — the repository must be public for update checks to work.",
-    "noPlatformAsset": "No installer for this platform in the release."
+    "openReleasePage": "Download on GitHub",
+    "updateCheckFailed": "Update check failed — the repository must be public for update checks to work."
   },
   "cmdk": {
     "placeholder": "Search tools…",

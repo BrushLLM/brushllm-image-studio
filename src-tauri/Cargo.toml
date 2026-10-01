@@ -1,6 +1,6 @@
 [package]
 name = "image-studio"
-version = "0.0.1"
+version = "0.0.2"
 description = "BrushLLM Image Studio — local-first AI image toolbox"
 authors = ["BrushLLM"]
 edition = "2021"

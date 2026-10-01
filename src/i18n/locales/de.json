@@ -430,13 +430,9 @@
     "checking": "Suche…",
     "upToDate": "Sie sind auf dem neuesten Stand — v{{version}}.",
     "updateAvailable": "Version {{version}} ist verfügbar",
-    "downloadUpdate": "Update herunterladen",
-    "downloading": "Wird heruntergeladen…",
-    "updateDownloaded": "Gespeichert unter {{path}} — Installer ausführen, um zu aktualisieren.",
     "updateNotes": "Versionshinweise",
-    "openReleasePage": "Release-Seite öffnen",
-    "updateCheckFailed": "Update-Prüfung fehlgeschlagen — das Repository muss öffentlich sein.",
-    "noPlatformAsset": "Kein Installer für diese Plattform in diesem Release."
+    "openReleasePage": "Auf GitHub herunterladen",
+    "updateCheckFailed": "Update-Prüfung fehlgeschlagen — das Repository muss öffentlich sein."
   },
   "cmdk": {
     "placeholder": "Tools suchen…",

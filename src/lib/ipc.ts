@@ -218,6 +218,3 @@ export function checkUpdate(): Promise<UpdateInfo> {
   return invoke("check_update");
 }
 
-export function downloadUpdate(url: string, fileName: string): Promise<string> {
-  return invoke("download_update", { url, fileName });
-}

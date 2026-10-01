@@ -430,13 +430,9 @@
     "checking": "Verificando…",
     "upToDate": "Você está atualizado — v{{version}}.",
     "updateAvailable": "Versão {{version}} disponível",
-    "downloadUpdate": "Baixar atualização",
-    "downloading": "Baixando…",
-    "updateDownloaded": "Salvo em {{path}} — execute o instalador para atualizar.",
     "updateNotes": "Notas da versão",
-    "openReleasePage": "Abrir página do lançamento",
-    "updateCheckFailed": "Falha ao verificar atualização — o repositório precisa ser público.",
-    "noPlatformAsset": "Este lançamento não traz instalador para esta plataforma."
+    "openReleasePage": "Baixar no GitHub",
+    "updateCheckFailed": "Falha ao verificar atualização — o repositório precisa ser público."
   },
   "cmdk": {
     "placeholder": "Buscar ferramentas…",

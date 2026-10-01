@@ -430,13 +430,9 @@
     "checking": "检查中…",
     "upToDate": "已是最新版本 — v{{version}}。",
     "updateAvailable": "新版本 {{version}} 可用",
-    "downloadUpdate": "下载更新",
-    "downloading": "下载中…",
-    "updateDownloaded": "已保存到 {{path}} — 运行安装包即可更新。",
     "updateNotes": "更新说明",
-    "openReleasePage": "打开发布页面",
-    "updateCheckFailed": "检查更新失败 — 仓库需设为公开后才能检查更新。",
-    "noPlatformAsset": "此版本中没有适配当前平台的安装包。"
+    "openReleasePage": "前往 GitHub 下载",
+    "updateCheckFailed": "检查更新失败 — 仓库需设为公开后才能检查更新。"
   },
   "cmdk": {
     "placeholder": "搜索工具…",

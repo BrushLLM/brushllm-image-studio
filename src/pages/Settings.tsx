@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { open, message } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { Coins, Download, FolderOpen, Monitor, Moon, RotateCw, Sun } from "lucide-react";
+import { Coins, ExternalLink, FolderOpen, Monitor, Moon, RotateCw, Sun } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import PageShell from "../components/PageShell";
 import {
@@ -10,16 +10,15 @@ import {
   apiKeyStatus,
   apiTest,
   checkUpdate,
-  downloadUpdate,
   getSettings,
   saveSettings,
   picturesDir,
   type UpdateInfo,
 } from "../lib/ipc";
-import { platformAsset } from "../lib/update";
 import { setAppearance, type Appearance } from "../lib/theme";
 import { LANGUAGES, resolveLanguage } from "../i18n";
 import { usePersistedState } from "../lib/persistedState";
+import { version as appVersion } from "../../package.json";
 
 
 interface Props {
@@ -64,8 +63,6 @@ export default function Settings({ onBack }: Props) {
   );
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [checking, setChecking] = useState(false);
-  const [downloading, setDownloading] = useState(false);
-  const [downloadedTo, setDownloadedTo] = useState<string | null>(null);
   const [updateError, setUpdateError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -562,18 +559,17 @@ export default function Settings({ onBack }: Props) {
               <div className="range-head">
                 <label style={{ marginBottom: 0 }}>{t("settings.version")}</label>
                 <span className="status-note" style={{ userSelect: "text" }}>
-                  v{updateInfo?.current ?? "0.0.1"}
+                  v{updateInfo?.current ?? appVersion}
                 </span>
               </div>
               <div className="row" style={{ marginTop: 10 }}>
                 <button
                   className="btn"
                   style={{ flex: "0 0 auto" }}
-                  disabled={checking || downloading}
+                  disabled={checking}
                   onClick={async () => {
                     setChecking(true);
                     setUpdateError(null);
-                    setDownloadedTo(null);
                     try {
                       setUpdateInfo(await checkUpdate());
                     } catch (e) {
@@ -594,15 +590,6 @@ export default function Settings({ onBack }: Props) {
                     </>
                   )}
                 </button>
-                {updateInfo && (
-                  <span
-                    className="banner-link"
-                    onClick={() => openUrl(updateInfo.release_url)}
-                    style={{ flex: "0 0 auto", alignSelf: "center" }}
-                  >
-                    {t("settings.openReleasePage")}
-                  </span>
-                )}
               </div>
 
               {updateError && (
@@ -620,51 +607,15 @@ export default function Settings({ onBack }: Props) {
                   <div style={{ fontWeight: 650 }}>
                     {t("settings.updateAvailable", { version: updateInfo.latest })}
                   </div>
-                  {platformAsset(updateInfo) ? (
-                    <div className="row" style={{ marginTop: 8 }}>
-                      <button
-                        className="btn btn-primary"
-                        style={{ flex: "0 0 auto" }}
-                        disabled={downloading}
-                        onClick={async () => {
-                          const asset = platformAsset(updateInfo);
-                          if (!asset) return;
-                          setDownloading(true);
-                          setUpdateError(null);
-                          try {
-                            const saved = await downloadUpdate(asset.url, asset.name);
-                            setDownloadedTo(saved);
-                          } catch (e) {
-                            setUpdateError(String(e));
-                          } finally {
-                            setDownloading(false);
-                          }
-                        }}
-                      >
-                        {downloading ? (
-                          <>
-                            <span className="spinner" /> {t("settings.downloading")}
-                          </>
-                        ) : (
-                          <>
-                            <Download size={14} style={{ strokeWidth: 1.8 }} /> {t("settings.downloadUpdate")}
-                          </>
-                        )}
-                      </button>
-                      <span className="status-note" style={{ alignSelf: "center", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>
-                        {platformAsset(updateInfo)?.name}
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="status-note" style={{ marginTop: 6 }}>
-                      {t("settings.noPlatformAsset")}
-                    </div>
-                  )}
-                  {downloadedTo && (
-                    <div className="status-note" style={{ marginTop: 8, wordBreak: "break-all" }}>
-                      {t("settings.updateDownloaded", { path: downloadedTo })}
-                    </div>
-                  )}
+                  <div className="row" style={{ marginTop: 8 }}>
+                    <button
+                      className="btn btn-primary"
+                      style={{ flex: "0 0 auto" }}
+                      onClick={() => openUrl(updateInfo.release_url)}
+                    >
+                      <ExternalLink size={14} style={{ strokeWidth: 1.8 }} /> {t("settings.openReleasePage")}
+                    </button>
+                  </div>
                   {updateInfo.notes.trim() && (
                     <details style={{ marginTop: 8 }}>
                       <summary className="status-note" style={{ cursor: "pointer" }}>

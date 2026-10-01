@@ -195,16 +195,21 @@ jobs:
       - name: Init iOS project
         run: npx tauri ios init --ci
 
-      # Unsigned DEVICE build (not a simulator build, no Developer signing):
-      # the `--` args reach xcodebuild for build+archive and disable code
-      # signing. tauri's final export step insists on a signing identity and
-      # fails — expected; the .app already sits in the .xcarchive, so the
-      # next step salvages it into an unsigned IPA (sideloadable via
-      # Sideloadly/AltStore with the user's own free Apple ID).
+      # Unsigned DEVICE build (not a simulator build, no Developer signing).
+      # The `--` args reach xcodebuild for build+archive. The generated
+      # project defaults to automatic signing with an "iPhone Developer"
+      # identity, which fails at load time without a development team —
+      # the override stack below neutralizes it (validated locally with a
+      # minimal project: BUILD SUCCEEDED unsigned). tauri's final export
+      # step still insists on an identity and fails — expected; the .app
+      # already sits in the .xcarchive, so the next step salvages it into
+      # an unsigned IPA (sideloadable via Sideloadly/AltStore with the
+      # user's own free Apple ID).
       - name: Build iOS (unsigned)
         run: >
           npx tauri ios build --target aarch64 --ci --
           CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
+          CODE_SIGN_IDENTITY= CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=
           || echo "::warning::export step failed without signing (expected) — salvaging the .app"
 
       - name: Package unsigned IPA

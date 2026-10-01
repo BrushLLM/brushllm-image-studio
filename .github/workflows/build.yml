@@ -189,7 +189,7 @@ jobs:
 
           | File | System |
           |---|---|
-          | \`BrushLLM.Image.Studio-${VERSION}-arm64.dmg\` | **macOS** — Apple Silicon (M1/M2/M3/M4) |
+          | \`BrushLLM.Image.Studio-${VERSION}-arm64.dmg\` | **macOS** — Apple Silicon (M-series) |
           | \`BrushLLM.Image.Studio-${VERSION}-x64.exe\` | **Windows 10/11** — x64 (Intel/AMD) |
           | \`BrushLLM.Image.Studio-${VERSION}-arm64.exe\` | **Windows 10/11** — ARM64 (Snapdragon) |
 

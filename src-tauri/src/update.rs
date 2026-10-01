@@ -69,11 +69,15 @@ pub async fn check_update() -> Result<UpdateInfo, String> {
         .await
         .map_err(|e| format!("network error: {e}"))?;
     if !resp.status().is_success() {
-        // 404 on a private repo is the common case — name it explicitly.
-        return Err(format!(
-            "release lookup failed (HTTP {}) — the repository must be public for update checks",
-            resp.status()
-        ));
+        // 404 = private/missing repo; 403 = the anonymous API rate limit
+        // (shared IPs) — different hints for each.
+        let status = resp.status();
+        let hint = match status.as_u16() {
+            403 => "GitHub API rate limit reached, try again later",
+            404 => "the repository must be public for update checks",
+            _ => "unexpected GitHub API response",
+        };
+        return Err(format!("release lookup failed (HTTP {status}) — {hint}"));
     }
     let json: serde_json::Value = resp
         .json()

@@ -255,7 +255,7 @@ jobs:
           path: artifacts
           merge-multiple: true
 
-      # Per-platform install instructions, bilingual (EN + 简体中文).
+      # Per-platform install instructions (English only).
       - name: Compose release notes
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
@@ -280,27 +280,6 @@ jobs:
           - **Windows**: run the \`-setup.exe\` matching your CPU. The installer opens with a **language selector** (9 languages). SmartScreen may warn about an unknown publisher — choose *Run anyway*.
           - **Android**: allow *installing unknown apps* for your browser/file manager, then open the \`.apk\`.
           - **iOS**: the \`.ipa\` is unsigned — sideload it with **Sideloadly** or **AltStore** using your own (free) Apple ID. The signature is valid for 7 days and can be refreshed.
-
-          ---
-
-          # 简体中文
-
-          ## 下载
-
-          | 文件 | 系统 |
-          |---|---|
-          | \`BrushLLM.Studio_${VERSION}_aarch64.dmg\` | **macOS** — Apple 芯片（M1/M2/M3/M4） |
-          | \`BrushLLM.Studio_${VERSION}_x64-setup.exe\` | **Windows 10/11** — x64（Intel/AMD） |
-          | \`BrushLLM.Studio_${VERSION}_arm64-setup.exe\` | **Windows 10/11** — ARM64（骁龙） |
-          | \`BrushLLM-Studio_${VERSION}_android-arm64.apk\` | **Android** — arm64 手机/平板 |
-          | \`BrushLLM-Studio_${VERSION}_ios-arm64-unsigned.ipa\` | **iOS/iPadOS** — arm64，未签名 |
-
-          ## 安装方法
-
-          - **macOS**：打开 \`.dmg\`，把 **BrushLLM Studio** 拖入「应用程序」。应用未签名 — 首次启动请右键点击应用并选择「打开」。
-          - **Windows**：运行与 CPU 对应的 \`-setup.exe\`。安装器首屏有**语言选择**（九种语言）。SmartScreen 可能提示未知发布者 — 选择「仍要运行」。
-          - **Android**：允许浏览器/文件管理器「安装未知应用」后打开 \`.apk\`。
-          - **iOS**：\`.ipa\` 未签名 — 用 **Sideloadly** 或 **AltStore** 以自己的（免费）Apple ID 侧载。签名有效期 7 天，可续签。
           EOF
           echo "notes written: $(wc -c < /tmp/release-notes.md) bytes"
 

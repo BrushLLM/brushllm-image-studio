@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Mobile scaffolding — regenerated per machine by 
+src-tauri/gen/android/
+src-tauri/gen/apple/

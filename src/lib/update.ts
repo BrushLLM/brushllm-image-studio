@@ -4,12 +4,13 @@ import { readPersisted, writePersisted } from "./persistedState";
 /** Pick the release asset that installs on the machine running the app. */
 export function platformAsset(info: UpdateInfo): UpdateAsset | null {
   const ua = navigator.userAgent;
-  // Desktop-only release line: dmg on macOS, arch-matched setup.exe on
-  // Windows.
+  // Desktop-only release line, video-studio asset naming:
+  // BrushLLM.Image.Studio-<version>-<arch>.<ext> (arm64.dmg / x64.exe /
+  // arm64.exe).
   const pattern = ua.includes("Windows")
     ? /ARM64|aarch64/i.test(ua)
-      ? /arm64-setup\.exe$/i
-      : /x64-setup\.exe$/i
+      ? /arm64\.exe$/i
+      : /x64\.exe$/i
     : /\.dmg$/i;
   return info.assets.find((a) => pattern.test(a.name)) ?? null;
 }

@@ -213,7 +213,7 @@ export default function App() {
     <div className={`shell${isMac ? " mac" : ""}`}>
       <header className="topbar" data-tauri-drag-region>
         <div className="logo-mark">
-          <img src={brushLogo} alt="BrushLLM Studio" draggable={false} />
+          <img src={brushLogo} alt="BrushLLM Image Studio" draggable={false} />
         </div>
         <div className="brand">
           BrushLLM<span className="brand-sub">Image Studio</span>

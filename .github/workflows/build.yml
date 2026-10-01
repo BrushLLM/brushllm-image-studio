@@ -109,20 +109,36 @@ jobs:
         if: matrix.target == 'aarch64-apple-darwin'
         run: |
           set -e
+          VERSION="${GITHUB_REF_NAME#v}"
           BUNDLE="src-tauri/target/aarch64-apple-darwin/release/bundle"
-          APP="$BUNDLE/macos/BrushLLM Studio.app"
-          DMG="$BUNDLE/dmg/BrushLLM Studio_0.0.1_aarch64.dmg"
+          APP="$BUNDLE/macos/BrushLLM Image Studio.app"
+          DMG="$BUNDLE/dmg/BrushLLM.Image.Studio-$VERSION-arm64.dmg"
           STAGING=$(mktemp -d)
           cp -R "$APP" "$STAGING/"
           ln -s /Applications "$STAGING/Applications"
           mkdir -p "$BUNDLE/dmg"
-          hdiutil create -volname "BrushLLM Studio" -srcfolder "$STAGING" -ov -format UDZO "$DMG"
+          hdiutil create -volname "BrushLLM Image Studio" -srcfolder "$STAGING" -ov -format UDZO "$DMG"
           ls -lh "$DMG"
 
       - name: Build app (Windows)
         if: matrix.target != 'aarch64-apple-darwin'
         # NSIS only — the msi flavor is dropped from the release line.
         run: npm run tauri build -- --bundles nsis
+
+      # Release asset naming follows the video-studio convention:
+      # BrushLLM.Image.Studio-<version>-<arch>.<ext>
+      - name: Normalize installer names
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          find src-tauri/target -path "*bundle/nsis/*-setup.exe" | while read -r f; do
+            case "$f" in
+              *x64*) mv "$f" "$(dirname "$f")/BrushLLM.Image.Studio-$VERSION-x64.exe" ;;
+              *arm64*) mv "$f" "$(dirname "$f")/BrushLLM.Image.Studio-$VERSION-arm64.exe" ;;
+            esac
+          done
+          find src-tauri/target -path "*bundle/nsis/*.exe" -exec ls -lh {} \;
 
       - name: Upload bundles
         uses: actions/upload-artifact@v4
@@ -156,7 +172,7 @@ jobs:
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           cat > /tmp/release-notes.md << EOF
-          # BrushLLM Studio v${VERSION}
+          # BrushLLM Image Studio v${VERSION}
 
           A 9-language image toolbox — 17 local tools + 7 AI tools. Local tools run entirely on your machine; AI tools use your own API key.
 
@@ -164,19 +180,20 @@ jobs:
 
           | File | System |
           |---|---|
-          | \`BrushLLM.Studio_${VERSION}_aarch64.dmg\` | **macOS** — Apple Silicon (M1/M2/M3/M4) |
-          | \`BrushLLM.Studio_${VERSION}_x64-setup.exe\` | **Windows 10/11** — x64 (Intel/AMD) |
-          | \`BrushLLM.Studio_${VERSION}_arm64-setup.exe\` | **Windows 10/11** — ARM64 (Snapdragon) |
+          | \`BrushLLM.Image.Studio-${VERSION}-arm64.dmg\` | **macOS** — Apple Silicon (M1/M2/M3/M4) |
+          | \`BrushLLM.Image.Studio-${VERSION}-x64.exe\` | **Windows 10/11** — x64 (Intel/AMD) |
+          | \`BrushLLM.Image.Studio-${VERSION}-arm64.exe\` | **Windows 10/11** — ARM64 (Snapdragon) |
 
           ## How to install
 
-          - **macOS**: open the \`.dmg\` and drag **BrushLLM Studio** into *Applications*. The app is unsigned — on first launch, right-click the app and choose **Open**.
-          - **Windows**: run the \`-setup.exe\` matching your CPU. The installer opens with a **language selector** (9 languages). SmartScreen may warn about an unknown publisher — choose *Run anyway*.
+          - **macOS**: open the \`.dmg\` and drag **BrushLLM Image Studio** into *Applications*. The app is unsigned — on first launch, right-click the app and choose **Open**.
+          - **Windows**: run the \`.exe\` matching your CPU. The installer opens with a **language selector** (9 languages). SmartScreen may warn about an unknown publisher — choose *Run anyway*.
           EOF
           echo "notes written: $(wc -c < /tmp/release-notes.md) bytes"
 
       - uses: softprops/action-gh-release@v2
         with:
+          name: "BrushLLM Image Studio ${{ github.ref_name }}"
           body_path: /tmp/release-notes.md
           files: |
             artifacts/**/*.dmg

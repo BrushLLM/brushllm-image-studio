@@ -11,11 +11,7 @@
 <p align="center">A local-first desktop image toolbox — everyday tools run 100% on your device for free; AI-powered editing calls the BrushLLM gateway.</p>
 
 <p align="center">
-  <img src=".github/assets/home-page.png" width="800" alt="BrushLLM Image Studio — light theme">
-</p>
-
-<p align="center">
-  <img src=".github/assets/home-dark.png" width="800" alt="BrushLLM Image Studio — dark theme">
+  <img src=".github/assets/screenshot.png" width="800" alt="BrushLLM Image Studio">
 </p>
 
 [English](#english) | [Deutsch](#deutsch) | [Español](#español) | [Français](#français) | [Português (BR)](#português-br) | [简体中文](#简体中文) | [繁體中文](#繁體中文) | [日本語](#日本語) | [한국어](#한국어)

@@ -174,16 +174,11 @@ jobs:
           cat > /tmp/release-notes.md << EOF
           A local-first desktop image toolbox — 17 local tools + 7 AI tools. Local tools run 100% on your machine; AI tools use your own API key. Free and private.
 
-          ## New Features
-
-          - **Update checker** — Check for new versions from Settings → About; the result shows in a status card and opens the release page in your browser
-          - **Installer language selector** — The Windows installer now always opens with a 9-language selector on its first page
-
           ## Changes
 
-          - **Renamed to BrushLLM Image Studio** — release assets follow the \`BrushLLM.Image.Studio-<version>-<arch>\` naming
-          - **Single Windows installer** — the NSIS \`.exe\` replaces the previous \`.exe\` + \`.msi\` pair
-          - **Mobile builds retired** — Android/iOS packages are no longer published
+          - **Compress never grows a file** — re-encoding now preserves the source color type (RGB input is no longer padded with an alpha channel, which made outputs larger than the originals), TIFF is deflate-compressed, and a same-format output falls back to the original bytes when re-encoding cannot beat them
+          - **Compress offers only shrinkable formats** — SVG / TIFF / BMP / ICO left the Compress picker (they are inherently larger); they remain available in Convert Format
+          - **Clearer update-check errors** — the GitHub API rate limit is now distinguished from a private-repository hint
 
           ## Installation
 

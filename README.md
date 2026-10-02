@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/app-icon.png" width="160" alt="BrushLLM Image Studio app icon">
+</p>
+
 # BrushLLM Image Studio
 
 ![BrushLLM Image Studio](docs/screenshot-home.png)

@@ -1,14 +1,22 @@
 <p align="center">
-  <img src="docs/app-icon.png" width="160" alt="BrushLLM Image Studio app icon">
+  <img src=".github/assets/icon.png" width="128" alt="BrushLLM Image Studio">
 </p>
 
-# BrushLLM Image Studio
+<h1 align="center">BrushLLM Image Studio</h1>
 
-![BrushLLM Image Studio](docs/screenshot-home.png)
+<p align="center">
+  <strong><a href="https://brushllm.com">🌐 brushllm.com</a></strong> · <a href="https://brushllm.com/docs">Docs</a> · <a href="https://github.com/BrushLLM/brushllm-image-studio/releases">Releases</a>
+</p>
 
-**[🌐 brushllm.com](https://brushllm.com)** · [Docs](https://brushllm.com/docs) · [Releases](https://github.com/BrushLLM/brushllm-image-studio/releases)
+<p align="center">A local-first desktop image toolbox — everyday tools run 100% on your device for free; AI-powered editing calls the BrushLLM gateway.</p>
 
-A local-first desktop image toolbox — everyday tools run 100% on your device for free; AI-powered editing calls the BrushLLM gateway.
+<p align="center">
+  <img src=".github/assets/home-page.png" width="800" alt="BrushLLM Image Studio — light theme">
+</p>
+
+<p align="center">
+  <img src=".github/assets/home-dark.png" width="800" alt="BrushLLM Image Studio — dark theme">
+</p>
 
 [English](#english) | [Deutsch](#deutsch) | [Español](#español) | [Français](#français) | [Português (BR)](#português-br) | [简体中文](#简体中文) | [繁體中文](#繁體中文) | [日本語](#日本語) | [한국어](#한국어)
 

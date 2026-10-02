@@ -1,5 +1,7 @@
 # BrushLLM Image Studio
 
+![BrushLLM Image Studio](docs/screenshot-home.png)
+
 **[🌐 brushllm.com](https://brushllm.com)** · [Docs](https://brushllm.com/docs) · [Releases](https://github.com/BrushLLM/brushllm-image-studio/releases)
 
 A local-first desktop image toolbox — everyday tools run 100% on your device for free; AI-powered editing calls the BrushLLM gateway.

@@ -11,6 +11,8 @@ interface Props {
   onQuality: (quality: number) => void;
   preserveExif: boolean;
   onPreserveExif: (value: boolean) => void;
+  /** Restrict the picker (e.g. Compress only offers formats that can shrink). */
+  formats?: FormatChoice[];
 }
 
 // Labels are resolved at render time (t is only available in components).
@@ -54,15 +56,17 @@ export default function FormatQualityWithI18n({
   onQuality,
   preserveExif,
   onPreserveExif,
+  formats,
 }: Props) {
   const { t } = useTranslation();
   const showQuality = QUALITY_FORMATS.includes(format);
+  const options = formats ?? FORMAT_OPTIONS;
   return (
     <>
       <div className="field">
         <label>{t('convert.format')}</label>
         <div className="radio-row">
-          {FORMAT_OPTIONS.map((option) => (
+          {options.map((option) => (
             <button
               key={option}
               className={`radio-chip${format === option ? " active" : ""}`}

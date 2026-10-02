@@ -23,6 +23,7 @@ serde_json = "1"
 # Local image engine — all permissive-licensed, pure Rust (no C deps to ship).
 # Only formats the embedded WebView can also render are accepted, so every
 # queued thumbnail stays visible.
+tiff = { version = "0.11", features = ["deflate"] }
 image = { version = "0.25", default-features = false, features = [
     "jpeg",
     "png",

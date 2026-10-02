@@ -158,6 +158,21 @@ fn process_one(file: &str, job: &BatchJob) -> FileOutcome {
         }
     }
 
+    // A compression must never grow a same-format file: when re-encoding
+    // cannot beat an already-optimal original, keep the original bytes.
+    let in_ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.to_ascii_lowercase())
+        .unwrap_or_default();
+    let out_ext = format.extension();
+    let same_format = in_ext == out_ext
+        || (out_ext == "jpg" && (in_ext == "jpeg" || in_ext == "jpg"))
+        || (out_ext == "tiff" && (in_ext == "tif" || in_ext == "tiff"));
+    if same_format && encoded.len() as u64 >= in_bytes {
+        encoded = bytes.clone();
+    }
+
     // Output path: target dir (or the input's folder) + stem + suffix + extension.
     let stem = path
         .file_stem()

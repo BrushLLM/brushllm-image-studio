@@ -75,7 +75,6 @@ fn encode_jpeg(rgb: &image::RgbImage, q: u8) -> Result<Vec<u8>> {
 
 fn encode_png(img: &DynamicImage, q: u8) -> Result<Vec<u8>> {
     use image::ImageEncoder;
-    let rgba = img.to_rgba8();
     let compression = if q >= 67 {
         image::codecs::png::CompressionType::Best
     } else if q >= 34 {
@@ -89,66 +88,179 @@ fn encode_png(img: &DynamicImage, q: u8) -> Result<Vec<u8>> {
         compression,
         image::codecs::png::FilterType::Adaptive,
     );
-    enc.write_image(
-        rgba.as_raw(),
-        rgba.width(),
-        rgba.height(),
-        image::ExtendedColorType::Rgba8,
-    )
-    .map_err(|e| StudioError::Encode(format!("png: {e}")))?;
+    // Keep the source color type: padding an alpha channel onto RGB input
+    // bloats the data by a third and hurts filter prediction — re-encoded
+    // "compressed" files came out LARGER than the originals.
+    let result = match img {
+        DynamicImage::ImageLuma8(g) => enc.write_image(
+            g.as_raw(),
+            g.width(),
+            g.height(),
+            image::ExtendedColorType::L8,
+        ),
+        DynamicImage::ImageLumaA8(ga) => enc.write_image(
+            ga.as_raw(),
+            ga.width(),
+            ga.height(),
+            image::ExtendedColorType::La8,
+        ),
+        DynamicImage::ImageRgb8(rgb) => enc.write_image(
+            rgb.as_raw(),
+            rgb.width(),
+            rgb.height(),
+            image::ExtendedColorType::Rgb8,
+        ),
+        DynamicImage::ImageRgba8(rgba) => enc.write_image(
+            rgba.as_raw(),
+            rgba.width(),
+            rgba.height(),
+            image::ExtendedColorType::Rgba8,
+        ),
+        // 16-bit and exotic inputs: downconvert (same as before).
+        _ => {
+            let rgba = img.to_rgba8();
+            enc.write_image(
+                rgba.as_raw(),
+                rgba.width(),
+                rgba.height(),
+                image::ExtendedColorType::Rgba8,
+            )
+        }
+    };
+    result.map_err(|e| StudioError::Encode(format!("png: {e}")))?;
     Ok(buf)
 }
 
 /// The pure-Rust WebP encoder is lossless-only (VP8L); quality is not applied.
 fn encode_webp(img: &DynamicImage, _q: u8) -> Result<Vec<u8>> {
     use image::ImageEncoder;
-    let rgba = img.to_rgba8();
     let mut buf = Vec::new();
     let enc = image::codecs::webp::WebPEncoder::new_lossless(&mut buf);
-    enc.write_image(
-        rgba.as_raw(),
-        rgba.width(),
-        rgba.height(),
-        image::ExtendedColorType::Rgba8,
-    )
-    .map_err(|e| StudioError::Encode(format!("webp: {e}")))?;
+    // Same color-type preservation as PNG — no padded alpha for RGB input.
+    let result = match img {
+        DynamicImage::ImageRgb8(rgb) => enc.write_image(
+            rgb.as_raw(),
+            rgb.width(),
+            rgb.height(),
+            image::ExtendedColorType::Rgb8,
+        ),
+        DynamicImage::ImageRgba8(rgba) => enc.write_image(
+            rgba.as_raw(),
+            rgba.width(),
+            rgba.height(),
+            image::ExtendedColorType::Rgba8,
+        ),
+        DynamicImage::ImageLuma8(g) => enc.write_image(
+            g.as_raw(),
+            g.width(),
+            g.height(),
+            image::ExtendedColorType::L8,
+        ),
+        DynamicImage::ImageLumaA8(ga) => enc.write_image(
+            ga.as_raw(),
+            ga.width(),
+            ga.height(),
+            image::ExtendedColorType::La8,
+        ),
+        _ => {
+            let rgba = img.to_rgba8();
+            enc.write_image(
+                rgba.as_raw(),
+                rgba.width(),
+                rgba.height(),
+                image::ExtendedColorType::Rgba8,
+            )
+        }
+    };
+    result.map_err(|e| StudioError::Encode(format!("webp: {e}")))?;
     Ok(buf)
 }
 
 fn encode_avif(img: &DynamicImage, q: u8) -> Result<Vec<u8>> {
-    let rgba = img.to_rgba8();
-    let pixels: Vec<rgb::RGBA8> = rgba
-        .pixels()
-        .map(|p| rgb::RGBA {
-            r: p[0],
-            g: p[1],
-            b: p[2],
-            a: p[3],
-        })
-        .collect();
-    let width = rgba.width() as usize;
-    let height = rgba.height() as usize;
-    let frame = imgref::Img::new(pixels.as_slice(), width, height);
     let encoder = ravif::Encoder::new().with_quality(q as f32).with_speed(8);
-    let encoded = encoder
-        .encode_rgba(frame)
-        .map_err(|e| StudioError::Encode(format!("avif: {e}")))?;
+    // RGB input skips the alpha plane — smaller output, faster encode.
+    let encoded = if let DynamicImage::ImageRgb8(rgb) = img {
+        let pixels: Vec<rgb::RGB8> = rgb
+            .pixels()
+            .map(|p| rgb::RGB {
+                r: p[0],
+                g: p[1],
+                b: p[2],
+            })
+            .collect();
+        let frame = imgref::Img::new(
+            pixels.as_slice(),
+            rgb.width() as usize,
+            rgb.height() as usize,
+        );
+        encoder
+            .encode_rgb(frame)
+            .map_err(|e| StudioError::Encode(format!("avif: {e}")))?
+    } else {
+        let rgba = img.to_rgba8();
+        let pixels: Vec<rgb::RGBA8> = rgba
+            .pixels()
+            .map(|p| rgb::RGBA {
+                r: p[0],
+                g: p[1],
+                b: p[2],
+                a: p[3],
+            })
+            .collect();
+        let frame = imgref::Img::new(
+            pixels.as_slice(),
+            rgba.width() as usize,
+            rgba.height() as usize,
+        );
+        encoder
+            .encode_rgba(frame)
+            .map_err(|e| StudioError::Encode(format!("avif: {e}")))?
+    };
     Ok(encoded.avif_file)
 }
 
 /// TIFF output: lossless, alpha preserved. Quality is not applied.
+/// TIFF with deflate + horizontal predictor (the image crate's encoder
+/// writes uncompressed strips, which made every TIFF output enormous).
+/// Color type is preserved — no padded alpha on RGB input.
 fn encode_tiff(img: &DynamicImage) -> Result<Vec<u8>> {
-    use image::ImageEncoder;
-    let rgba = img.to_rgba8();
+    fn write_rgb(
+        enc: &mut tiff::encoder::TiffEncoder<&mut std::io::Cursor<Vec<u8>>>,
+        img: &DynamicImage,
+    ) -> tiff::TiffResult<()> {
+        match img {
+            DynamicImage::ImageRgb8(rgb) => {
+                let w =
+                    enc.new_image::<tiff::encoder::colortype::RGB8>(rgb.width(), rgb.height())?;
+                w.write_data(rgb.as_raw())
+            }
+            DynamicImage::ImageRgba8(rgba) => {
+                let w =
+                    enc.new_image::<tiff::encoder::colortype::RGBA8>(rgba.width(), rgba.height())?;
+                w.write_data(rgba.as_raw())
+            }
+            DynamicImage::ImageLuma8(g) => {
+                let w = enc.new_image::<tiff::encoder::colortype::Gray8>(g.width(), g.height())?;
+                w.write_data(g.as_raw())
+            }
+            _ => {
+                let rgba = img.to_rgba8();
+                let w =
+                    enc.new_image::<tiff::encoder::colortype::RGBA8>(rgba.width(), rgba.height())?;
+                w.write_data(rgba.as_raw())
+            }
+        }
+    }
+
     let mut buf = std::io::Cursor::new(Vec::new());
-    let enc = image::codecs::tiff::TiffEncoder::new(&mut buf);
-    enc.write_image(
-        rgba.as_raw(),
-        rgba.width(),
-        rgba.height(),
-        image::ExtendedColorType::Rgba8,
-    )
-    .map_err(|e| StudioError::Encode(format!("tiff: {e}")))?;
+    let mut enc = tiff::encoder::TiffEncoder::new(&mut buf)
+        .map_err(|e| StudioError::Encode(format!("tiff: {e}")))?;
+    enc = enc
+        .with_compression(tiff::encoder::Compression::Deflate(
+            tiff::encoder::DeflateLevel::Best,
+        ))
+        .with_predictor(tiff::encoder::Predictor::Horizontal);
+    write_rgb(&mut enc, img).map_err(|e| StudioError::Encode(format!("tiff: {e}")))?;
     Ok(buf.into_inner())
 }
 
@@ -232,6 +344,66 @@ mod tests {
             *px = image::Rgba([(x * 4) as u8, (y * 5) as u8, 128, 255]);
         }
         DynamicImage::ImageRgba8(img)
+    }
+
+    /// PNG output must keep the source color type — padding RGB input
+    /// with an alpha channel made "compressed" files LARGER than the
+    /// originals. The IHDR color-type byte: 2 = RGB, 6 = RGBA, 0 = gray.
+
+    #[test]
+    fn png_output_keeps_rgb_color_type() {
+        let mut rgb = image::RgbImage::new(64, 48);
+        for (x, y, px) in rgb.enumerate_pixels_mut() {
+            *px = image::Rgb([(x * 4) as u8, (y * 5) as u8, 128]);
+        }
+        let img = DynamicImage::ImageRgb8(rgb);
+        let out = encode(
+            &img,
+            &EncodeSettings {
+                format: OutFormat::Png,
+                quality: 80,
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            out[25], 2,
+            "IHDR color type must be RGB (2), got {}",
+            out[25]
+        );
+    }
+
+    #[test]
+    fn png_output_keeps_rgba_color_type() {
+        let out = encode(
+            &sample(),
+            &EncodeSettings {
+                format: OutFormat::Png,
+                quality: 80,
+            },
+        )
+        .unwrap();
+        assert_eq!(out[25], 6, "IHDR color type must be RGBA (6)");
+    }
+
+    /// TIFF must be deflate-compressed (not the enormous uncompressed
+    /// strips the image crate writes by default).
+    #[test]
+    fn tiff_output_is_compressed() {
+        let img = sample();
+        let out = encode(
+            &img,
+            &EncodeSettings {
+                format: OutFormat::Tiff,
+                quality: 80,
+            },
+        )
+        .unwrap();
+        // 64x48 RGBA = 12,288 bytes raw; deflate must come in far below.
+        assert!(
+            out.len() < 12_000,
+            "tiff output {} bytes — looks uncompressed",
+            out.len()
+        );
     }
 
     #[test]

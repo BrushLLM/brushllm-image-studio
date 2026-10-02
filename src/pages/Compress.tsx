@@ -21,7 +21,11 @@ export default function Compress({ onBack }: Props) {
   const { t } = useTranslation();
   const { files, add, remove, clear } = useImageFiles();
   const [inputError, setInputError] = useState<string | null>(null);
-  const [format, setFormat] = useState<FormatChoice>("same");
+  /** Only formats that can actually shrink a file — SVG/TIFF/BMP/ICO
+ *  are inherently larger and belong in Convert, not Compress. */
+const COMPRESSIBLE_FORMATS: FormatChoice[] = ["same", "jpeg", "png", "webp", "avif"];
+
+const [format, setFormat] = useState<FormatChoice>("same");
   const [quality, setQuality] = useState(75);
   const [preserveExif, setPreserveExif] = useState(false);
   const [output, setOutput] = useState<OutputConfig>({
@@ -94,6 +98,7 @@ export default function Compress({ onBack }: Props) {
               onQuality={setQuality}
               preserveExif={preserveExif}
               onPreserveExif={setPreserveExif}
+              formats={COMPRESSIBLE_FORMATS}
             />
             <div className="hint" style={{ marginBottom: 12 }}>
             </div>

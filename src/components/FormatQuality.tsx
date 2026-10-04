@@ -41,7 +41,7 @@ const QUALITY_HINT_KEYS: Record<FormatChoice, string> = {
 };
 
 /** Formats where the quality slider / preset chips apply. */
-const QUALITY_FORMATS: FormatChoice[] = ["jpeg", "png", "avif"];
+const QUALITY_FORMATS: FormatChoice[] = ["jpeg", "png", "webp", "avif"];
 
 const QUALITY_PRESETS: { labelKey: string; value: number }[] = [
   { labelKey: "common.presetSmaller", value: 50 },

@@ -441,6 +441,10 @@ pub async fn preview_batch(
         let format = format.unwrap_or_else(|| decode::same_output_format(&bytes));
         let encoded = encode::encode(&processed, &EncodeSettings { format, quality })
             .map_err(|e| e.to_string())?;
+        // Mirror the batch pipeline: a same-format "compress" that cannot
+        // beat the original keeps the original bytes, so the previewed size
+        // matches what actually gets written.
+        let encoded = crate::engine::batch::never_grow(&file, format, &bytes, encoded);
         let len = encoded.len() as u64;
         let mime = match format {
             OutFormat::Jpeg => "image/jpeg",

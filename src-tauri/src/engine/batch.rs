@@ -2,6 +2,31 @@ use serde::{Deserialize, Serialize};
 
 use super::{decode, encode, metadata, ops};
 
+/// True when the output format matches the file's own extension, so
+/// re-encoding is a same-format "compress" rather than a conversion.
+pub fn is_same_format(input_path: &str, format: encode::OutFormat) -> bool {
+    let in_ext = std::path::Path::new(input_path)
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.to_ascii_lowercase())
+        .unwrap_or_default();
+    let out_ext = format.extension();
+    in_ext == out_ext
+        || (out_ext == "jpg" && (in_ext == "jpeg" || in_ext == "jpg"))
+        || (out_ext == "tiff" && (in_ext == "tif" || in_ext == "tiff"))
+}
+
+/// A same-format re-encode that did not get smaller keeps the original
+/// bytes — "compress" must never grow the file. `original` is the source
+/// file's raw bytes; `encoded` is the fresh re-encode.
+pub fn never_grow(input_path: &str, format: encode::OutFormat, original: &[u8], encoded: Vec<u8>) -> Vec<u8> {
+    if is_same_format(input_path, format) && encoded.len() as u64 >= original.len() as u64 {
+        original.to_vec()
+    } else {
+        encoded
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Collision {
@@ -160,18 +185,7 @@ fn process_one(file: &str, job: &BatchJob) -> FileOutcome {
 
     // A compression must never grow a same-format file: when re-encoding
     // cannot beat an already-optimal original, keep the original bytes.
-    let in_ext = path
-        .extension()
-        .and_then(|e| e.to_str())
-        .map(|e| e.to_ascii_lowercase())
-        .unwrap_or_default();
-    let out_ext = format.extension();
-    let same_format = in_ext == out_ext
-        || (out_ext == "jpg" && (in_ext == "jpeg" || in_ext == "jpg"))
-        || (out_ext == "tiff" && (in_ext == "tif" || in_ext == "tiff"));
-    if same_format && encoded.len() as u64 >= in_bytes {
-        encoded = bytes.clone();
-    }
+    let encoded = never_grow(file, format, &bytes, encoded);
 
     // Output path: target dir (or the input's folder) + stem + suffix + extension.
     let stem = path
@@ -263,6 +277,38 @@ pub(crate) fn resolve_collision(path: &std::path::Path, policy: Collision) -> Co
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// "Compress" must never grow a same-format file: a re-encode that
+    /// cannot beat the original keeps the original bytes untouched.
+    #[test]
+    fn never_grow_keeps_original_when_reencode_is_larger() {
+        let original = vec![0u8; 1000];
+        let larger = vec![0u8; 1200];
+        let out = never_grow("photo.png", encode::OutFormat::Png, &original, larger.clone());
+        assert_eq!(out.len(), original.len(), "larger re-encode must fall back");
+        // A smaller re-encode is kept.
+        let smaller = vec![0u8; 800];
+        let out = never_grow("photo.png", encode::OutFormat::Png, &original, smaller);
+        assert_eq!(out.len(), 800);
+    }
+
+    /// Cross-format conversions are exempt — growing is expected there.
+    #[test]
+    fn never_grow_does_not_apply_across_formats() {
+        let original = vec![0u8; 1000];
+        let larger = vec![0u8; 5000];
+        let out = never_grow("photo.png", encode::OutFormat::Bmp, &original, larger);
+        assert_eq!(out.len(), 5000, "conversions may legitimately grow");
+    }
+
+    #[test]
+    fn same_format_matches_jpg_and_tiff_aliases() {
+        assert!(is_same_format("a.jpeg", encode::OutFormat::Jpeg));
+        assert!(is_same_format("a.jpg", encode::OutFormat::Jpeg));
+        assert!(is_same_format("a.tif", encode::OutFormat::Tiff));
+        assert!(is_same_format("a.tiff", encode::OutFormat::Tiff));
+        assert!(!is_same_format("a.png", encode::OutFormat::Jpeg));
+    }
 
     #[test]
     fn collision_rename_finds_free_slot() {

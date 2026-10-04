@@ -33,7 +33,10 @@ impl OutFormat {
     /// Lossless formats ignore the quality setting entirely.
     #[allow(dead_code)]
     pub fn uses_quality(self) -> bool {
-        matches!(self, OutFormat::Jpeg | OutFormat::Png | OutFormat::Avif)
+        matches!(
+            self,
+            OutFormat::Jpeg | OutFormat::Png | OutFormat::Webp | OutFormat::Avif
+        )
     }
 }
 
@@ -131,49 +134,63 @@ fn encode_png(img: &DynamicImage, q: u8) -> Result<Vec<u8>> {
     Ok(buf)
 }
 
-/// The pure-Rust WebP encoder is lossless-only (VP8L); quality is not applied.
-fn encode_webp(img: &DynamicImage, _q: u8) -> Result<Vec<u8>> {
-    use image::ImageEncoder;
-    let mut buf = Vec::new();
-    let enc = image::codecs::webp::WebPEncoder::new_lossless(&mut buf);
-    // Same color-type preservation as PNG — no padded alpha for RGB input.
-    let result = match img {
-        DynamicImage::ImageRgb8(rgb) => enc.write_image(
-            rgb.as_raw(),
-            rgb.width(),
-            rgb.height(),
-            image::ExtendedColorType::Rgb8,
-        ),
-        DynamicImage::ImageRgba8(rgba) => enc.write_image(
-            rgba.as_raw(),
-            rgba.width(),
-            rgba.height(),
-            image::ExtendedColorType::Rgba8,
-        ),
-        DynamicImage::ImageLuma8(g) => enc.write_image(
-            g.as_raw(),
-            g.width(),
-            g.height(),
-            image::ExtendedColorType::L8,
-        ),
-        DynamicImage::ImageLumaA8(ga) => enc.write_image(
-            ga.as_raw(),
-            ga.width(),
-            ga.height(),
-            image::ExtendedColorType::La8,
-        ),
-        _ => {
-            let rgba = img.to_rgba8();
-            enc.write_image(
-                rgba.as_raw(),
-                rgba.width(),
-                rgba.height(),
-                image::ExtendedColorType::Rgba8,
-            )
+/// Lossy WebP via libwebp. The image crate's pure-Rust WebPEncoder is
+/// lossless-only (VP8L): "compressing" to WebP repacked losslessly and often
+/// came out LARGER than the source (a 1.4 MB PNG re-packed to a 1.5 MB WebP,
+/// while libwebp at q75 yields ~77 KB). Quality 1–100 maps directly onto
+/// libwebp's quality factor.
+fn encode_webp(img: &DynamicImage, q: u8) -> Result<Vec<u8>> {
+    use libwebp_sys as sys;
+
+    let (width, height) = (img.width(), img.height());
+    // libwebp imports RGBA directly; opaque pixels simply get a 255 alpha
+    // plane, which the lossy encoder drops at negligible size cost.
+    let pixels = img.to_rgba8();
+    let stride = width as i32 * 4;
+
+    unsafe {
+        let mut config: sys::WebPConfig = std::mem::zeroed();
+        if sys::WebPConfigInitInternal(
+            &mut config,
+            sys::WebPPreset::WEBP_PRESET_PICTURE,
+            q as f32,
+            sys::WEBP_ENCODER_ABI_VERSION as i32,
+        ) == 0
+        {
+            return Err(StudioError::Encode("webp: config init failed".into()));
         }
-    };
-    result.map_err(|e| StudioError::Encode(format!("webp: {e}")))?;
-    Ok(buf)
+
+        let mut pic: sys::WebPPicture = std::mem::zeroed();
+        if sys::WebPPictureInitInternal(&mut pic, sys::WEBP_ENCODER_ABI_VERSION as i32) == 0 {
+            return Err(StudioError::Encode("webp: picture init failed".into()));
+        }
+        pic.width = width as i32;
+        pic.height = height as i32;
+        pic.use_argb = 0;
+
+        if sys::WebPPictureImportRGBA(&mut pic, pixels.as_raw().as_ptr(), stride) == 0 {
+            sys::WebPPictureFree(&mut pic);
+            return Err(StudioError::Encode("webp: pixel import failed".into()));
+        }
+
+        let mut wrt: sys::WebPMemoryWriter = std::mem::zeroed();
+        sys::WebPMemoryWriterInit(&mut wrt);
+        pic.writer = Some(sys::WebPMemoryWrite);
+        pic.custom_ptr = &mut wrt as *mut _ as *mut std::ffi::c_void;
+
+        let ok = sys::WebPEncode(&config, &mut pic);
+        sys::WebPPictureFree(&mut pic);
+        if ok == 0 {
+            sys::WebPMemoryWriterClear(&mut wrt);
+            return Err(StudioError::Encode(format!(
+                "webp: encode failed (error {:?})",
+                pic.error_code
+            )));
+        }
+        let out = std::slice::from_raw_parts(wrt.mem, wrt.size).to_vec();
+        sys::WebPMemoryWriterClear(&mut wrt);
+        Ok(out)
+    }
 }
 
 fn encode_avif(img: &DynamicImage, q: u8) -> Result<Vec<u8>> {
@@ -461,19 +478,31 @@ mod tests {
     }
 
     #[test]
-    fn webp_is_lossless_and_decodable() {
+    fn webp_encodes_and_decodes() {
         let img = sample();
         let bytes = encode(
             &img,
             &EncodeSettings {
                 format: OutFormat::Webp,
-                quality: 50,
+                quality: 80,
             },
         )
         .unwrap();
         let decoded = image::load_from_memory(&bytes).unwrap();
         assert_eq!(decoded.dimensions(), (64, 48));
-        // Lossless: pixels must round-trip exactly.
-        assert_eq!(decoded.to_rgba8().as_raw(), img.to_rgba8().as_raw());
+        // Lossy: dimensions survive, pixels come back approximately.
+        let orig = img.to_rgba8();
+        let back = decoded.to_rgba8();
+        let drift: u32 = orig
+            .pixels()
+            .zip(back.pixels())
+            .map(|(a, b)| {
+                (0..3)
+                    .map(|i| (a[i] as i32 - b[i] as i32).unsigned_abs())
+                    .sum::<u32>()
+            })
+            .sum();
+        let avg = drift as f64 / (orig.width() * orig.height()) as f64;
+        assert!(avg < 20.0, "webp q80 drifted too far: avg {avg}");
     }
 }

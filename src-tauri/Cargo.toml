@@ -39,6 +39,10 @@ fast_image_resize = "5"
 ravif = { version = "0.12", default-features = false }
 rgb = "0.8"
 imgref = "1.9"
+# Real lossy WebP (libwebp). The image crate's pure-Rust WebPEncoder is
+# lossless-only, so "compress to webp" was actually repacking losslessly and
+# often came out LARGER than the input. libwebp-sys bundles the C library.
+libwebp-sys = "0.9"
 kamadak-exif = "0.5"
 crc32fast = "1"
 

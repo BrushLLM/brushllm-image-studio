@@ -19,7 +19,12 @@ pub fn is_same_format(input_path: &str, format: encode::OutFormat) -> bool {
 /// A same-format re-encode that did not get smaller keeps the original
 /// bytes — "compress" must never grow the file. `original` is the source
 /// file's raw bytes; `encoded` is the fresh re-encode.
-pub fn never_grow(input_path: &str, format: encode::OutFormat, original: &[u8], encoded: Vec<u8>) -> Vec<u8> {
+pub fn never_grow(
+    input_path: &str,
+    format: encode::OutFormat,
+    original: &[u8],
+    encoded: Vec<u8>,
+) -> Vec<u8> {
     if is_same_format(input_path, format) && encoded.len() as u64 >= original.len() as u64 {
         original.to_vec()
     } else {
@@ -284,7 +289,12 @@ mod tests {
     fn never_grow_keeps_original_when_reencode_is_larger() {
         let original = vec![0u8; 1000];
         let larger = vec![0u8; 1200];
-        let out = never_grow("photo.png", encode::OutFormat::Png, &original, larger.clone());
+        let out = never_grow(
+            "photo.png",
+            encode::OutFormat::Png,
+            &original,
+            larger.clone(),
+        );
         assert_eq!(out.len(), original.len(), "larger re-encode must fall back");
         // A smaller re-encode is kept.
         let smaller = vec![0u8; 800];

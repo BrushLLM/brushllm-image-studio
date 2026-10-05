@@ -284,7 +284,6 @@ export default function Home({ onNavigate }: Props) {
       </div>
 
       <div className="home-footer">
-        <span>BrushLLM Image Studio v0.0.1</span>
         <a onClick={() => openUrl("https://brushllm.com/")}>{t("footer.website")}</a>
         <a onClick={() => openUrl("https://brushllm.com/docs")}>{t("footer.apiDocs")}</a>
       </div>

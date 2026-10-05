@@ -176,9 +176,10 @@ jobs:
 
           ## Changes
 
-          - **Compress never grows a file** — re-encoding now preserves the source color type (RGB input is no longer padded with an alpha channel, which made outputs larger than the originals), TIFF is deflate-compressed, and a same-format output falls back to the original bytes when re-encoding cannot beat them
-          - **Compress offers only shrinkable formats** — SVG / TIFF / BMP / ICO left the Compress picker (they are inherently larger); they remain available in Convert Format
-          - **Clearer update-check errors** — the GitHub API rate limit is now distinguished from a private-repository hint
+          - **Real WebP compression** — WebP output is now lossy via libwebp with the quality slider applied: typical photos land around 5% of the original at q75 (previously a lossless re-pack that could end up larger than the input)
+          - **Preview matches the output** — the Compress preview now goes through the same never-grow fallback as the actual write, so the size it shows is the size you get
+          - **All formats back in Compress** — the same-format fallback guarantees no output grows its own kind, so the picker no longer needs to hide formats
+          - **Home page cleanup** — removed the stale version label from the footer
 
           ## Installation
 

@@ -5,7 +5,7 @@
 <h1 align="center">BrushLLM Image Studio</h1>
 
 <p align="center">
-  <strong><a href="https://brushllm.com">🌐 brushllm.com</a></strong> · <a href="https://brushllm.com/docs">Docs</a> · <a href="https://github.com/BrushLLM/brushllm-image-studio/releases">Releases</a>
+  <strong><a href="https://brushllm.com">🌐 brushllm.com</a></strong> · <a href="https://brushllm.com/docs">Docs</a> · <a href="https://github.com/BrushLLm/brushllm-image-studio/releases">Releases</a>
 </p>
 
 <p align="center">A local-first desktop image toolbox — everyday tools run 100% on your device for free; AI-powered editing calls the BrushLLM gateway.</p>
@@ -14,20 +14,30 @@
   <img src=".github/assets/screenshot.png" width="800" alt="BrushLLM Image Studio">
 </p>
 
-[English](#english) | [Deutsch](#deutsch) | [Español](#español) | [Français](#français) | [Português (BR)](#português-br) | [简体中文](#简体中文) | [繁體中文](#繁體中文) | [日本語](#日本語) | [한국어](#한국어)
+## Download
 
----
+Grab the latest installer from the [releases page](https://github.com/BrushLLm/brushllm-image-studio/releases/latest):
+
+| System | File |
+| --- | --- |
+| macOS — Apple Silicon (M-series) | `.dmg` |
+| Windows 10/11 — x64 (Intel/AMD) | `.exe` |
+| Windows 10/11 — ARM64 (Snapdragon) | `.exe` |
+
+Apps are unsigned — macOS Gatekeeper / Windows SmartScreen show a first-run warning.
+
+[English](#english) | [Deutsch](#deutsch) | [Español](#español) | [Français](#français) | [Português (BR)](#português-br) | [简体中文](#简体中文) | [繁體中文](#繁體中文) | [日本語](#日本語) | [한국어](#한국어)
 
 ## English
 
-### ✨ Features
+### Tools
 
-**Local tools — free, offline, private (no network requests):**
+**15 local tools — free, offline, private:**
 
 | Tool | What it does |
 | --- | --- |
 | Convert Format | Batch-convert between 8 input and 8 output formats |
-| Compress | Shrink files with quality presets and metadata stripping |
+| Compress | Shrink files with quality presets and metadata stripping — same-format output never grows |
 | Resize | By pixels, percentage or presets — Lanczos resampling |
 | Crop & Rotate | Aspect-ratio frames, 90° rotation, flips — live preview |
 | Mirror | Join an image with its reflection — A \| A |
@@ -40,32 +50,26 @@
 | Annotate | Shapes, arrows, highlights and text notes |
 | Mosaic | Paint-to-pixelate any area |
 | Shadow | Drop shadow with offset, blur, color and opacity |
-| Color Replace | Swap a color while keeping shadows and texture |
+| Color Replace | Swap colors (up to 6 pairs) while keeping shadows and texture |
 
-**AI tools — cloud-powered via [brushllm.com](https://brushllm.com) (billed per image):**
-Generate Image · Remove Background · Cutout · Remove Watermark · Remove Object · Generative Fill (with optional reference images, e.g. person swap) · Restyle.
+**7 AI tools — cloud-powered via [brushllm.com](https://brushllm.com) (billed per image):**
+Generate Image · Remove Background · Cutout · Remove Watermark · Remove Object · Generative Fill (with optional reference images) · Restyle.
 
-**Highlights:** 9-language UI · dark mode · ⌘K command palette · batch processing · API key stored in the OS keychain · zero telemetry.
+**Highlights:** dark mode · ⌘K command palette · batch processing · 9-language UI with 6 more planned.
 
-### 📥 Download
+### Languages
 
-Grab the latest installer from [Releases](https://github.com/BrushLLM/brushllm-image-studio/releases):
+**Available now (9):** English · Deutsch · Español · Français · Português (BR) · 简体中文 · 繁體中文 · 日本語 · 한국어
 
-| Platform | File |
-| --- | --- |
-| macOS (Apple Silicon) | `.dmg` |
-| Windows 11 x64 | `.exe` |
-| Windows 11 ARM64 | `.exe` |
+**Planned:** Italiano · Nederlands · Polski · Türkçe · Bahasa Indonesia · Tiếng Việt
 
-Apps are unsigned — macOS Gatekeeper / Windows SmartScreen show a first-run warning.
+### Privacy
 
-### 🌐 Website
+- Local tools run entirely on your device — your images never leave it.
+- AI tools call the BrushLLM gateway with your own API key; the key lives in the OS keychain, never in a plain file.
+- The only other network call is an anonymous GitHub release check for the update notification. Zero telemetry.
 
-- Website: <https://brushllm.com>
-- API docs: <https://brushllm.com/docs>
-- Get credits: <https://api.brushllm.com/login>
-
-### 🛠 Develop
+### Develop
 
 ```bash
 npm install
@@ -78,19 +82,19 @@ Rust engine tests: `cd src-tauri && cargo test` — requires Node 22+, Rust stab
 ### Architecture
 
 - **UI** — React 19 + TypeScript + Vite in the system WebView (Tauri 2). `src/pages` (tool pages) → `src/components` → `src/lib/ipc.ts` (typed `invoke` wrappers).
-- **Local engine** (`src-tauri/src/engine`) — pure Rust, permissively licensed crates only, no C dependencies: `image` (JPEG/PNG/WebP/GIF/BMP/TIFF/ICO in), `resvg` (SVG in), `fast_image_resize` (SIMD Lanczos), `ravif` (AVIF out), `kamadak-exif`. Input formats: 8 — JPEG, PNG, WebP, GIF (first frame), BMP, TIFF, ICO, SVG. Output formats: 8 — JPEG, PNG, WebP (lossless), AVIF, SVG (embedded raster), TIFF, BMP, ICO.
-- **Cloud** (`src-tauri/src/api/client.rs`) — the only place that talks to the BrushLLM gateway; separate base URLs for image edits and text-to-image; reference images sent as `image[]` parts (gpt-image models).
-- The API key lives in the OS keychain (`keyring`), never in a plain file.
+- **Local engine** (`src-tauri/src/engine`) — a Rust image pipeline: `image` (JPEG/PNG/WebP/GIF/BMP/TIFF/ICO in), `resvg` (SVG in), `fast_image_resize` (SIMD Lanczos), `ravif` (AVIF out), `libwebp` (lossy WebP out), `kamadak-exif`. Input formats: 8 — JPEG, PNG, WebP, GIF (first frame), BMP, TIFF, ICO, SVG. Output formats: 8 — JPEG, PNG, WebP (lossy, quality slider), AVIF, SVG (embedded raster), TIFF, BMP, ICO.
+- **Cloud** (`src-tauri/src/api/client.rs`) — the only code that talks to the BrushLLM gateway; separate base URLs for image edits and text-to-image; reference images sent as `image[]` parts (gpt-image models).
 
 ### Known limitations
 
 - HEIC/HEIF and AVIF **input** are not supported (AVIF output works).
-- WebP output is lossless-only; SVG output embeds a raster image (not vector tracing); GIF inputs use the first frame.
+- WebP output is lossy (quality slider); SVG output embeds a raster image (not vector tracing); GIF inputs use the first frame.
 - Apps are unsigned (code signing can be added to CI later).
 
----
+## Translations
 
-## Deutsch
+<details id="deutsch">
+<summary>Deutsch</summary>
 
 Ein lokal-first Desktop-Werkzeugkasten für Bilder — Alltagswerkzeuge laufen kostenlos auf deinem Gerät; KI-Bearbeitung nutzt das BrushLLM-Gateway.
 
@@ -99,15 +103,16 @@ Ein lokal-first Desktop-Werkzeugkasten für Bilder — Alltagswerkzeuge laufen k
 
 **Highlights:** UI in 9 Sprachen · Dunkelmodus · ⌘K-Befehlspalette · Stapelverarbeitung · API-Schlüssel im OS-Schlüsselbund · keine Telemetrie.
 
-**📥 Herunterladen:** aktuelle Installationspakete auf [Releases](https://github.com/BrushLLM/brushllm-image-studio/releases) — macOS `.dmg`, Windows `.exe`. Unsignierte Apps lösen beim ersten Start eine Warnung aus.
+**📥 Herunterladen:** aktuelle Installationspakete auf [Releases](https://github.com/BrushLLm/brushllm-image-studio/releases) — macOS `.dmg`, Windows `.exe`. Unsignierte Apps lösen beim ersten Start eine Warnung aus.
 
 **🌐 Website:** <https://brushllm.com> · Dokumentation: <https://brushllm.com/docs> · Credits: <https://api.brushllm.com/login>
 
 Entwicklung und Architektur findest du im Abschnitt [English](#english).
 
----
+</details>
 
-## Español
+<details id="español">
+<summary>Español</summary>
 
 Una caja de herramientas de imágenes local-first — las operaciones cotidianas se ejecutan gratis en tu equipo; la edición con IA usa la pasarela de BrushLLM.
 
@@ -116,15 +121,16 @@ Una caja de herramientas de imágenes local-first — las operaciones cotidianas
 
 **Lo destacado:** interfaz en 9 idiomas · modo oscuro · paleta de comandos ⌘K · proceso por lotes · clave API en el llavero del sistema · sin telemetría.
 
-**📥 Descargar:** instaladores en [Releases](https://github.com/BrushLLM/brushllm-image-studio/releases) — macOS `.dmg`, Windows `.exe`. Apps sin firmar: aviso al primer inicio.
+**📥 Descargar:** instaladores en [Releases](https://github.com/BrushLLm/brushllm-image-studio/releases) — macOS `.dmg`, Windows `.exe`. Apps sin firmar: aviso al primer inicio.
 
 **🌐 Sitio web:** <https://brushllm.com> · Documentación: <https://brushllm.com/docs> · Créditos: <https://api.brushllm.com/login>
 
 Desarrollo y arquitectura, en la sección [English](#english).
 
----
+</details>
 
-## Français
+<details id="français">
+<summary>Français</summary>
 
 Une boîte à outils d'images local-first — les opérations courantes tournent gratuitement sur votre machine ; l'édition IA passe par la passerelle BrushLLM.
 
@@ -133,15 +139,16 @@ Une boîte à outils d'images local-first — les opérations courantes tournent
 
 **Points forts :** interface en 9 langues · mode sombre · palette de commandes ⌘K · traitement par lots · clé API dans le trousseau système · zéro télémétrie.
 
-**📥 Télécharger :** installateurs sur [Releases](https://github.com/BrushLLM/brushllm-image-studio/releases) — macOS `.dmg`, Windows `.exe`. Apps non signées : avertissement au premier lancement.
+**📥 Télécharger :** installateurs sur [Releases](https://github.com/BrushLLm/brushllm-image-studio/releases) — macOS `.dmg`, Windows `.exe`. Apps non signées : avertissement au premier lancement.
 
-**🌐 Site web :** <https://brushllm.com> · Documentation : <https://brushllm.com/docs> · Crédits : <https://api.brushllm.com/login>
+**🌐 Site web :** <https://brushllm.com> · Documentation: <https://brushllm.com/docs> · Crédits: <https://api.brushllm.com/login>
 
 Développement et architecture dans la section [English](#english).
 
----
+</details>
 
-## Português (BR)
+<details id="português-br">
+<summary>Português (BR)</summary>
 
 Uma caixa de ferramentas de imagens local-first — as operações do dia a dia rodam grátis na sua máquina; a edição com IA usa o gateway BrushLLM.
 
@@ -150,15 +157,16 @@ Uma caixa de ferramentas de imagens local-first — as operações do dia a dia 
 
 **Destaques:** interface em 9 idiomas · modo escuro · paleta de comandos ⌘K · processamento em lote · chave de API no chaveiro do sistema · zero telemetria.
 
-**📥 Baixar:** instaladores em [Releases](https://github.com/BrushLLM/brushllm-image-studio/releases) — macOS `.dmg`, Windows `.exe`. Apps não assinados: aviso no primeiro início.
+**📥 Baixar:** instaladores em [Releases](https://github.com/BrushLLm/brushllm-image-studio/releases) — macOS `.dmg`, Windows `.exe`. Apps não assinados: aviso no primeiro início.
 
 **🌐 Site:** <https://brushllm.com> · Documentação: <https://brushllm.com/docs> · Créditos: <https://api.brushllm.com/login>
 
 Desenvolvimento e arquitetura na seção [English](#english).
 
----
+</details>
 
-## 简体中文
+<details id="简体中文">
+<summary>简体中文</summary>
 
 本地优先的桌面图像工具箱——日常工具 100% 在本机免费运行；AI 编辑调用 BrushLLM 网关。
 
@@ -167,15 +175,16 @@ Desenvolvimento e arquitetura na seção [English](#english).
 
 **亮点：** 九语言界面 · 深色模式 · ⌘K 命令面板 · 批量处理 · API 密钥存系统钥匙串 · 零遥测。
 
-**📥 下载：** 最新安装包见 [Releases](https://github.com/BrushLLM/brushllm-image-studio/releases)——macOS `.dmg`、Windows `.exe`。应用未签名，首次运行会有系统提示。
+**📥 下载：** 最新安装包见 [Releases](https://github.com/BrushLLm/brushllm-image-studio/releases)——macOS `.dmg`、Windows `.exe`。应用未签名，首次运行会有系统提示。
 
 **🌐 网站：** <https://brushllm.com> · 文档：<https://brushllm.com/docs> · 充值：<https://api.brushllm.com/login>
 
 开发与架构说明见 [English](#english) 章节。
 
----
+</details>
 
-## 繁體中文
+<details id="繁體中文">
+<summary>繁體中文</summary>
 
 本機優先的桌面影像工具箱——日常工具 100% 在本機免費執行；AI 編輯呼叫 BrushLLM 閘道。
 
@@ -184,15 +193,16 @@ Desenvolvimento e arquitetura na seção [English](#english).
 
 **亮點：** 九語言介面 · 深色模式 · ⌘K 命令面板 · 批次處理 · API 金鑰存系統鑰匙圈 · 零遙測。
 
-**📥 下載：** 最新安裝包見 [Releases](https://github.com/BrushLLM/brushllm-image-studio/releases)——macOS `.dmg`、Windows `.exe`。應用程式未簽署，首次執行會有系統提示。
+**📥 下載：** 最新安裝包見 [Releases](https://github.com/BrushLLm/brushllm-image-studio/releases)——macOS `.dmg`、Windows `.exe`。應用程式未簽署，首次執行會有系統提示。
 
 **🌐 網站：** <https://brushllm.com> · 文件：<https://brushllm.com/docs> · 儲值：<https://api.brushllm.com/login>
 
 開發與架構說明見 [English](#english) 章節。
 
----
+</details>
 
-## 日本語
+<details id="日本語">
+<summary>日本語</summary>
 
 ローカルファーストのデスクトップ画像ツールボックス — 日常のツールは 100% 端末上で無料で動作し、AI 編集は BrushLLM ゲートウェイを利用します。
 
@@ -201,15 +211,16 @@ Desenvolvimento e arquitetura na seção [English](#english).
 
 **ハイライト：** 9 言語 UI · ダークモード · ⌘K コマンドパレット · 一括処理 · API キーは OS キーチェーンに保存 · テレメトリなし。
 
-**📥 ダウンロード：** 最新のインストーラーは [Releases](https://github.com/BrushLLM/brushllm-image-studio/releases) — macOS `.dmg`、Windows `.exe`。未署名のため初回起動時に警告が出ます。
+**📥 ダウンロード：** 最新のインストーラーは [Releases](https://github.com/BrushLLm/brushllm-image-studio/releases) — macOS `.dmg`、Windows `.exe`。未署名のため初回起動時に警告が出ます。
 
 **🌐 ウェブサイト：** <https://brushllm.com> · ドキュメント: <https://brushllm.com/docs> · クレジット購入: <https://api.brushllm.com/login>
 
 開発とアーキテクチャは [English](#english) セクションをご覧ください。
 
----
+</details>
 
-## 한국어
+<details id="한국어">
+<summary>한국어</summary>
 
 로컬 우선 데스크톱 이미지 도구함 — 일상 도구는 100% 기기에서 무료로 실행되고, AI 편집은 BrushLLM 게이트웨이를 사용합니다.
 
@@ -218,8 +229,10 @@ Desenvolvimento e arquitetura na seção [English](#english).
 
 **하이라이트:** 9개 언어 UI · 다크 모드 · ⌘K 커맨드 팔레트 · 일괄 처리 · API 키는 시스템 키체인에 저장 · 텔레메트리 없음.
 
-**📥 다운로드:** 최신 설치 파일은 [Releases](https://github.com/BrushLLM/brushllm-image-studio/releases) — macOS `.dmg`, Windows `.exe`. 미서명 앱이라 첫 실행 시 경고가 표시됩니다.
+**📥 다운로드:** 최신 설치 파일은 [Releases](https://github.com/BrushLLm/brushllm-image-studio/releases) — macOS `.dmg`, Windows `.exe`. 미서명 앱이라 첫 실행 시 경고가 표시됩니다.
 
 **🌐 웹사이트:** <https://brushllm.com> · 문서: <https://brushllm.com/docs> · 크레딧 구매: <https://api.brushllm.com/login>
 
 개발 및 아키텍처는 [English](#english) 섹션을 참고하세요.
+
+</details>

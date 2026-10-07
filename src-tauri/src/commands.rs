@@ -3,12 +3,10 @@ use tauri::{AppHandle, Emitter, State};
 
 use crate::api;
 use crate::api_key;
-use crate::engine::batch::{
-    self, resolve_collision, BatchJob, BatchReport, CollisionDecision, OutputSettings,
-};
+use crate::engine::batch::{self, BatchJob, BatchReport, OutputSettings};
 use crate::engine::encode::{self, EncodeSettings, OutFormat};
 use crate::engine::stitch;
-use crate::engine::{compose, decode, guard};
+use crate::engine::{compose, decode, guard, output as engine_output};
 use crate::settings::Settings;
 
 /// Mutable app state managed by Tauri.
@@ -90,10 +88,14 @@ pub struct StitchJob {
 #[tauri::command]
 pub async fn run_stitch(job: StitchJob) -> Result<String, String> {
     tauri::async_runtime::spawn_blocking(move || {
+        if job.files.is_empty() {
+            return Err("no images to stitch".into());
+        }
         let mut images = Vec::with_capacity(job.files.len());
         for file in &job.files {
-            images
-                .push(decode::decode_file(std::path::Path::new(file)).map_err(|e| e.to_string())?);
+            let path = std::path::Path::new(file);
+            guard::validate_input_file(path).map_err(|e| e.to_string())?;
+            images.push(decode::decode_file(path).map_err(|e| e.to_string())?);
         }
         let stitched = stitch::stitch(images, &job.opts).map_err(|e| e.to_string())?;
         let encoded = encode::encode(
@@ -104,11 +106,16 @@ pub async fn run_stitch(job: StitchJob) -> Result<String, String> {
             },
         )
         .map_err(|e| e.to_string())?;
-        let out_path = single_output_path(&job.files[0], &job.format, &job.output)?;
-        if let Err(e) = std::fs::write(&out_path, &encoded) {
-            return Err(format!("cannot write {}: {e}", out_path.display()));
+        let (out_path, collision) = single_output_path(&job.files[0], &job.format, &job.output)?;
+        // Stitch inputs are all consumed by decode before writing, so no
+        // protected set is needed here.
+        match engine_output::write_output(&out_path, &encoded, collision, &[]) {
+            Ok(engine_output::WriteOutcome::Written(p)) => Ok(p.to_string_lossy().to_string()),
+            Ok(engine_output::WriteOutcome::Skipped(p)) => {
+                Err(format!("skipped: {} already exists", p.display()))
+            }
+            Err(e) => Err(e.to_string()),
         }
-        Ok(out_path.to_string_lossy().to_string())
     })
     .await
     .map_err(|e| format!("stitch task failed: {e}"))?
@@ -132,6 +139,8 @@ pub async fn apply_overlay(job: OverlayJob) -> Result<String, String> {
     use base64::Engine;
     tauri::async_runtime::spawn_blocking(move || {
         use image::GenericImageView;
+        guard::validate_input_file(std::path::Path::new(&job.image_path))
+            .map_err(|e| e.to_string())?;
         let bytes =
             decode::read_bytes(std::path::Path::new(&job.image_path)).map_err(|e| e.to_string())?;
         let base = decode::decode_from_buffer(&bytes).map_err(|e| e.to_string())?;
@@ -168,21 +177,30 @@ pub async fn apply_overlay(job: OverlayJob) -> Result<String, String> {
             }
         }
         let out_path = single_output_path(&job.image_path, &format, &job.output)?;
-        if let Err(e) = std::fs::write(&out_path, &encoded) {
-            return Err(format!("cannot write {}: {e}", out_path.display()));
+        match engine_output::write_output(
+            &out_path.0,
+            &encoded,
+            out_path.1,
+            &[std::path::PathBuf::from(&job.image_path)],
+        ) {
+            Ok(engine_output::WriteOutcome::Written(p)) => Ok(p.to_string_lossy().to_string()),
+            Ok(engine_output::WriteOutcome::Skipped(p)) => {
+                Err(format!("skipped: {} already exists", p.display()))
+            }
+            Err(e) => Err(e.to_string()),
         }
-        Ok(out_path.to_string_lossy().to_string())
     })
     .await
     .map_err(|e| format!("overlay task failed: {e}"))?
 }
 
 /// Resolve the output path for single-result tools (stitch/watermark).
+/// Returns (path, collision-policy) — the caller commits via write_output.
 fn single_output_path(
     first_input: &str,
     format: &OutFormat,
     output: &OutputSettings,
-) -> Result<std::path::PathBuf, String> {
+) -> Result<(std::path::PathBuf, batch::Collision), String> {
     let input = std::path::Path::new(first_input);
     let stem = input
         .file_stem()
@@ -203,10 +221,7 @@ fn single_output_path(
     let file_name = format!("{}{}.{}", stem, suffix, format.extension());
     let path = out_dir.join(&file_name);
     let path = guard::validate_output_path(&path).map_err(|e| e.to_string())?;
-    match resolve_collision(&path, output.collision) {
-        CollisionDecision::Skip => Err(format!("skipped: {} already exists", path.display())),
-        CollisionDecision::Write(final_path) => Ok(final_path),
-    }
+    Ok((path, output.collision))
 }
 
 /// Serve a local image as a data: URL. Canvas drawing of asset-protocol images
@@ -214,6 +229,9 @@ fn single_output_path(
 #[tauri::command]
 pub fn read_asset(path: String) -> Result<String, String> {
     use base64::Engine;
+    if !guard::has_no_parent_traversal(&path) {
+        return Err(format!("unsafe image path: {path}"));
+    }
     guard::validate_input_file(std::path::Path::new(&path)).map_err(|e| e.to_string())?;
     let bytes = std::fs::read(&path).map_err(|e| format!("cannot read {path}: {e}"))?;
     let mime = sniff_image_mime(&bytes, &path);
@@ -280,6 +298,10 @@ fn sniff_image_mime(bytes: &[u8], path: &str) -> String {
 
 #[tauri::command]
 pub fn read_exif(path: String) -> Result<Vec<crate::engine::exif_edit::FieldInfo>, String> {
+    if !guard::has_no_parent_traversal(&path) {
+        return Err(format!("unsafe image path: {path}"));
+    }
+    guard::validate_input_file(std::path::Path::new(&path)).map_err(|e| e.to_string())?;
     let bytes = std::fs::read(&path).map_err(|e| format!("cannot read {path}: {e}"))?;
     match crate::engine::exif_edit::read_fields(&bytes) {
         Ok(fields) => Ok(fields),
@@ -349,6 +371,11 @@ impl ExifAction {
 pub async fn apply_exif(job: ExifJob) -> Result<String, String> {
     tauri::async_runtime::spawn_blocking(move || {
         use crate::engine::exif_edit;
+        if !guard::has_no_parent_traversal(&job.image_path) {
+            return Err(format!("unsafe image path: {}", job.image_path));
+        }
+        guard::validate_input_file(std::path::Path::new(&job.image_path))
+            .map_err(|e| e.to_string())?;
         let bytes = std::fs::read(&job.image_path).map_err(|e| format!("cannot read: {e}"))?;
         let format =
             image::guess_format(&bytes).map_err(|e| format!("unrecognized image format: {e}"))?;
@@ -406,11 +433,19 @@ pub async fn apply_exif(job: ExifJob) -> Result<String, String> {
             "webp" => OutFormat::Webp,
             _ => OutFormat::Png,
         };
-        let out_path = single_output_path(&job.image_path, &format, &job.output)?;
-        if let Err(e) = std::fs::write(&out_path, &out_bytes) {
-            return Err(format!("cannot write {}: {e}", out_path.display()));
+        let (out_path, collision) = single_output_path(&job.image_path, &format, &job.output)?;
+        match engine_output::write_output(
+            &out_path,
+            &out_bytes,
+            collision,
+            &[std::path::PathBuf::from(&job.image_path)],
+        ) {
+            Ok(engine_output::WriteOutcome::Written(p)) => Ok(p.to_string_lossy().to_string()),
+            Ok(engine_output::WriteOutcome::Skipped(p)) => {
+                Err(format!("skipped: {} already exists", p.display()))
+            }
+            Err(e) => Err(e.to_string()),
         }
-        Ok(out_path.to_string_lossy().to_string())
     })
     .await
     .map_err(|e| format!("exif task failed: {e}"))?
@@ -435,6 +470,7 @@ pub async fn preview_batch(
 ) -> Result<PreviewResult, String> {
     use base64::Engine;
     tauri::async_runtime::spawn_blocking(move || {
+        guard::validate_input_file(std::path::Path::new(&file)).map_err(|e| e.to_string())?;
         let bytes = decode::read_bytes(std::path::Path::new(&file)).map_err(|e| e.to_string())?;
         let img = decode::decode_from_buffer(&bytes).map_err(|e| e.to_string())?;
         let processed = crate::engine::ops::apply_steps(img, &steps).map_err(|e| e.to_string())?;
@@ -443,8 +479,10 @@ pub async fn preview_batch(
             .map_err(|e| e.to_string())?;
         // Mirror the batch pipeline: a same-format "compress" that cannot
         // beat the original keeps the original bytes, so the previewed size
-        // matches what actually gets written.
-        let encoded = crate::engine::batch::never_grow(&file, format, &bytes, encoded);
+        // matches what actually gets written. Edited images (steps present)
+        // never fall back — the preview must show the real edit.
+        let encoded =
+            crate::engine::batch::never_grow(&file, format, &bytes, encoded, steps.is_empty());
         let len = encoded.len() as u64;
         let mime = match format {
             OutFormat::Jpeg => "image/jpeg",
@@ -480,8 +518,9 @@ pub async fn preview_stitch(
         let files = &files[..files.len().min(MAX_PREVIEW_IMAGES)];
         let mut images = Vec::with_capacity(files.len());
         for file in files {
-            images
-                .push(decode::decode_file(std::path::Path::new(file)).map_err(|e| e.to_string())?);
+            let path = std::path::Path::new(file);
+            guard::validate_input_file(path).map_err(|e| e.to_string())?;
+            images.push(decode::decode_file(path).map_err(|e| e.to_string())?);
         }
         let stitched = stitch::stitch(images, &opts).map_err(|e| e.to_string())?;
         let encoded = encode::encode(
@@ -718,8 +757,13 @@ pub fn get_settings(state: State<'_, AppState>) -> Settings {
 pub fn save_settings(
     app: AppHandle,
     state: State<'_, AppState>,
-    settings: Settings,
+    mut settings: Settings,
 ) -> Result<(), String> {
+    // Normalize BEFORE persisting and use the SAME normalized value for the
+    // in-memory state — previously the disk copy was normalized while memory
+    // kept the raw input, so the current session behaved differently from a
+    // restarted one (e.g. an empty t2i URL erroring until relaunch).
+    settings.normalize();
     crate::settings::save(&app, &settings)?;
     *state.settings.lock().unwrap() = settings;
     Ok(())
@@ -741,5 +785,10 @@ pub fn save_bytes(path: String, data_b64: String) -> Result<(), String> {
                 .map_err(|e| format!("cannot create folder {}: {e}", parent.display()))?;
         }
     }
-    std::fs::write(&out, bytes).map_err(|e| format!("cannot write {}: {e}", out.display()))
+    // Crash-safe commit: a failed write must never truncate an existing file
+    // (e.g. an AI result saved over a previous export).
+    match engine_output::write_output(&out, &bytes, batch::Collision::Overwrite, &[]) {
+        Ok(_) => Ok(()),
+        Err(e) => Err(e.to_string()),
+    }
 }

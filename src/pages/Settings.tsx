@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { open, message } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Coins, ExternalLink, FolderOpen, Monitor, Moon, RotateCw, Sun } from "lucide-react";
@@ -16,6 +16,7 @@ import {
   type UpdateInfo,
 } from "../lib/ipc";
 import { setAppearance, type Appearance } from "../lib/theme";
+import type { Settings as AppSettings } from "../lib/types";
 import { LANGUAGES, resolveLanguage } from "../i18n";
 import { usePersistedState } from "../lib/persistedState";
 import { version as appVersion } from "../../package.json";
@@ -64,11 +65,19 @@ export default function Settings({ onBack }: Props) {
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [checking, setChecking] = useState(false);
   const [updateError, setUpdateError] = useState<string | null>(null);
+  /** Last settings known to be persisted — preference-only saves merge on
+   *  top of this instead of the (possibly unsaved) connection draft. */
+  const committedRef = useRef<AppSettings | null>(null);
+  /** Latest connection-input values, kept current on every render so a
+   *  finishing test can detect edits made while it was in flight. */
+  const connRef = useRef({ base: baseUrl, baseT2i: baseUrlT2i, key: keyInput });
+  connRef.current = { base: baseUrl, baseT2i: baseUrlT2i, key: keyInput };
 
   useEffect(() => {
     apiKeyStatus().then(setHasKey);
     getSettings()
       .then((settings) => {
+        committedRef.current = settings;
         setBaseUrl(settings.base_url);
         setBaseUrlT2i(settings.base_url_t2i || settings.base_url);
         setDefaultModel(settings.default_model);
@@ -90,9 +99,12 @@ export default function Settings({ onBack }: Props) {
           // Factory default: the OS Pictures folder (never "next to source").
           picturesDir().then(async (pics) => {
             if (!pics) return;
+            // Only apply it if the user hasn't saved a different folder (or
+            // anything that changed output_dir) while it was resolving.
+            if (committedRef.current?.output_dir !== settings.output_dir) return;
             setOutputDir(pics);
             try {
-              await saveSettings({ ...settings, output_dir: pics });
+              await savePreferences({ output_dir: pics });
             } catch {
               /* shown on save anyway */
             }
@@ -102,6 +114,18 @@ export default function Settings({ onBack }: Props) {
       .catch(() => {});
   }, []);
 
+  /** Persist a preference-only patch (appearance / language / output_dir)
+   *  merged on top of the last committed settings — never on top of the
+   *  current connection draft, so e.g. switching the theme can't silently
+   *  save unsaved baseUrl/model edits. No-op until settings are loaded. */
+  const savePreferences = async (patch: Partial<AppSettings>) => {
+    const base = committedRef.current;
+    if (!base) return;
+    const next = { ...base, ...patch };
+    await saveSettings(next);
+    committedRef.current = next;
+  };
+
   const chooseLanguage = async (next: string) => {
     setLanguageState(next);
     const i18next = (await import("../i18n")).default;
@@ -109,14 +133,7 @@ export default function Settings({ onBack }: Props) {
       next === "system" ? resolveLanguage("system") : next,
     );
     try {
-      await saveSettings({
-        base_url: baseUrl.trim(),
-        base_url_t2i: baseUrlT2i.trim(),
-        default_model: defaultModel,
-        output_dir: outputDir,
-        appearance,
-        language: next,
-      });
+      await savePreferences({ language: next });
     } catch (e) {
       setStatusOk(false);
       setStatus(String(e));
@@ -127,14 +144,7 @@ export default function Settings({ onBack }: Props) {
     setAppearanceState(next);
     setAppearance(next);
     try {
-      await saveSettings({
-        base_url: baseUrl.trim(),
-        base_url_t2i: baseUrlT2i.trim(),
-        default_model: defaultModel,
-        output_dir: outputDir,
-        appearance: next,
-        language,
-      });
+      await savePreferences({ appearance: next });
     } catch (e) {
       setStatusOk(false);
       setStatus(String(e));
@@ -151,14 +161,16 @@ export default function Settings({ onBack }: Props) {
         setKeyInput("");
         setHasKey(true);
       }
-      await saveSettings({
+      const next: AppSettings = {
         base_url: baseUrl.trim(),
         base_url_t2i: baseUrlT2i.trim(),
         default_model: defaultModel,
         output_dir: outputDir,
         appearance,
         language,
-      });
+      };
+      await saveSettings(next);
+      committedRef.current = next;
       setSaved({
         base: baseUrl.trim(),
         baseT2i: baseUrlT2i.trim(),
@@ -194,14 +206,7 @@ export default function Settings({ onBack }: Props) {
   const pickOutputDirFor = async (dir: string) => {
     setOutputDir(dir);
     try {
-      await saveSettings({
-        base_url: baseUrl.trim(),
-        base_url_t2i: baseUrlT2i.trim(),
-        default_model: defaultModel,
-        output_dir: dir,
-        appearance,
-        language,
-      });
+      await savePreferences({ output_dir: dir });
       setStatusOk(true);
       setStatus(t("settings.folderSet", { dir }));
     } catch (e) {
@@ -215,19 +220,12 @@ export default function Settings({ onBack }: Props) {
     if (typeof dir === "string") {
       setOutputDir(dir);
       try {
-        await saveSettings({
-          base_url: baseUrl.trim(),
-        base_url_t2i: baseUrlT2i.trim(),
-          default_model: defaultModel,
-          output_dir: dir,
-          appearance,
-          language,
-        });
+        await savePreferences({ output_dir: dir });
         setStatusOk(true);
-      setStatus(t("settings.folderSet", { dir }));
+        setStatus(t("settings.folderSet", { dir }));
       } catch (e) {
         setStatusOk(false);
-      setStatus(String(e));
+        setStatus(String(e));
       }
     }
   };
@@ -237,15 +235,29 @@ export default function Settings({ onBack }: Props) {
     setStatusOk(false);
     setTesting(true);
     setTestedOk(false);
+    // Snapshot of what is actually being tested: the success below only
+    // unlocks saving if the inputs still hold these exact values when the
+    // response arrives (edits made mid-test void the result).
+    const tested = {
+      base: baseUrl.trim(),
+      baseT2i: baseUrlT2i.trim(),
+      key: keyInput.trim(),
+    };
     try {
-      const result = await apiTest(baseUrl.trim(), baseUrlT2i.trim(), keyInput.trim() || null);
+      const result = await apiTest(tested.base, tested.baseT2i, tested.key || null);
       const text =
         `Connected — image edits: ${result.models.length} models · ` +
         `text-to-image: ${result.models_t2i.length} models`;
       setStatusOk(true);
       setStatus(`✓ ${text}`);
-      setTestedOk(true);
-      setAvailableModels([...new Set([...result.models, ...result.models_t2i])]);
+      if (
+        connRef.current.base.trim() === tested.base &&
+        connRef.current.baseT2i.trim() === tested.baseT2i &&
+        connRef.current.key.trim() === tested.key
+      ) {
+        setTestedOk(true);
+        setAvailableModels([...new Set([...result.models, ...result.models_t2i])]);
+      }
       await message(text, { title: "Connection OK", kind: "info" });
     } catch (e) {
       const text = String(e);

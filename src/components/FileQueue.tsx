@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { Check, FileImage, Loader, X } from "lucide-react";
@@ -19,7 +19,7 @@ function baseName(path: string): string {
 
 /**
  * Thumbnail queue with per-file sizes and a live status ring driven by the
- * global "batch-progress" event (matched by file name).
+ * global "batch-progress" event (matched by full path).
  */
 export default function FileQueue({ files, onRemove, onClear }: Props) {
   const { t } = useTranslation();
@@ -32,23 +32,27 @@ export default function FileQueue({ files, onRemove, onClear }: Props) {
   const markBroken = (key: string) =>
     setBroken((prev) => (prev[key] ? prev : { ...prev, [key]: true }));
 
-  // Resolve byte sizes for newly added files.
+  // Resolve byte sizes for newly added files. Requested paths are tracked
+  // in a ref (in-flight + done): the effect fires fileMeta only for paths
+  // never asked before, so each file is requested exactly once per
+  // component lifetime — sizes landing (setSizes) no longer re-triggers
+  // the effect, and removing a file never re-sends the survivors.
+  const requestedMeta = useRef<Set<string>>(new Set());
   useEffect(() => {
-    let cancelled = false;
     for (const file of files) {
-      if (sizes[file] !== undefined) continue;
+      if (requestedMeta.current.has(file)) continue;
+      requestedMeta.current.add(file);
       fileMeta(file)
         .then((meta) => {
-          if (!cancelled) setSizes((prev) => ({ ...prev, [file]: meta.bytes }));
+          setSizes((prev) => ({ ...prev, [file]: meta.bytes }));
         })
         .catch(() => {});
     }
-    return () => {
-      cancelled = true;
-    };
-  }, [files, sizes]);
+  }, [files]);
 
   // Live per-file status while a batch runs (event is global to the app).
+  // The payload's `file` is the full path — statuses are keyed by it, the
+  // same key the render below reads.
   useEffect(() => {
     const unlisten = listen<BatchProgress>("batch-progress", (event) => {
       const { file, status: next } = event.payload;
@@ -59,13 +63,12 @@ export default function FileQueue({ files, onRemove, onClear }: Props) {
     };
   }, []);
 
-  // Drop stale statuses whenever the queue itself changes.
+  // Drop stale statuses whenever the queue itself changes (full-path keys).
   useEffect(() => {
     setStatus((prev) => {
       const next: Record<string, string> = {};
       for (const file of files) {
-        const name = baseName(file);
-        if (prev[name]) next[name] = prev[name];
+        if (prev[file]) next[file] = prev[file];
       }
       return next;
     });
@@ -84,7 +87,7 @@ export default function FileQueue({ files, onRemove, onClear }: Props) {
       <div className="queue">
         {files.map((file, index) => {
           const name = baseName(file);
-          const state = status[name];
+          const state = status[file];
           const key = `${file}-${index}`;
           return (
             <div

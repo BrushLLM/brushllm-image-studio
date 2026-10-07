@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::{decode, encode, metadata, ops};
+use super::{decode, encode, guard, metadata, ops, output};
 
 /// True when the output format matches the file's own extension, so
 /// re-encoding is a same-format "compress" rather than a conversion.
@@ -19,13 +19,25 @@ pub fn is_same_format(input_path: &str, format: encode::OutFormat) -> bool {
 /// A same-format re-encode that did not get smaller keeps the original
 /// bytes — "compress" must never grow the file. `original` is the source
 /// file's raw bytes; `encoded` is the fresh re-encode.
+///
+/// `allow` gates the fallback: keeping the original bytes is only correct
+/// for a pure compress. Any edit step (resize, crop, …) must deliver its
+/// own encoding even when it grows, and an EXIF drop is a real change the
+/// re-encode must not silently undo. The original's actual on-disk format
+/// must also match `format`, so a mislabeled extension can never swap the
+/// delivered format.
 pub fn never_grow(
     input_path: &str,
     format: encode::OutFormat,
     original: &[u8],
     encoded: Vec<u8>,
+    allow: bool,
 ) -> Vec<u8> {
-    if is_same_format(input_path, format) && encoded.len() as u64 >= original.len() as u64 {
+    if allow
+        && is_same_format(input_path, format)
+        && decode::same_output_format(original) == format
+        && encoded.len() as u64 >= original.len() as u64
+    {
         original.to_vec()
     } else {
         encoded
@@ -100,12 +112,40 @@ pub fn run<F: FnMut(usize, usize, &FileOutcome)>(
     let (mut in_total, mut out_total) = (0u64, 0u64);
     let mut cancelled = false;
 
+    // One-shot validation: a bad suffix or output folder fails every file
+    // before any input is read, so a half-applied batch cannot happen.
+    if let Some(error) = validate_job(&job) {
+        for (index, file) in job.files.iter().enumerate() {
+            let outcome = validation_failure(file, error.clone());
+            failed += 1;
+            on_file(index, total, &outcome);
+            items.push(outcome);
+        }
+        return BatchReport {
+            total,
+            ok,
+            failed,
+            skipped,
+            in_bytes: in_total,
+            out_bytes: out_total,
+            ms: started.elapsed().as_millis() as u64,
+            cancelled,
+            items,
+        };
+    }
+
+    // Inputs not yet consumed: item i's output must never clobber the input
+    // of a later item. The current input itself stays unprotected — writing
+    // over it in place is the user's explicit Overwrite choice.
+    let inputs: Vec<std::path::PathBuf> = job.files.iter().map(std::path::PathBuf::from).collect();
+
     for (index, file) in job.files.iter().enumerate() {
         if cancel.is_some_and(|flag| flag.load(Ordering::Relaxed)) {
             cancelled = true;
             break;
         }
-        let outcome = process_one(file, &job);
+        let protected = &inputs[index + 1..];
+        let outcome = process_one(file, &job, protected);
         match outcome.status.as_str() {
             "ok" => {
                 ok += 1;
@@ -132,7 +172,41 @@ pub fn run<F: FnMut(usize, usize, &FileOutcome)>(
     }
 }
 
-fn process_one(file: &str, job: &BatchJob) -> FileOutcome {
+/// Validate the whole job up front. Returns the shared error text when the
+/// batch must not start at all.
+fn validate_job(job: &BatchJob) -> Option<String> {
+    if let Err(e) = guard::validate_suffix(&job.output.suffix) {
+        return Some(e.to_string());
+    }
+    if let Some(dir) = &job.output.dir {
+        if let Err(e) = guard::validate_output_dir(std::path::Path::new(dir)) {
+            return Some(e.to_string());
+        }
+    }
+    None
+}
+
+/// The per-file outcome for a job-level validation failure: nothing was
+/// read or written, every file failed for the same reason.
+fn validation_failure(file: &str, error: String) -> FileOutcome {
+    let path = std::path::Path::new(file);
+    let file_name = path
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_else(|| file.to_string());
+    FileOutcome {
+        input: file.to_string(),
+        file: file_name,
+        status: "failed".into(),
+        output_path: None,
+        error: Some(error),
+        in_bytes: 0,
+        out_bytes: 0,
+        ms: 0,
+    }
+}
+
+fn process_one(file: &str, job: &BatchJob, protected: &[std::path::PathBuf]) -> FileOutcome {
     let started = std::time::Instant::now();
     let path = std::path::Path::new(file);
     let file_name = path
@@ -151,13 +225,20 @@ fn process_one(file: &str, job: &BatchJob) -> FileOutcome {
         ms: started.elapsed().as_millis() as u64,
     };
 
+    // Reject FIFOs/devices and oversized files before anything is read.
+    if let Err(e) = guard::validate_input_file(path) {
+        return fail(e.to_string(), 0);
+    }
+
     let bytes = match decode::read_bytes(path) {
         Ok(b) => b,
         Err(e) => return fail(e.to_string(), 0),
     };
     let in_bytes = bytes.len() as u64;
 
-    let img = match decode::decode_file(path) {
+    // The bytes are already in memory — decode from the buffer instead of
+    // hitting the disk a second time.
+    let img = match decode::decode_from_buffer(&bytes) {
         Ok(img) => img,
         Err(e) => return fail(e.to_string(), in_bytes),
     };
@@ -188,9 +269,14 @@ fn process_one(file: &str, job: &BatchJob) -> FileOutcome {
         }
     }
 
-    // A compression must never grow a same-format file: when re-encoding
-    // cannot beat an already-optimal original, keep the original bytes.
-    let encoded = never_grow(file, format, &bytes, encoded);
+    // A compression must never grow a same-format file — but only a pure
+    // compress may fall back to the original bytes. Any edit step must ship
+    // its own encoding, and when EXIF is being dropped (preserve_exif =
+    // false on a JPEG that carries EXIF) the re-encode is the honest
+    // result: falling back would silently keep the metadata.
+    let allow_fallback = job.steps.is_empty()
+        && !(!job.preserve_exif && metadata::extract_exif_jpeg(&bytes).is_some());
+    let encoded = never_grow(file, format, &bytes, encoded, allow_fallback);
 
     // Output path: target dir (or the input's folder) + stem + suffix + extension.
     let stem = path
@@ -210,47 +296,55 @@ fn process_one(file: &str, job: &BatchJob) -> FileOutcome {
     let out_name = format!("{}{}.{}", stem, job.output.suffix, format.extension());
     let out_path = out_dir.join(&out_name);
 
-    match resolve_collision(&out_path, job.output.collision) {
-        CollisionDecision::Skip => FileOutcome {
+    // The parent folder must exist (or be creatable); a failure here is
+    // reported, not swallowed.
+    if let Some(parent) = out_path.parent() {
+        if let Err(e) = std::fs::create_dir_all(parent) {
+            return fail(
+                format!("cannot create folder {}: {e}", parent.display()),
+                in_bytes,
+            );
+        }
+    }
+
+    // Crash-safe write honoring the collision policy. `protected` keeps
+    // not-yet-consumed inputs safe even under Overwrite.
+    match output::write_output(&out_path, &encoded, job.output.collision, protected) {
+        Ok(output::WriteOutcome::Written(final_path)) => FileOutcome {
+            input: file.to_string(),
+            file: file_name,
+            status: "ok".into(),
+            output_path: Some(final_path.to_string_lossy().to_string()),
+            error: None,
+            in_bytes,
+            out_bytes: encoded.len() as u64,
+            ms: started.elapsed().as_millis() as u64,
+        },
+        Ok(output::WriteOutcome::Skipped(final_path)) => FileOutcome {
             input: file.to_string(),
             file: file_name,
             status: "skipped".into(),
-            output_path: Some(out_path.to_string_lossy().to_string()),
+            output_path: Some(final_path.to_string_lossy().to_string()),
             error: Some("file already exists".into()),
             in_bytes,
             out_bytes: 0,
             ms: started.elapsed().as_millis() as u64,
         },
-        CollisionDecision::Write(final_path) => {
-            if let Some(parent) = final_path.parent() {
-                let _ = std::fs::create_dir_all(parent);
-            }
-            if let Err(e) = std::fs::write(&final_path, &encoded) {
-                return fail(
-                    format!("cannot write {}: {e}", final_path.display()),
-                    in_bytes,
-                );
-            }
-            FileOutcome {
-                input: file.to_string(),
-                file: file_name,
-                status: "ok".into(),
-                output_path: Some(final_path.to_string_lossy().to_string()),
-                error: None,
-                in_bytes,
-                out_bytes: encoded.len() as u64,
-                ms: started.elapsed().as_millis() as u64,
-            }
-        }
+        Err(e) => fail(e.to_string(), in_bytes),
     }
 }
 
+// Legacy path picker: superseded by engine::output::write_output (crash-safe
+// commits with the same collision semantics). Kept only behind tests as a
+// naming reference for "name (N)" slot selection.
+#[cfg(test)]
 #[derive(Debug)]
 pub(crate) enum CollisionDecision {
     Skip,
     Write(std::path::PathBuf),
 }
 
+#[cfg(test)]
 pub(crate) fn resolve_collision(path: &std::path::Path, policy: Collision) -> CollisionDecision {
     if !path.exists() {
         return CollisionDecision::Write(path.to_path_buf());
@@ -294,11 +388,18 @@ mod tests {
             encode::OutFormat::Png,
             &original,
             larger.clone(),
+            true,
         );
         assert_eq!(out.len(), original.len(), "larger re-encode must fall back");
         // A smaller re-encode is kept.
         let smaller = vec![0u8; 800];
-        let out = never_grow("photo.png", encode::OutFormat::Png, &original, smaller);
+        let out = never_grow(
+            "photo.png",
+            encode::OutFormat::Png,
+            &original,
+            smaller,
+            true,
+        );
         assert_eq!(out.len(), 800);
     }
 
@@ -307,8 +408,41 @@ mod tests {
     fn never_grow_does_not_apply_across_formats() {
         let original = vec![0u8; 1000];
         let larger = vec![0u8; 5000];
-        let out = never_grow("photo.png", encode::OutFormat::Bmp, &original, larger);
+        let out = never_grow("photo.png", encode::OutFormat::Bmp, &original, larger, true);
         assert_eq!(out.len(), 5000, "conversions may legitimately grow");
+    }
+
+    /// The fallback is gated: edit steps and metadata changes must ship
+    /// their own encoding even when it grows.
+    #[test]
+    fn never_grow_disabled_when_not_allowed() {
+        let original = vec![0u8; 1000];
+        let larger = vec![0u8; 1200];
+        let out = never_grow(
+            "photo.png",
+            encode::OutFormat::Png,
+            &original,
+            larger,
+            false,
+        );
+        assert_eq!(out.len(), 1200, "no fallback unless the job allows it");
+    }
+
+    /// Extension/content mismatch: a ".png" name holding JPEG bytes must
+    /// not fall back — that would silently deliver the wrong format.
+    #[test]
+    fn never_grow_requires_matching_content_format() {
+        let img = image::DynamicImage::ImageRgba8(image::RgbaImage::new(4, 4));
+        let mut buf = std::io::Cursor::new(Vec::new());
+        img.write_to(&mut buf, image::ImageFormat::Jpeg).unwrap();
+        let jpeg = buf.into_inner();
+        let larger = vec![0u8; jpeg.len() + 1000];
+        let out = never_grow("photo.png", encode::OutFormat::Png, &jpeg, larger, true);
+        assert_eq!(
+            out.len(),
+            jpeg.len() + 1000,
+            "content format must match the target format to fall back"
+        );
     }
 
     #[test]
@@ -429,6 +563,134 @@ mod tests {
         let second_out = second.items[0].output_path.clone().unwrap();
         assert!(second_out.contains("in-small (2).png"), "got {second_out}");
         std::fs::remove_dir_all(&dir).ok();
+    }
+
+    /// An edit step must ship its own encoding: when a resize makes the
+    /// output larger than the input, the file on disk is the fresh
+    /// encoding, never the original bytes.
+    #[test]
+    fn resize_step_growing_output_does_not_fall_back() {
+        let dir = std::env::temp_dir().join("studio-test-grow");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let input = dir.join("in.png");
+        // 8x8 noise: a tiny file whose 256px upscale re-encode is larger.
+        let mut rng: u64 = 0x9E3779B97F4A7C15;
+        let noise: Vec<u8> = (0..8 * 8 * 4)
+            .map(|_| {
+                rng ^= rng << 13;
+                rng ^= rng >> 7;
+                rng ^= rng << 17;
+                (rng >> 33) as u8
+            })
+            .collect();
+        image::RgbaImage::from_raw(8, 8, noise)
+            .unwrap()
+            .save_with_format(&input, image::ImageFormat::Png)
+            .unwrap();
+
+        let mut j = job(
+            vec![ops::Step::Resize {
+                width: Some(256),
+                height: None,
+                percent: None,
+                mode: ops::FitMode::Fit,
+                no_enlarge: false,
+            }],
+            None,
+        );
+        j.files = vec![input.to_string_lossy().to_string()];
+        j.output.suffix = "-big".into();
+        j.output.collision = Collision::Overwrite;
+
+        let report = run(j, None, |_, _, _| {});
+        assert_eq!(report.failed, 0, "{:?}", report.items[0].error);
+        let item = &report.items[0];
+        assert_eq!(item.status, "ok");
+        assert!(
+            item.out_bytes > item.in_bytes,
+            "upscale must grow: in={} out={}",
+            item.in_bytes,
+            item.out_bytes
+        );
+        let out = std::path::Path::new(item.output_path.as_ref().unwrap());
+        assert_ne!(
+            std::fs::read(out).unwrap(),
+            std::fs::read(&input).unwrap(),
+            "output must be the fresh encoding, not the original bytes"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// A suffix with separators or traversal never starts the batch: every
+    /// file fails up front with the suffix error and nothing is written.
+    #[test]
+    fn invalid_suffix_fails_every_file_upfront() {
+        let dir = std::env::temp_dir().join("studio-test-bad-suffix");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let input = dir.join("in.png");
+        DynamicZero::write_png(&input);
+
+        for bad in ["a/b", ".."] {
+            let mut j = job(vec![], None);
+            j.files = vec![input.to_string_lossy().to_string()];
+            j.output.suffix = bad.into();
+            let report = run(j, None, |_, _, _| {});
+            assert_eq!(report.ok, 0, "bad suffix {bad:?}");
+            assert_eq!(report.failed, 1, "bad suffix {bad:?}");
+            let item = &report.items[0];
+            assert_eq!(item.status, "failed");
+            let error = item.error.as_deref().unwrap();
+            assert!(error.contains("suffix"), "bad={bad:?} error={error}");
+            // Nothing was written next to the input.
+            assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 1);
+        }
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// An output that would overwrite a LATER input is rejected even under
+    /// the Overwrite policy: in.png + suffix "-x" targets in-x.png, which
+    /// is the second item's not-yet-consumed input. That write is refused,
+    /// the first item fails, and in-x.png keeps its original bytes; the
+    /// second item then runs normally on its intact input.
+    #[test]
+    fn output_overwriting_later_input_is_rejected() {
+        let dir = std::env::temp_dir().join("studio-test-protect");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let first = dir.join("in.png");
+        let second = dir.join("in-x.png");
+        DynamicZero::write_png(&first);
+        DynamicZero::write_png(&second);
+        let second_before = std::fs::read(&second).unwrap();
+
+        let mut j = job(vec![], None);
+        j.files = vec![
+            first.to_string_lossy().to_string(),
+            second.to_string_lossy().to_string(),
+        ];
+        j.output.suffix = "-x".into();
+        j.output.collision = Collision::Overwrite;
+
+        let report = run(j, None, |_, _, _| {});
+        // First item: its output "in-x.png" is the second item's input.
+        let item = &report.items[0];
+        assert_eq!(item.status, "failed");
+        let error = item.error.as_deref().unwrap();
+        assert!(error.contains("overwrite"), "error={error}");
+        // The later input survived byte-for-byte.
+        assert_eq!(std::fs::read(&second).unwrap(), second_before);
+        // The second item itself completed on the intact input.
+        assert_eq!(report.items[1].status, "ok");
+        assert!(report.items[1]
+            .output_path
+            .as_deref()
+            .unwrap()
+            .contains("in-x-x.png"));
+        assert_eq!(report.failed, 1);
+        assert_eq!(report.ok, 1);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     // Tiny helper that writes a real PNG so tests exercise the full pipeline.

@@ -55,9 +55,9 @@ pub fn stitch(images: Vec<DynamicImage>, opts: &StitchOpts) -> Result<DynamicIma
     }
     .max(1);
 
-    let scaled: Vec<DynamicImage> = images
-        .into_iter()
-        .map(|img| match opts.direction {
+    let mut scaled: Vec<DynamicImage> = Vec::with_capacity(images.len());
+    for img in images {
+        let scaled_img = match opts.direction {
             Direction::Vertical => {
                 if img.width() == target {
                     img
@@ -65,6 +65,10 @@ pub fn stitch(images: Vec<DynamicImage>, opts: &StitchOpts) -> Result<DynamicIma
                     let h = ((img.height() as f64 * target as f64 / img.width() as f64).round()
                         as u32)
                         .max(1);
+                    // Max normalization can upscale a small image up to the
+                    // largest cross dimension — the scaled result may exceed
+                    // the pixel budget, so check before resize_exact.
+                    super::guard::validate_pixels(target as u64, h as u64, "stitched image")?;
                     img.resize_exact(target, h, image::imageops::FilterType::Lanczos3)
                 }
             }
@@ -75,28 +79,40 @@ pub fn stitch(images: Vec<DynamicImage>, opts: &StitchOpts) -> Result<DynamicIma
                     let w = ((img.width() as f64 * target as f64 / img.height() as f64).round()
                         as u32)
                         .max(1);
+                    super::guard::validate_pixels(w as u64, target as u64, "stitched image")?;
                     img.resize_exact(w, target, image::imageops::FilterType::Lanczos3)
                 }
             }
-        })
-        .collect();
+        };
+        scaled.push(scaled_img);
+    }
 
     let bg = parse_hex(&opts.background).unwrap_or([255, 255, 255]);
-    let count = scaled.len() as u32;
-    let (out_w, out_h) = match opts.direction {
+    let count = scaled.len() as u64;
+    // Accumulate in u64 so heights/widths and spacing cannot wrap, then
+    // enforce both the u32 canvas limit and the pixel budget before
+    // allocating the canvas.
+    let (out_w, out_h): (u64, u64) = match opts.direction {
         Direction::Vertical => {
-            let w = scaled.iter().map(|i| i.width()).max().unwrap();
-            let h = scaled.iter().map(|i| i.height()).sum::<u32>()
-                + opts.spacing.saturating_mul(count.saturating_sub(1));
+            let w = scaled.iter().map(|i| i.width()).max().unwrap() as u64;
+            let h = scaled.iter().map(|i| i.height() as u64).sum::<u64>()
+                + opts.spacing as u64 * (count - 1);
             (w, h)
         }
         Direction::Horizontal => {
-            let h = scaled.iter().map(|i| i.height()).max().unwrap();
-            let w = scaled.iter().map(|i| i.width()).sum::<u32>()
-                + opts.spacing.saturating_mul(count.saturating_sub(1));
+            let h = scaled.iter().map(|i| i.height()).max().unwrap() as u64;
+            let w = scaled.iter().map(|i| i.width() as u64).sum::<u64>()
+                + opts.spacing as u64 * (count - 1);
             (w, h)
         }
     };
+    if out_w > u32::MAX as u64 || out_h > u32::MAX as u64 {
+        return Err(StudioError::Param(
+            "stitched image dimensions overflow".into(),
+        ));
+    }
+    super::guard::validate_pixels(out_w, out_h, "stitched image")?;
+    let (out_w, out_h) = (out_w as u32, out_h as u32);
 
     let mut canvas =
         image::RgbaImage::from_pixel(out_w, out_h, image::Rgba([bg[0], bg[1], bg[2], 255]));
@@ -111,7 +127,7 @@ pub fn stitch(images: Vec<DynamicImage>, opts: &StitchOpts) -> Result<DynamicIma
                     Align::End => out_w - rgba.width(),
                 };
                 let y = offset;
-                offset += rgba.height() + opts.spacing;
+                offset = offset.saturating_add(rgba.height().saturating_add(opts.spacing));
                 (x, y)
             }
             Direction::Horizontal => {
@@ -121,7 +137,7 @@ pub fn stitch(images: Vec<DynamicImage>, opts: &StitchOpts) -> Result<DynamicIma
                     Align::End => out_h - rgba.height(),
                 };
                 let x = offset;
-                offset += rgba.width() + opts.spacing;
+                offset = offset.saturating_add(rgba.width().saturating_add(opts.spacing));
                 (x, y)
             }
         };
@@ -189,5 +205,27 @@ mod tests {
         .unwrap();
         // Second image is scaled from 200 wide down to 100 → height 50.
         assert_eq!(out.dimensions(), (100, 150));
+    }
+
+    #[test]
+    fn spacing_overflow_errors_not_panics() {
+        // 1 + 1 + u32::MAX spacing exceeds any u32 canvas height — must be
+        // a Param error, not a panic.
+        let out = stitch(
+            vec![img(1, 1), img(1, 1)],
+            &opts(Direction::Vertical, u32::MAX, Align::Start),
+        );
+        assert!(matches!(out, Err(StudioError::Param(_))));
+    }
+
+    #[test]
+    fn total_pixels_over_budget_errors() {
+        // Two 8000x8000 images (64 MP each, within the per-image budget)
+        // stacked vertically = 8000x16000 = 128 MP — over the budget.
+        let out = stitch(
+            vec![img(8000, 8000), img(8000, 8000)],
+            &opts(Direction::Vertical, 0, Align::Start),
+        );
+        assert!(matches!(out, Err(StudioError::Param(_))));
     }
 }

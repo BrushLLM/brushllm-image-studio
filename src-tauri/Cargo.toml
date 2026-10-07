@@ -53,6 +53,9 @@ reqwest = { version = "0.12", default-features = false, features = [
     "multipart",
     "rustls-tls",
 ] }
+# Host classification for the gateway URL policy (loopback/private checks).
+# Same version reqwest already depends on, so this adds no new code.
+url = "2.5"
 base64 = "0.22"
 
 # Secrets + errors

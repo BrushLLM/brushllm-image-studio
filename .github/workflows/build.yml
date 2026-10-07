@@ -7,9 +7,10 @@ on:
   workflow_dispatch:
 
 # One build at a time; a newer tag cancels the stale run instead of burning
-# minutes in parallel.
+# minutes in parallel. The group is tag-independent: per-ref groups would let
+# two different tags run concurrently (the expensive macOS job bills at 10x).
 concurrency:
-  group: build-${{ github.ref }}
+  group: release-build
   cancel-in-progress: true
 
 jobs:
@@ -37,6 +38,28 @@ jobs:
 
       - name: Install frontend dependencies
         run: npm ci
+
+      # A tag build with mismatched in-app versions ships installers whose
+      # names claim one version while the app reports another — the update
+      # check would then flag the fresh release as outdated. Fail before any
+      # expensive matrix job runs.
+      - name: Version consistency
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            PKG_VERSION=$(node -p "require('./package.json').version")
+            CARGO_VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' src-tauri/Cargo.toml | head -1)
+            TAURI_VERSION=$(node -p "require('./src-tauri/tauri.conf.json').version")
+            for v in "$PKG_VERSION" "$CARGO_VERSION" "$TAURI_VERSION"; do
+              if [ "$v" != "$TAG_VERSION" ]; then
+                echo "::error::tag v$TAG_VERSION does not match in-app version $v (package.json=$PKG_VERSION, Cargo.toml=$CARGO_VERSION, tauri.conf.json=$TAURI_VERSION)"
+                exit 1
+              fi
+            done
+            echo "versions consistent: $TAG_VERSION"
+          else
+            echo "not a tag build — skipping version check"
+          fi
 
       - name: Typecheck
         run: npm run typecheck
@@ -172,7 +195,7 @@ jobs:
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           cat > /tmp/release-notes.md << EOF
-          A local-first desktop image toolbox — 17 local tools + 7 AI tools. Local tools run 100% on your machine; AI tools use your own API key. Free and private.
+          A local-first desktop image toolbox — 15 local tools + 7 AI tools. Local tools run 100% on your machine; AI tools use your own API key. Free and private.
 
           ## Changes
 

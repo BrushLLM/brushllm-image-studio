@@ -106,12 +106,16 @@ fn apply_step(img: DynamicImage, step: &Step) -> Result<DynamicImage> {
 /// Join the image with its own reflection: horizontal → [img | flip_h(img)]
 /// (width doubles), vertical → [img / flip_v(img)] (height doubles).
 fn mirror(img: DynamicImage, direction: MirrorDir) -> Result<DynamicImage> {
-    let base = img.to_rgba8();
-    let (w, h) = base.dimensions();
+    let (w, h) = (img.width(), img.height());
+    // The doubled canvas is user-amplified: reject u32 overflow and
+    // over-budget results before allocating or converting anything.
+    let dim_overflow = || StudioError::Param("mirrored image dimensions overflow".into());
     let (nw, nh) = match direction {
-        MirrorDir::Horizontal => (w * 2, h),
-        MirrorDir::Vertical => (w, h * 2),
+        MirrorDir::Horizontal => (w.checked_mul(2).ok_or_else(dim_overflow)?, h),
+        MirrorDir::Vertical => (w, h.checked_mul(2).ok_or_else(dim_overflow)?),
     };
+    super::guard::validate_pixels(nw as u64, nh as u64, "mirrored image")?;
+    let base = img.to_rgba8();
     let mut out = image::RgbaImage::new(nw, nh);
     image::imageops::overlay(&mut out, &base, 0, 0);
     let reflected = match direction {
@@ -168,6 +172,17 @@ fn adjust(
     Ok(DynamicImage::ImageRgba8(out))
 }
 
+/// Round an f64 dimension into u32, clamped to [1, u32::MAX]. Non-finite
+/// results (inf/NaN from degenerate aspect math or a huge percent) clamp to
+/// u32::MAX so the pixel-budget check rejects them instead of wrapping.
+fn dim_from_f64(v: f64) -> u32 {
+    if v.is_finite() {
+        v.round().clamp(1.0, u32::MAX as f64) as u32
+    } else {
+        u32::MAX
+    }
+}
+
 fn resize(
     img: DynamicImage,
     width: Option<u32>,
@@ -179,20 +194,11 @@ fn resize(
     let (iw, ih) = (img.width(), img.height());
     let (tw, th) = match (width, height, percent) {
         (Some(w), Some(h), _) => (w.max(1), h.max(1)),
-        (Some(w), None, _) => (
-            w.max(1),
-            ((w as f64 * ih as f64 / iw as f64).round() as u32).max(1),
-        ),
-        (None, Some(h), _) => (
-            ((h as f64 * iw as f64 / ih as f64).round() as u32).max(1),
-            h.max(1),
-        ),
+        (Some(w), None, _) => (w.max(1), dim_from_f64(w as f64 * ih as f64 / iw as f64)),
+        (None, Some(h), _) => (dim_from_f64(h as f64 * iw as f64 / ih as f64), h.max(1)),
         (None, None, Some(p)) => {
             let k = p as f64 / 100.0;
-            (
-                ((iw as f64 * k).round() as u32).max(1),
-                ((ih as f64 * k).round() as u32).max(1),
-            )
+            (dim_from_f64(iw as f64 * k), dim_from_f64(ih as f64 * k))
         }
         _ => return Ok(img),
     };
@@ -201,6 +207,9 @@ fn resize(
     } else {
         (tw, th)
     };
+    // The target box is user-controlled: enforce the pixel budget before
+    // any allocation.
+    super::guard::validate_pixels(tw as u64, th as u64, "resized image")?;
     if (tw, th) == (iw, ih) {
         return Ok(img);
     }
@@ -209,14 +218,17 @@ fn resize(
         FitMode::Stretch => fir_resize(img, tw, th),
         FitMode::Fit => {
             let k = (tw as f64 / iw as f64).min(th as f64 / ih as f64);
-            let dw = ((iw as f64 * k).round() as u32).max(1);
-            let dh = ((ih as f64 * k).round() as u32).max(1);
+            let dw = dim_from_f64(iw as f64 * k);
+            let dh = dim_from_f64(ih as f64 * k);
             fir_resize(img, dw, dh)
         }
         FitMode::Fill => {
             let k = (tw as f64 / iw as f64).max(th as f64 / ih as f64);
-            let dw = ((iw as f64 * k).round() as u32).max(1);
-            let dh = ((ih as f64 * k).round() as u32).max(1);
+            let dw = dim_from_f64(iw as f64 * k);
+            let dh = dim_from_f64(ih as f64 * k);
+            // Fill scales up to cover the target before cropping — the
+            // intermediate canvas can far exceed the target itself.
+            super::guard::validate_pixels(dw as u64, dh as u64, "resized image")?;
             let scaled = fir_resize(img, dw, dh)?;
             let x = (dw - tw) / 2;
             let y = (dh - th) / 2;
@@ -402,6 +414,48 @@ mod tests {
         let out = mirror(img, MirrorDir::Vertical).unwrap().to_rgba8();
         assert_eq!(out.width(), 8);
         assert_eq!(out.height(), 16);
+    }
+
+    #[test]
+    fn mirror_dimension_overflow_errors_not_panics() {
+        // (u32::MAX / 2 + 1) * 2 overflows u32 — must be a Param error, not
+        // a panic or a wrapped-around allocation.
+        let out = mirror(img(u32::MAX / 2 + 1, 1), MirrorDir::Horizontal);
+        assert!(matches!(out, Err(StudioError::Param(_))));
+    }
+
+    #[test]
+    fn resize_target_over_budget_errors() {
+        // 20000x20000 = 400 MP, far over the 68 MP budget.
+        let out = apply_steps(
+            img(100, 100),
+            &[Step::Resize {
+                width: Some(20_000),
+                height: Some(20_000),
+                percent: None,
+                mode: FitMode::Stretch,
+                no_enlarge: false,
+            }],
+        );
+        assert!(matches!(out, Err(StudioError::Param(_))));
+    }
+
+    #[test]
+    fn resize_fill_intermediate_over_budget_errors() {
+        // Filling a 10000x1 source into a 1x10000 box scales the cover
+        // canvas to 100000000x10000 — the target is tiny but the
+        // intermediate is far over budget.
+        let out = apply_steps(
+            img(10_000, 1),
+            &[Step::Resize {
+                width: Some(1),
+                height: Some(10_000),
+                percent: None,
+                mode: FitMode::Fill,
+                no_enlarge: false,
+            }],
+        );
+        assert!(matches!(out, Err(StudioError::Param(_))));
     }
 
     #[test]

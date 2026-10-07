@@ -125,6 +125,16 @@ function dataUrlToB64(dataUrl: string): string {
   return dataUrl.slice(dataUrl.indexOf(",") + 1);
 }
 
+/** File extension matching a result image's MIME type (jpeg→jpg, webp→webp,
+ *  anything else→png) — a saved file must never carry a fake .png suffix. */
+function extForMime(mime: string): string {
+  return mime.includes("jpeg")
+    ? "jpg"
+    : mime.includes("webp")
+      ? "webp"
+      : "png";
+}
+
 export default function AiRepaint({ onBack, onOpenSettings, initialToolId }: Props) {
   const { t } = useTranslation();
   // Every AI tool is fully independent: source image, mask, prompt, result,
@@ -154,7 +164,15 @@ export default function AiRepaint({ onBack, onOpenSettings, initialToolId }: Pro
     activeTool.prompt,
   );
   const [model, setModel] = usePersistedState("ai.model", "gpt-image-2");
-  const [size, setSize] = usePersistedState("ai.size", "auto");
+  // Output size is per-mode: text-to-image keeps its own slot (SIZES plus
+  // custom), edits a separate one limited to EDIT_SIZES — a generation
+  // preference (e.g. 3840x2160) can never leak into the edits dropdown,
+  // which offers no such option yet would silently send it to the API.
+  const [sizeGen, setSizeGen] = usePersistedState("ai.size.gen", "auto");
+  const [sizeEdit, setSizeEdit] = usePersistedState("ai.size.edit", "auto");
+  // The active mode's size slot and setter (run/select read these).
+  const size = activeTool.generates ? sizeGen : sizeEdit;
+  const setSize = activeTool.generates ? setSizeGen : setSizeEdit;
   const [quality, setQuality] = usePersistedState("ai.quality", "auto");
   // Image count: the picker stays in the UI but offers 1 only — the API
   // backend does not support n > 1 yet. Restore 2–10 in the picker below
@@ -233,7 +251,7 @@ export default function AiRepaint({ onBack, onOpenSettings, initialToolId }: Pro
     if (!result || result.images.length === 0) return;
     const first = result.images[0];
     const dir = await tempDir();
-    const path = `${dir.replace(/\/+$/, "")}/brushllm-${toolId}-${Date.now()}.png`;
+    const path = `${dir.replace(/\/+$/, "")}/brushllm-${toolId}-${Date.now()}.${extForMime(first.mime)}`;
     try {
       await saveBytes(path, first.image_b64);
     } catch (e) {
@@ -303,11 +321,7 @@ export default function AiRepaint({ onBack, onOpenSettings, initialToolId }: Pro
   };
 
   const saveImage = async (img: ResultImage) => {
-    const ext = img.mime.includes("jpeg")
-      ? "jpg"
-      : img.mime.includes("webp")
-        ? "webp"
-        : "png";
+    const ext = extForMime(img.mime);
     // Follow the default output folder setting: the configured folder, or
     // (when set to "each image's own folder") the folder of THIS tool's
     // source image. Only pure text-to-image results (no source) fall back
@@ -654,8 +668,8 @@ export default function AiRepaint({ onBack, onOpenSettings, initialToolId }: Pro
                 </p>
                 <div style={{ marginTop: 18 }}>
                   <h2 className="card-title">{t("ai.refImages")}</h2>
-                  {refImages.length < 3 && (
-                    <DropZone
+                      {refImages.length < 3 && (
+                        <DropZone
                       onFiles={(paths) => {
                         setRefImages((prev) =>
                           [...prev, ...paths.filter((p) => !prev.includes(p))].slice(0, 3),
@@ -663,8 +677,13 @@ export default function AiRepaint({ onBack, onOpenSettings, initialToolId }: Pro
                       }}
                       label={t("ai.refDrop")}
                       hint={t("ai.refMax")}
+                      accept={AI_FORMATS}
+                      onUnsupported={(files) =>
+                        setError(unsupportedImageError(files.length, "JPEG or PNG"))
+                      }
+                      onBlockedInput={(files) => setError(blockedInputError(files))}
                     />
-                  )}
+                      )}
                   {refImages.length > 0 && (
                     <div className="queue" style={{ marginTop: 10 }}>
                       {refImages.map((path, index) => (

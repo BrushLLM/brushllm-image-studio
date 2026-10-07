@@ -78,32 +78,22 @@ pub fn read_fields(container: &[u8]) -> Result<Vec<FieldInfo>> {
         .map(|f| {
             let edit_value = match f.tag {
                 exif::Tag::DateTime | exif::Tag::DateTimeOriginal => match &f.value {
-                    exif::Value::Ascii(v) => v
-                        .first()
-                        .map(|raw| {
-                            String::from_utf8_lossy(raw)
-                                .replace(
-                                    |c: char| {
-                                        c == ':'
-                                            && raw.starts_with(
-                                                // only the date separators, not time
-                                                &raw[..4],
-                                            )
-                                            && false
-                                    },
-                                    "-",
-                                )
-                                .to_string()
-                        })
-                        .map(|s| {
-                            // "2024:05:06 07:08:09" → "2024-05-06 07:08:09"
-                            let bytes = s.as_bytes();
-                            if bytes.len() == 19 && bytes[4] == b':' {
-                                format!("{}-{}-{}", &s[..4], &s[5..7], &s[8..])
-                            } else {
-                                s
-                            }
-                        }),
+                    exif::Value::Ascii(v) => v.first().map(|raw| {
+                        // "2024:05:06 07:08:09" → "2024-05-06 07:08:09".
+                        // Rewritten at the byte level: the lossy string's
+                        // char boundaries need not line up with byte
+                        // indices, and slicing raw (or the string) by
+                        // position can panic on short or multi-byte
+                        // payloads.
+                        if raw.len() == 19 && raw[4] == b':' {
+                            let mut dashed = raw.clone();
+                            dashed[4] = b'-';
+                            dashed[7] = b'-';
+                            String::from_utf8_lossy(&dashed).into_owned()
+                        } else {
+                            String::from_utf8_lossy(raw).into_owned()
+                        }
+                    }),
                     _ => None,
                 },
                 exif::Tag::GPSLatitude => lat_dec.map(|v| format!("{v}")),
@@ -165,11 +155,46 @@ fn gps_decimal(exif_data: &exif::Exif, coord_tag: exif::Tag, negative_ref: u8) -
 // ---------------- shared edit transform ----------------
 
 fn parse_gps(value: &str, max_abs: f64) -> Result<f64> {
-    let trimmed = value
+    let trimmed = value.trim();
+    // Optional trailing hemisphere suffix. The axis is inferred from max_abs
+    // (90 = latitude, 180 = longitude): N/S are latitude suffixes, E/W are
+    // longitude suffixes, and a suffix on the wrong axis is rejected.
+    let is_latitude = max_abs == 90.0;
+    let (num_part, suffix) = match trimmed.chars().last() {
+        Some(c @ ('N' | 'S' | 'E' | 'W' | 'n' | 's' | 'e' | 'w')) => {
+            // The suffix is ASCII, so `len - 1` is a char boundary.
+            (&trimmed[..trimmed.len() - 1], Some(c))
+        }
+        _ => (trimmed, None),
+    };
+
+    let negative = match suffix {
+        None => false,
+        Some(c) => {
+            if num_part.trim().starts_with('-') {
+                // "-118W" is ambiguous (sign vs. hemisphere) — reject instead
+                // of silently flipping the coordinate.
+                return Err(StudioError::Param(format!(
+                    "conflicting sign and hemisphere suffix: {value}"
+                )));
+            }
+            match c.to_ascii_uppercase() {
+                'N' if is_latitude => false,
+                'S' if is_latitude => true,
+                'E' if !is_latitude => false,
+                'W' if !is_latitude => true,
+                _ => {
+                    return Err(StudioError::Param(format!(
+                        "hemisphere suffix '{c}' does not match the {} axis: {value}",
+                        if is_latitude { "longitude" } else { "latitude" }
+                    )));
+                }
+            }
+        }
+    };
+
+    let parsed: f64 = num_part
         .trim()
-        .trim_end_matches(['N', 'S', 'E', 'W', 'n', 's', 'e', 'w'])
-        .trim();
-    let parsed: f64 = trimmed
         .parse()
         .map_err(|_| StudioError::Param(format!("invalid GPS coordinate: {value}")))?;
     if parsed.abs() > max_abs {
@@ -177,7 +202,7 @@ fn parse_gps(value: &str, max_abs: f64) -> Result<f64> {
             "GPS coordinate out of range: {value} (max ±{max_abs})"
         )));
     }
-    Ok(parsed)
+    Ok(if negative { -parsed } else { parsed })
 }
 
 fn to_dms(value: f64) -> (u32, u32, f64) {
@@ -311,7 +336,10 @@ impl UpsertExt for Vec<exif::Field> {
 
 /// Accept "YYYY-MM-DD HH:MM:SS" or EXIF "YYYY:MM:DD HH:MM:SS".
 fn normalize_date(input: &str) -> Result<String> {
-    let normalized = if input.len() == 19 && input.as_bytes().get(4) == Some(&b'-') {
+    let normalized = if input.chars().count() == 19 && input.chars().nth(4) == Some('-') {
+        // 19 chars confirmed, so indices 4 and 7 are in bounds. A plain
+        // byte-length check would panic here on multi-byte UTF-8 payloads
+        // (19 bytes can be as few as 5 chars).
         let mut chars = input.chars().collect::<Vec<_>>();
         chars[4] = ':';
         chars[7] = ':';
@@ -336,7 +364,30 @@ pub fn jpeg_strip_metadata(input: &[u8]) -> Result<Vec<u8>> {
     }
     let mut out = vec![0xFF, 0xD8];
     let mut pos = 2;
+    // After a SOS header we scan entropy-coded data instead of parsing
+    // segments: FF 00 (byte stuffing) and FF D0-D7 (RST) belong to the scan,
+    // any other FF xx is a real marker — metadata segments sitting between
+    // the scan and EOI must still be dropped, not copied wholesale.
+    let mut in_scan = false;
     while pos < input.len() {
+        if in_scan {
+            let mut i = pos;
+            while i < input.len() {
+                if input[i] == 0xFF {
+                    match input.get(i + 1).copied() {
+                        Some(0x00) | Some(0xD0..=0xD7) => i += 2,
+                        None => i = input.len(), // truncated scan: keep the bytes
+                        Some(_) => break,        // real marker ahead
+                    }
+                } else {
+                    i += 1;
+                }
+            }
+            out.extend_from_slice(&input[pos..i]);
+            pos = i;
+            in_scan = false;
+            continue;
+        }
         if input[pos] != 0xFF {
             return Err(StudioError::Param("corrupt JPEG: expected marker".into()));
         }
@@ -359,11 +410,6 @@ pub fn jpeg_strip_metadata(input: &[u8]) -> Result<Vec<u8>> {
             pos = m + 1;
             break;
         }
-        if marker == 0xDA {
-            // Start of scan: everything from here is entropy-coded data.
-            out.extend_from_slice(&input[pos..]);
-            return Ok(out);
-        }
 
         let len_pos = m + 1;
         let seg_len = u16::from_be_bytes([
@@ -383,6 +429,17 @@ pub fn jpeg_strip_metadata(input: &[u8]) -> Result<Vec<u8>> {
         if seg_end > input.len() {
             return Err(StudioError::Param("truncated JPEG".into()));
         }
+
+        if marker == 0xDA {
+            // Start of scan: keep the SOS header (marker + length + payload),
+            // then scan the entropy-coded data for the next real marker so
+            // trailing metadata segments still get dropped.
+            out.extend_from_slice(&input[pos..seg_end]);
+            pos = seg_end;
+            in_scan = true;
+            continue;
+        }
+
         let payload = &input[len_pos + 2..seg_end];
         let drop = match marker {
             0xE1 => payload.starts_with(EXIF_HEADER) || payload.starts_with(XMP_PREFIX),
@@ -472,6 +529,25 @@ fn exif_chunk(tiff: &[u8]) -> Vec<u8> {
     chunk
 }
 
+fn contains_bytes(haystack: &[u8], needle: &[u8]) -> bool {
+    haystack.windows(needle.len()).any(|w| w == needle)
+}
+
+/// True when a tEXt/zTXt/iTXt payload looks like XMP carrying GPS data.
+/// Conservative: an XMP namespace marker AND a (case-insensitive) GPS
+/// keyword must both be present; anything else is kept. Compressed zTXt
+/// payloads simply never match the plaintext markers.
+fn is_xmp_gps_text(data: &[u8]) -> bool {
+    let has_xmp_marker = contains_bytes(data, b"adobe:ns:meta")
+        || contains_bytes(data, b"xap")
+        || contains_bytes(data, b"XML:com.adobe.xmp");
+    if !has_xmp_marker {
+        return false;
+    }
+    let lower: Vec<u8> = data.iter().map(|b| b.to_ascii_lowercase()).collect();
+    contains_bytes(&lower, b"gps")
+}
+
 /// Apply edits (and optionally drop GPS) to a PNG's eXIf chunk.
 pub fn png_edit_exif(input: &[u8], edits: &ExifEdits, strip_gps: bool) -> Result<Vec<u8>> {
     if input.len() < 8 || &input[0..8] != PNG_SIG {
@@ -509,8 +585,10 @@ pub fn png_edit_exif(input: &[u8], edits: &ExifEdits, strip_gps: bool) -> Result
     } else {
         Some(exif_chunk(&build_tiff(&fields)?))
     };
-    if !had_exif && new_chunk.is_none() {
-        return Ok(input.to_vec()); // nothing to change
+    if !had_exif && new_chunk.is_none() && !strip_gps {
+        // Nothing to change. With strip_gps we still rebuild: XMP text chunks
+        // can carry GPS coordinates even when there is no eXIf chunk at all.
+        return Ok(input.to_vec());
     }
 
     // Second pass: rebuild — drop eXIf, insert the new chunk right after IHDR.
@@ -523,6 +601,12 @@ pub fn png_edit_exif(input: &[u8], edits: &ExifEdits, strip_gps: bool) -> Result
         let total = 12 + len;
         if chunk_type == b"eXIf" {
             // replaced below (after IHDR)
+        } else if strip_gps
+            && matches!(chunk_type, b"iTXt" | b"tEXt" | b"zTXt")
+            && is_xmp_gps_text(&input[pos + 8..pos + 8 + len])
+        {
+            // XMP text chunk with GPS coordinates — drop it so location data
+            // does not survive an eXIf-only GPS strip.
         } else {
             out.extend_from_slice(&input[pos..pos + total]);
             if chunk_type == b"IHDR" {
@@ -735,5 +819,125 @@ mod tests {
             "2024:05:06 07:08:09"
         );
         assert!(normalize_date("not a date").is_err());
+    }
+
+    #[test]
+    fn date_normalization_rejects_malformed_without_panicking() {
+        // 19 bytes but only 6 chars (multi-byte UTF-8 padding): byte 4 is
+        // '-', so the old byte-length check indexed chars[7] out of bounds.
+        let multibyte = "😀-😀😀😀é"; // 4+1+4+4+4+2 = 19 bytes, 6 chars
+        assert_eq!(multibyte.len(), 19);
+        assert!(normalize_date(multibyte).is_err());
+        assert!(normalize_date("").is_err());
+        assert!(normalize_date("2024").is_err());
+        assert!(normalize_date("2024-05-06 07:08").is_err());
+    }
+
+    #[test]
+    fn parse_gps_hemisphere_suffixes() {
+        let close = |a: f64, b: f64| (a - b).abs() < 1e-9;
+        // South/west suffixes flip the sign instead of being discarded.
+        assert!(close(parse_gps("31S", 90.0).unwrap(), -31.0));
+        assert!(close(parse_gps("118W", 180.0).unwrap(), -118.0));
+        assert!(close(parse_gps("31N", 90.0).unwrap(), 31.0));
+        assert!(close(parse_gps("118E", 180.0).unwrap(), 118.0));
+        // Plain signed values (no suffix) still parse.
+        assert!(close(parse_gps("31.2304", 90.0).unwrap(), 31.2304));
+        assert!(close(parse_gps("-118.4912", 180.0).unwrap(), -118.4912));
+        // Sign + suffix is ambiguous → rejected.
+        assert!(parse_gps("-118W", 180.0).is_err());
+        assert!(parse_gps("-31N", 90.0).is_err());
+        // Hemisphere suffix on the wrong axis → rejected.
+        assert!(parse_gps("31S", 180.0).is_err());
+        assert!(parse_gps("118W", 90.0).is_err());
+    }
+
+    #[test]
+    fn read_fields_short_datetime_does_not_panic() {
+        // A malformed DateTime value must not panic the edit_value extraction
+        // (the old code sliced raw[..4] unconditionally).
+        let jpeg = jpeg_with_exif(&[exif::Field {
+            tag: exif::Tag::DateTimeOriginal,
+            ifd_num: exif::In::PRIMARY,
+            value: exif::Value::Ascii(vec![b":".to_vec()]),
+        }]);
+        let fields = read_fields(&jpeg).unwrap();
+        let dt = fields
+            .iter()
+            .find(|f| f.tag == "DateTimeOriginal")
+            .expect("DateTimeOriginal field");
+        assert_eq!(dt.edit_value.as_deref(), Some(":"));
+    }
+
+    #[test]
+    fn jpeg_strip_drops_metadata_after_scan() {
+        // A COM segment between the entropy data and EOI must be dropped —
+        // the old SOS handling copied everything from the scan onward.
+        let jpeg = plain_jpeg();
+        let eoi = jpeg
+            .windows(2)
+            .rposition(|w| w[0] == 0xFF && w[1] == 0xD9)
+            .expect("EOI marker");
+        let payload = b"PRIVATE_AFTER_SCAN";
+        let mut with_com = jpeg[..eoi].to_vec();
+        with_com.push(0xFF);
+        with_com.push(0xFE);
+        with_com.extend_from_slice(&(payload.len() as u16 + 2).to_be_bytes());
+        with_com.extend_from_slice(payload);
+        with_com.extend_from_slice(&jpeg[eoi..]);
+        assert!(contains_bytes(&with_com, payload));
+
+        let stripped = jpeg_strip_metadata(&with_com).unwrap();
+        assert!(
+            !contains_bytes(&stripped, payload),
+            "post-scan COM segment survived"
+        );
+        let img = image::load_from_memory(&stripped).unwrap();
+        assert_eq!(img.dimensions(), (32, 32));
+    }
+
+    fn text_chunk(chunk_type: &[u8; 4], data: &[u8]) -> Vec<u8> {
+        let mut chunk = Vec::with_capacity(12 + data.len());
+        chunk.extend_from_slice(&(data.len() as u32).to_be_bytes());
+        chunk.extend_from_slice(chunk_type);
+        chunk.extend_from_slice(data);
+        let mut hasher = crc32fast::Hasher::new();
+        hasher.update(chunk_type);
+        hasher.update(data);
+        chunk.extend_from_slice(&hasher.finalize().to_be_bytes());
+        chunk
+    }
+
+    #[test]
+    fn png_edit_strips_xmp_gps_text_chunks() {
+        // PNG with an iTXt XMP chunk carrying GPS plus a harmless tEXt chunk,
+        // both inserted right after IHDR — no eXIf chunk at all.
+        let mut png = Vec::new();
+        DynamicImage::ImageRgba8(RgbaImage::new(8, 8))
+            .write_to(&mut Cursor::new(&mut png), image::ImageFormat::Png)
+            .unwrap();
+        let ihdr_len = u32::from_be_bytes([png[8], png[9], png[10], png[11]]) as usize;
+        let split = 8 + 12 + ihdr_len;
+        // iTXt: keyword\0 compression-flag compression-method language\0
+        // translated-keyword\0 text (XMP payload with GPS coordinates).
+        let xmp: &[u8] = b"XML:com.adobe.xmp\x00\x00\x00\x00\x00<?xpacket begin=\"\"?><x:xmpmeta xmlns:x=\"adobe:ns:meta/\"><exif:GPSLatitude>31.2304</exif:GPSLatitude></x:xmpmeta>";
+        let mut with_text = png[..split].to_vec();
+        with_text.extend_from_slice(&text_chunk(b"iTXt", xmp));
+        with_text.extend_from_slice(&text_chunk(b"tEXt", b"Comment\x00Hello"));
+        with_text.extend_from_slice(&png[split..]);
+        assert!(contains_bytes(&with_text, b"GPSLatitude"));
+
+        let cleaned = png_edit_exif(&with_text, &ExifEdits::default(), true).unwrap();
+        assert!(
+            !contains_bytes(&cleaned, b"GPSLatitude"),
+            "XMP GPS coordinates survived strip_gps"
+        );
+        assert!(!contains_bytes(&cleaned, b"XML:com.adobe.xmp"));
+        assert!(
+            contains_bytes(&cleaned, b"Comment\x00Hello"),
+            "GPS-free text chunk was dropped"
+        );
+        let img = image::load_from_memory(&cleaned).unwrap();
+        assert_eq!(img.dimensions(), (8, 8));
     }
 }

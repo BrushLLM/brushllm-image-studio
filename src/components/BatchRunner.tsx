@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { listen } from "@tauri-apps/api/event";
 import type { UnlistenFn } from "@tauri-apps/api/event";
-import { openPath } from "@tauri-apps/plugin-opener";
+import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { FolderOpen } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { batchCancel, runBatch } from "../lib/ipc";
@@ -14,43 +14,78 @@ interface Props {
   runLabel: string;
 }
 
-function parentDir(path: string): string {
-  const idx = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
-  return idx > 0 ? path.slice(0, idx) : path;
+/**
+ * Global single-task batch state. The backend runs one batch at a time, so the
+ * job lives at module scope: leaving and re-entering a tool page keeps the
+ * running flag, live progress, the cancel button and the last report/error.
+ */
+interface BatchState {
+  running: boolean;
+  progress: BatchProgress | null;
+  report: BatchReport | null;
+  error: string | null;
 }
 
-export default function BatchRunner({ files, buildJob, runLabel }: Props) {
-  const [running, setRunning] = useState(false);
-  const [progress, setProgress] = useState<BatchProgress | null>(null);
-  const { t } = useTranslation();
-  const [report, setReport] = useState<BatchReport | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const unlistenRef = useRef<Promise<UnlistenFn> | null>(null);
+let activeJob: BatchState = {
+  running: false,
+  progress: null,
+  report: null,
+  error: null,
+};
 
-  useEffect(() => {
-    const unlisten = listen<BatchProgress>("batch-progress", (event) => {
-      setProgress(event.payload);
-    });
-    unlistenRef.current = unlisten;
-    return () => {
-      unlisten.then((fn) => fn());
-    };
-  }, []);
+const jobListeners = new Set<() => void>();
+
+function subscribeJob(listener: () => void): () => void {
+  jobListeners.add(listener);
+  return () => {
+    jobListeners.delete(listener);
+  };
+}
+
+function getJobSnapshot(): BatchState {
+  return activeJob;
+}
+
+function updateJob(patch: Partial<BatchState>): void {
+  activeJob = { ...activeJob, ...patch };
+  jobListeners.forEach((fn) => fn());
+}
+
+// One progress listener shared by every BatchRunner instance; the unlisten
+// handle is cached at module scope so the listener outlives page navigation.
+const unlistenProgress: Promise<UnlistenFn> = listen<BatchProgress>(
+  "batch-progress",
+  (event) => {
+    updateJob({ progress: event.payload });
+  },
+);
+unlistenProgress.catch(() => {
+  // Registration only fails outside Tauri (e.g. in tests); batches still run,
+  // just without live progress updates.
+});
+
+export default function BatchRunner({ files, buildJob, runLabel }: Props) {
+  const { t } = useTranslation();
+  const { running, progress, report, error } = useSyncExternalStore(
+    subscribeJob,
+    getJobSnapshot,
+  );
 
   const run = async () => {
     if (files.length === 0 || running) return;
-    setRunning(true);
-    setReport(null);
-    setError(null);
-    setProgress({ index: 0, total: files.length, file: "", status: "", error: null });
+    updateJob({
+      running: true,
+      report: null,
+      error: null,
+      progress: { index: 0, total: files.length, file: "", status: "", error: null },
+    });
     try {
       const result = await runBatch(buildJob(files));
-      setReport(result);
+      updateJob({ report: result });
     } catch (e) {
-      setError(String(e));
+      updateJob({ error: String(e) });
     } finally {
-      setRunning(false);
-      setProgress(null);
+      updateJob({ running: false, progress: null });
     }
   };
 
@@ -133,8 +168,11 @@ export default function BatchRunner({ files, buildJob, runLabel }: Props) {
             style={{ marginTop: 2 }}
             onClick={() => {
               const first = report.items.find((item) => item.status === "ok" && item.output_path);
-              if (first?.output_path) openPath(parentDir(first.output_path)).catch(() => {});
-            }}          >
+              if (first?.output_path) {
+                revealItemInDir(first.output_path).catch((e) => updateJob({ error: String(e) }));
+              }
+            }}
+          >
             <FolderOpen /> {t("common.openFolder")}
           </button>
           {report.items.some((item) => item.status !== "ok") && (

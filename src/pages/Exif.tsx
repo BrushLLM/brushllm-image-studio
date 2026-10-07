@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import DropZone from "../components/DropZone";
 import OutputPanel, { type OutputConfig } from "../components/OutputPanel";
@@ -40,6 +40,8 @@ export default function Exif({ onBack }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resultPath, setResultPath] = useState<string | null>(null);
+  /** Bumped on every loadFile; stale readExif results are discarded. */
+  const loadTokenRef = useRef(0);
 
   useEffect(() => {
     loadDefaultOutputDir().then((dir) => {
@@ -50,12 +52,24 @@ export default function Exif({ onBack }: Props) {
   const loadFile = (paths: string[]) => {
     const path = paths[0];
     if (!path) return;
+    const token = ++loadTokenRef.current;
     setFile(path);
     setResultPath(null);
     setError(null);
     setFields(null);
+    // Atomically clear every edit field so the previous image's values can
+    // never be applied to this one while its metadata is still loading.
+    setDateTime("");
+    setMake("");
+    setModel("");
+    setGpsLat("");
+    setGpsLon("");
+    setDescription("");
+    setArtist("");
+    setCopyright("");
     readExif(path)
       .then((list) => {
+        if (loadTokenRef.current !== token) return;
         setFields(list);
         const prefill = (tag: string) =>
           list.find((f) => f.tag === tag)?.edit_value ?? "";
@@ -68,7 +82,10 @@ export default function Exif({ onBack }: Props) {
         setArtist(prefill("Artist"));
         setCopyright(prefill("Copyright"));
       })
-      .catch((e) => setError(String(e)));
+      .catch((e) => {
+        if (loadTokenRef.current !== token) return;
+        setError(String(e));
+      });
   };
 
   const run = async () => {
@@ -295,7 +312,11 @@ export default function Exif({ onBack }: Props) {
             </div>
 
             <div className="card">
-              <button className="btn btn-primary btn-block" onClick={run} disabled={busy}>
+              <button
+                className="btn btn-primary btn-block"
+                onClick={run}
+                disabled={busy || (mode === "edit" && fields === null)}
+              >
                 {busy ? (
                   <>
                     <span className="spinner" /> {t("exif.applying")}

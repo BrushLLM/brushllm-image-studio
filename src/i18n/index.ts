@@ -10,16 +10,16 @@ import es from "./locales/es.json";
 import ptBR from "./locales/pt-BR.json";
 import fr from "./locales/fr.json";
 
-// System first, then languages sorted by their native name (the common
-// convention in OS language lists): Latin scripts alphabetically, then
-// CJK by code point.
+// "Auto" follows the OS language, then the languages in the owner's
+// preferred order: English first, then the remaining Latin scripts, then
+// CJK.
 export const LANGUAGES = [
-  { value: "system", label: "System" },
-  { value: "de", label: "Deutsch" },
+  { value: "system", label: "Auto" },
   { value: "en", label: "English" },
+  { value: "de", label: "Deutsch" },
   { value: "es", label: "Español" },
   { value: "fr", label: "Français" },
-  { value: "pt-BR", label: "Português (BR)" },
+  { value: "pt-BR", label: "Português (Brasil)" },
   { value: "ja", label: "日本語" },
   { value: "zh-CN", label: "简体中文" },
   { value: "zh-TW", label: "繁體中文" },

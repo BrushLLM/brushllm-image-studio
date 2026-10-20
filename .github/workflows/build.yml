@@ -199,10 +199,8 @@ jobs:
 
           ## Changes
 
-          - **Real WebP compression** — WebP output is now lossy via libwebp with the quality slider applied: typical photos land around 5% of the original at q75 (previously a lossless re-pack that could end up larger than the input)
-          - **Preview matches the output** — the Compress preview now goes through the same never-grow fallback as the actual write, so the size it shows is the size you get
-          - **All formats back in Compress** — the same-format fallback guarantees no output grows its own kind, so the picker no longer needs to hide formats
-          - **Home page cleanup** — removed the stale version label from the footer
+          - **Design system refactor** — one type scale (6 steps), one radius scale (4 steps) and an 8px spacing grid now govern the whole UI; success and warning banners render correctly in dark mode; every interactive element has a keyboard focus ring; animations respect the system reduced-motion setting
+          - **Language list finalized** — Auto plus 9 languages in a fixed order (English first), Português (Brasil) relabeled
 
           ## Installation
 

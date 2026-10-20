@@ -292,7 +292,7 @@ export default function ImageAnnotate({ onBack }: Props) {
                 </button>
               ))}
             </div>
-            <div className="canvas-wrap" style={{ cursor: "crosshair" }}>
+            <div className="canvas-wrap cursor-cross">
               {/* Base image kept under the canvas for sharp rendering. */}
               <img src={dataUrl} alt="source" draggable={false} />
               <canvas
@@ -303,7 +303,7 @@ export default function ImageAnnotate({ onBack }: Props) {
                 onPointerCancel={onPointerUp}
               />
             </div>
-            <p className="status-note" style={{ marginTop: 8 }}>
+            <p className="status-note mt-2">
               {tool === "text"
                 ? t("annotate.textHint", { text: textDraft })
                 : t("annotate.dragHint")}
@@ -364,7 +364,7 @@ export default function ImageAnnotate({ onBack }: Props) {
                     value={textDraft}
                     onChange={(e) => setTextDraft(e.target.value)}
                     placeholder={t("annotate.textPlaceholder")}
-                    style={{ userSelect: "text" }}
+                    className="selectable"
                   />
                 </div>
               )}
@@ -394,7 +394,7 @@ export default function ImageAnnotate({ onBack }: Props) {
                 {busy ? <><span className="spinner" /> {t("common.saving")}</> : t("annotate.savePng")}
               </button>
               {savedTo && !busy && (
-                <div className="banner banner-ok" style={{ marginTop: 12, wordBreak: "break-all" }}>
+                <div className="banner banner-ok mt-3 break-all">
                   {savedTo}
                 </div>
               )}

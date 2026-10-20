@@ -377,7 +377,7 @@ export default function AiRepaint({ onBack, onOpenSettings, initialToolId }: Pro
       </div>
       <div className="field">
         <label>Model</label>
-        <div className="hint" style={{ userSelect: "text" }}>
+        <div className="hint selectable">
           {model ? t("ai.modelHint", { model }) : t("ai.modelHint", { model: t("ai.modelNotSet") })}
         </div>
       </div>
@@ -459,8 +459,7 @@ export default function AiRepaint({ onBack, onOpenSettings, initialToolId }: Pro
       </button>
       {busy && (
         <button
-          className="btn btn-block btn-danger"
-          style={{ marginTop: 8 }}
+          className="btn btn-block btn-danger mt-2"
           onClick={() => {
             // Invalidate the in-flight request: when it eventually settles,
             // its result is dropped and it cannot touch the busy flag.
@@ -476,8 +475,7 @@ export default function AiRepaint({ onBack, onOpenSettings, initialToolId }: Pro
         </button>
       )}
       <button
-        className="btn btn-block btn-credits"
-        style={{ marginTop: 8 }}
+        className="btn btn-block btn-credits mt-2"
         onClick={() => openUrl("https://api.brushllm.com/login")}
       >
         <Coins /> {t("ai.getCredits")}
@@ -506,7 +504,7 @@ export default function AiRepaint({ onBack, onOpenSettings, initialToolId }: Pro
               style={{ maxWidth: "100%", borderRadius: 10, border: "1px solid var(--border)" }}
             />
           )}
-          <div className="row" style={{ marginTop: 12 }}>
+          <div className="row mt-3">
             <button className="btn btn-primary" onClick={() => saveImage(result.images[0])}>
               {t("common.saveImage")}
             </button>
@@ -515,7 +513,7 @@ export default function AiRepaint({ onBack, onOpenSettings, initialToolId }: Pro
             </button>
           </div>
           {savedPath && (
-            <div className="banner banner-ok" style={{ marginTop: 12, wordBreak: "break-all" }}>
+            <div className="banner banner-ok mt-3 break-all">
               {savedPath}
             </div>
           )}
@@ -555,7 +553,7 @@ export default function AiRepaint({ onBack, onOpenSettings, initialToolId }: Pro
               </figure>
             ))}
           </div>
-          <button className="btn" onClick={run} disabled={busy} style={{ marginTop: 12 }}>
+          <button className="btn mt-3" onClick={run} disabled={busy}>
             Retry
           </button>
         </>
@@ -570,7 +568,7 @@ export default function AiRepaint({ onBack, onOpenSettings, initialToolId }: Pro
     <div className="card">
       <h2 className="card-title">{t('common.generating')}</h2>
       <div className="skeleton" style={{ height: 260 }} />
-      <p className="status-note" style={{ marginTop: 10 }}>
+      <p className="status-note mt-3">
         {t('ai.generatingHint')}
       </p>
     </div>
@@ -661,7 +659,7 @@ export default function AiRepaint({ onBack, onOpenSettings, initialToolId }: Pro
                   naturalSize={naturalSize}
                   persistKey={`mask.strokes.${toolId}`}
                 />
-                <p className="status-note" style={{ marginTop: 8 }}>
+                <p className="status-note mt-2">
                   {activeTool.needsMask
                     ? t("ai.maskHint", { tool: t(activeTool.labelKey) })
                     : t("ai.maskNoNeed", { tool: t(activeTool.labelKey) })}
@@ -685,7 +683,7 @@ export default function AiRepaint({ onBack, onOpenSettings, initialToolId }: Pro
                     />
                       )}
                   {refImages.length > 0 && (
-                    <div className="queue" style={{ marginTop: 10 }}>
+                    <div className="queue mt-3">
                       {refImages.map((path, index) => (
                         <div className="queue-item" key={`${path}-${index}`}>
                           <button
@@ -702,13 +700,12 @@ export default function AiRepaint({ onBack, onOpenSettings, initialToolId }: Pro
                       ))}
                     </div>
                   )}
-                  <p className="status-note" style={{ marginTop: 8 }}>{t("ai.refHint")}</p>
+                  <p className="status-note mt-2">{t("ai.refHint")}</p>
                 </div>
               </div>
               <div className="side-col">
                 <button
-                  className="btn btn-block btn-lemon"
-                  style={{ marginBottom: 14 }}
+                  className="btn btn-block btn-lemon mb-3"
                   onClick={() => {
                     resetToolSession(toolId);
                     setFile(null);

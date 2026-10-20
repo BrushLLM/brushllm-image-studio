@@ -32,9 +32,9 @@ export default function PreviewCard({
 
   return (
     <div className="card">
-      <div className="row" style={{ alignItems: "center", marginBottom: 12 }}>
-        <h2 style={{ margin: 0 }}>{t("common.preview")}</h2>
-        <div style={{ flex: 1 }} />
+      <div className="row row-center mb-3">
+        <h2 className="m-0">{t("common.preview")}</h2>
+        <div className="flex-1" />
         {result && saved !== null && saved > 0 && (
           <span className="badge badge-ok">{t("errors.smallerBadge", { pct: saved })}</span>
         )}
@@ -88,9 +88,9 @@ export default function PreviewCard({
           </figure>
         </div>
       )}
-      {note && <p className="status-note" style={{ marginTop: 10 }}>{note}</p>}
+      {note && <p className="status-note mt-3">{note}</p>}
       {error && (
-        <p className="status-note" style={{ marginTop: 8, color: "var(--danger)" }}>
+        <p className="status-note mt-2 text-danger">
           {error}
         </p>
       )}

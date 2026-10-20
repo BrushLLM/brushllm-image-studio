@@ -83,7 +83,7 @@ export default function FormatQualityWithI18n({
       {showQuality && (
         <div className="field">
           <div className="range-head">
-            <label style={{ marginBottom: 0 }}>{t("convert.quality")}</label>
+            <label className="mb-0">{t("convert.quality")}</label>
             <span className="range-value">{quality}</span>
           </div>
           <input

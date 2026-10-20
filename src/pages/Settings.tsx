@@ -303,11 +303,11 @@ export default function Settings({ onBack }: Props) {
               {t("settings.connection")}
               {saved !== null &&
                 (connectionDirty ? (
-                  <span className="badge badge-fail" style={{ marginLeft: 8 }}>
+                  <span className="badge badge-fail ml-2">
                     {t("settings.unsaved")}
                   </span>
                 ) : (
-                  <span className="badge badge-ok" style={{ marginLeft: 8 }}>
+                  <span className="badge badge-ok ml-2">
                     {t("settings.saved")}
                   </span>
                 ))}
@@ -321,7 +321,7 @@ export default function Settings({ onBack }: Props) {
                   setBaseUrlT2i(e.target.value);
                   setTestedOk(false);
                 }}
-                style={{ userSelect: "text" }}
+                className="selectable"
               />
               <div className="hint">
                 Generate Image → POST{" "}
@@ -340,7 +340,7 @@ export default function Settings({ onBack }: Props) {
                   setBaseUrl(e.target.value);
                   setTestedOk(false);
                 }}
-                style={{ userSelect: "text" }}
+                className="selectable"
               />
               <div className="hint">
                 Every other AI tool → POST{" "}
@@ -360,7 +360,7 @@ export default function Settings({ onBack }: Props) {
                   setKeyInput(e.target.value);
                   setTestedOk(false);
                 }}
-                style={{ userSelect: "text" }}
+                className="selectable"
               />
               <div className="hint">
                 {hasKey ? (
@@ -371,8 +371,7 @@ export default function Settings({ onBack }: Props) {
               </div>
               {hasKey && (
                 <button
-                  className="btn btn-danger-ghost btn-sm"
-                  style={{ marginTop: 8 }}
+                  className="btn btn-danger-ghost btn-sm mt-2"
                   onClick={removeKey}
                 >
                   {t("settings.removeKey")}
@@ -445,13 +444,12 @@ export default function Settings({ onBack }: Props) {
               </button>
             </div>
             {missing.length > 0 && (
-              <div className="hint" style={{ marginTop: 8, color: "var(--danger)" }}>
+              <div className="hint mt-2 text-danger">
                 {t("settings.missingFields", { fields: missing.map((m) => t(m === "Text-to-image base URL" ? "settings.missingT2i" : m === "Image edits base URL" ? "settings.missingEdits" : m === "API key" ? "settings.missingKey" : "settings.missingModel")).join(", ") })}
               </div>
             )}
             <button
-              className="btn btn-block btn-credits"
-              style={{ marginTop: 12 }}
+              className="btn btn-block btn-credits mt-3"
               onClick={() => openUrl("https://api.brushllm.com/login")}
             >
               <Coins /> Get BrushLLM Credits
@@ -551,7 +549,7 @@ export default function Settings({ onBack }: Props) {
           </div>
           <div className="card">
             <h2 className="card-title">{t("settings.about")}</h2>
-            <p className="status-note" style={{ userSelect: "text" }}>
+            <p className="status-note selectable">
               {t("settings.aboutText")}
               <br />
               <br />
@@ -569,15 +567,14 @@ export default function Settings({ onBack }: Props) {
 
             <div className="field" style={{ borderTop: "1px solid var(--border)", marginTop: 14, paddingTop: 14 }}>
               <div className="range-head">
-                <label style={{ marginBottom: 0 }}>{t("settings.version")}</label>
-                <span className="status-note" style={{ userSelect: "text" }}>
+                <label className="mb-0">{t("settings.version")}</label>
+                <span className="status-note selectable">
                   v{updateInfo?.current ?? appVersion}
                 </span>
               </div>
-              <div className="row" style={{ marginTop: 10 }}>
+              <div className="row mt-3">
                 <button
-                  className="btn"
-                  style={{ flex: "0 0 auto" }}
+                  className="btn flex-fix"
                   disabled={checking}
                   onClick={async () => {
                     setChecking(true);
@@ -605,31 +602,30 @@ export default function Settings({ onBack }: Props) {
               </div>
 
               {updateError && (
-                <div className="banner banner-error" style={{ marginTop: 10 }}>
+                <div className="banner banner-error mt-3">
                   {t("settings.updateCheckFailed")}
                 </div>
               )}
               {updateInfo && !updateInfo.update_available && (
-                <div className="banner banner-ok" style={{ marginTop: 10 }}>
+                <div className="banner banner-ok mt-3">
                   {t("settings.upToDate", { version: updateInfo.latest })}
                 </div>
               )}
               {updateInfo?.update_available && (
-                <div className="banner banner-info" style={{ marginTop: 10 }}>
+                <div className="banner banner-info mt-3">
                   <div style={{ fontWeight: 650 }}>
                     {t("settings.updateAvailable", { version: updateInfo.latest })}
                   </div>
-                  <div className="row" style={{ marginTop: 8 }}>
+                  <div className="row mt-2">
                     <button
-                      className="btn btn-primary"
-                      style={{ flex: "0 0 auto" }}
+                      className="btn btn-primary flex-fix"
                       onClick={() => openUrl(updateInfo.release_url)}
                     >
                       <ExternalLink size={14} style={{ strokeWidth: 1.8 }} /> {t("settings.openReleasePage")}
                     </button>
                   </div>
                   {updateInfo.notes.trim() && (
-                    <details style={{ marginTop: 8 }}>
+                    <details className="mt-2">
                       <summary className="status-note" style={{ cursor: "pointer" }}>
                         {t("settings.updateNotes")}
                       </summary>

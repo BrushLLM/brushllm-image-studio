@@ -94,7 +94,7 @@ export default function Shadow({ onBack }: Props) {
   ) => (
     <div className="field">
       <div className="range-head">
-        <label style={{ marginBottom: 0 }}>{label}</label>
+        <label className="mb-0">{label}</label>
         <span className="range-value">{fmt(value)}</span>
       </div>
       <input
@@ -136,7 +136,7 @@ export default function Shadow({ onBack }: Props) {
             <div className="preview-frame">
               <canvas ref={canvasRef} />
             </div>
-            <p className="status-note" style={{ marginTop: 8 }}>
+            <p className="status-note mt-2">
               {t("shadow.canvasNote")}
             </p>
           </div>
@@ -150,10 +150,10 @@ export default function Shadow({ onBack }: Props) {
               <div className="field">
                 <label>{t("watermark.color")}</label>
                 <input
-                  type="color"
+                  type="color" className="swatch-input"
                   value={color}
                   onChange={(e) => setColor(e.target.value)}
-                  style={{ width: 60, height: 34, padding: 2 }}
+                  
                 />
               </div>
               <button className="btn btn-primary btn-block" onClick={exportImage} disabled={busy}>
@@ -166,12 +166,12 @@ export default function Shadow({ onBack }: Props) {
                 )}
               </button>
               {savedTo && !busy && (
-                <div className="banner banner-ok" style={{ marginTop: 12, wordBreak: "break-all" }}>
+                <div className="banner banner-ok mt-3 break-all">
                   {savedTo}
                 </div>
               )}
               {error && (
-                <div className="banner banner-error" style={{ marginTop: 12 }}>
+                <div className="banner banner-error mt-3">
                   {error}
                 </div>
               )}

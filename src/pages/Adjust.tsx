@@ -90,7 +90,7 @@ export default function Adjust({ onBack }: Props) {
             onBlockedInput={() => {}}
           />
           {firstFile && (
-            <div style={{ marginTop: 16 }}>
+            <div className="mt-4">
               <PreviewCard
                 beforeUrl={convertFileSrc(firstFile)}
                 result={preview.result}
@@ -107,7 +107,7 @@ export default function Adjust({ onBack }: Props) {
             {SLIDERS.map(({ key, labelKey }) => (
               <div className="field" key={key}>
                 <div className="range-head">
-                  <label style={{ marginBottom: 0 }}>{t(labelKey)}</label>
+                  <label className="mb-0">{t(labelKey)}</label>
                   <span className="range-value">{values[key] > 0 ? `+${values[key]}` : values[key]}</span>
                 </div>
                 <input
@@ -121,7 +121,7 @@ export default function Adjust({ onBack }: Props) {
                 />
               </div>
             ))}
-            <div className="preset-chips" style={{ marginBottom: 14 }}>
+            <div className="preset-chips mb-3">
               <button
                 className="chip"
                 onClick={() => {

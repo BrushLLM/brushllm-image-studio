@@ -114,7 +114,7 @@ export default function BatchRunner({ files, buildJob, runLabel }: Props) {
       </button>
 
       {running && (
-        <button className="btn btn-block" style={{ marginTop: 8 }} onClick={() => batchCancel()}>
+        <button className="btn btn-block mt-2" onClick={() => batchCancel()}>
           Cancel
         </button>
       )}
@@ -132,7 +132,7 @@ export default function BatchRunner({ files, buildJob, runLabel }: Props) {
       )}
 
       {error && (
-        <div className="banner banner-error" style={{ marginTop: 12 }}>
+        <div className="banner banner-error mt-3">
           {error}
         </div>
       )}

@@ -216,7 +216,7 @@ export default function CropRotate({ onBack }: Props) {
             ) : (
               <p className="status-note">Rendering preview…</p>
             )}
-            <p className="status-note" style={{ marginTop: 8 }}>
+            <p className="status-note mt-2">
               {previewSize ? `${previewSize.width}×${previewSize.height}px` : ""}
               {transformed}
             </p>
@@ -257,8 +257,7 @@ export default function CropRotate({ onBack }: Props) {
               />
             )}
             <button
-              className="btn btn-block"
-              style={{ marginTop: 12 }}
+              className="btn btn-block mt-3"
               onClick={() => {
                 setFile(null);
                 setPreviewUrl(null);

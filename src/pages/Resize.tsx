@@ -126,7 +126,7 @@ export default function Resize({ onBack }: Props) {
             onBlockedInput={(files) => setInputError(blockedInputError(files))}
           />
           {firstFile && (
-            <div style={{ marginTop: 16 }}>
+            <div className="mt-4">
               <PreviewCard
                 beforeUrl={convertFileSrc(firstFile)}
                 result={preview.result}
@@ -159,7 +159,7 @@ export default function Resize({ onBack }: Props) {
             {mode === "percent" && (
               <div className="field">
                 <div className="range-head">
-                  <label style={{ marginBottom: 0 }}>{t("resize.scale")}</label>
+                  <label className="mb-0">{t("resize.scale")}</label>
                   <span className="range-value">{percent}%</span>
                 </div>
                 <input
@@ -219,7 +219,7 @@ export default function Resize({ onBack }: Props) {
                       />
                     </div>
                   </div>
-                  <label className="check" style={{ marginTop: 8 }}>
+                  <label className="check mt-2">
                     <input
                       type="checkbox"
                       checked={lockAspect}

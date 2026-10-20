@@ -94,11 +94,11 @@ export default function Stitch({ onBack }: Props) {
         <div>
           {files.length > 0 && (
             <div className="card">
-              <div className="row" style={{ alignItems: "center", marginBottom: 12 }}>
-                <h2 style={{ margin: 0 }}>
+              <div className="row row-center mb-3">
+                <h2 className="m-0">
                   {t("stitch.orderMatters", { count: files.length })}
                 </h2>
-                <div style={{ flex: 1 }} />
+                <div className="flex-1" />
                 <button className="btn btn-sm" onClick={clear}>
                   Remove all
                 </button>
@@ -147,7 +147,7 @@ export default function Stitch({ onBack }: Props) {
             onBlockedInput={(files) => setInputError(blockedInputError(files))}
           />
           {files.length >= 2 && (
-            <div style={{ marginTop: 16 }}>
+            <div className="mt-4">
               <PreviewCard
                 beforeUrl=""
                 result={preview.result}
@@ -184,7 +184,7 @@ export default function Stitch({ onBack }: Props) {
             </div>
             <div className="field">
               <div className="range-head">
-                <label style={{ marginBottom: 0 }}>
+                <label className="mb-0">
                   {t("stitch.spacing")} {spacing > 0 ? t("stitch.spacingFill") : ""}
                 </label>
                 <span className="range-value">{spacing}px</span>
@@ -203,10 +203,10 @@ export default function Stitch({ onBack }: Props) {
               <div className="field">
                 <label>{t("stitch.fillColor")}</label>
                 <input
-                  type="color"
+                  type="color" className="swatch-input"
                   value={background}
                   onChange={(e) => setBackground(e.target.value)}
-                  style={{ width: 60, height: 34, padding: 2 }}
+                  
                 />
               </div>
             )}
@@ -269,12 +269,12 @@ export default function Stitch({ onBack }: Props) {
               )}
             </button>
             {error && (
-              <div className="banner banner-error" style={{ marginTop: 12 }}>
+              <div className="banner banner-error mt-3">
                 {error}
               </div>
             )}
             {resultPath && (
-              <div className="banner banner-warn" style={{ marginTop: 12, background: "#ecfdf5", borderColor: "#a7f3d0", color: "#065f46" }}>
+              <div className="banner banner-ok mt-3">
                 <span>✓ Saved to {resultPath}</span>
                 <span className="banner-link" onClick={() => revealItemInDir(resultPath)}>
                   Show in folder

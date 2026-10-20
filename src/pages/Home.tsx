@@ -217,7 +217,7 @@ export default function Home({ onNavigate }: Props) {
       {showUpdateBanner && update && (
         <div className="banner banner-info">
           <Sparkles size={14} style={{ strokeWidth: 1.8 }} />
-          <span style={{ flex: 1 }}>
+          <span className="flex-1">
             {t("home.updateBanner", { version: update.latest })}{" "}
             <span
               className="banner-link"
@@ -227,8 +227,7 @@ export default function Home({ onNavigate }: Props) {
             </span>
           </span>
           <button
-            className="btn btn-sm"
-            style={{ flex: "0 0 auto" }}
+            className="btn btn-sm flex-fix"
             title={t("home.updateDismiss")}
             onClick={() => dismissUpdateBanner(update.latest)}
           >

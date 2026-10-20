@@ -321,7 +321,7 @@ export default function Mosaic({ onBack }: Props) {
                 {t("common.clear")}
               </button>
             </div>
-            <div className="canvas-wrap" style={{ cursor: "crosshair" }}>
+            <div className="canvas-wrap cursor-cross">
               <img src={dataUrl} alt="source" draggable={false} />
               <canvas
                 ref={canvasRef}
@@ -331,7 +331,7 @@ export default function Mosaic({ onBack }: Props) {
                 onPointerCancel={onPointerUp}
               />
             </div>
-            <p className="status-note" style={{ marginTop: 8 }}>
+            <p className="status-note mt-2">
               {t("mosaic.hint")}
             </p>
           </div>
@@ -340,7 +340,7 @@ export default function Mosaic({ onBack }: Props) {
               <h2 className="card-title">{t("common.settingsCard")}</h2>
               <div className="field">
                 <div className="range-head">
-                  <label style={{ marginBottom: 0 }}>{t("mosaic.blockSize")}</label>
+                  <label className="mb-0">{t("mosaic.blockSize")}</label>
                   <span className="range-value">{blockSize}px</span>
                 </div>
                 <input
@@ -379,12 +379,12 @@ export default function Mosaic({ onBack }: Props) {
                 )}
               </button>
               {savedTo && !busy && (
-                <div className="banner banner-ok" style={{ marginTop: 12, wordBreak: "break-all" }}>
+                <div className="banner banner-ok mt-3 break-all">
                   {savedTo}
                 </div>
               )}
               {error && (
-                <div className="banner banner-error" style={{ marginTop: 12 }}>
+                <div className="banner banner-error mt-3">
                   {error}
                 </div>
               )}

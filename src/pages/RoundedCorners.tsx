@@ -146,7 +146,7 @@ export default function RoundedCorners({ onBack }: Props) {
             <div className="preview-frame">
               <canvas ref={canvasRef} />
             </div>
-            <p className="status-note" style={{ marginTop: 8 }}>
+            <p className="status-note mt-2">
               {naturalSize.width}×{naturalSize.height}px · radius{" "}
               {Math.round((Math.min(naturalSize.width, naturalSize.height) * radiusPct) / 100)}px
             </p>
@@ -156,7 +156,7 @@ export default function RoundedCorners({ onBack }: Props) {
               <h2 className="card-title">{t("common.settingsCard")}</h2>
               <div className="field">
                 <div className="range-head">
-                  <label style={{ marginBottom: 0 }}>{t("rounded.radius")}</label>
+                  <label className="mb-0">{t("rounded.radius")}</label>
                   <span className="range-value">{radiusPct}%</span>
                 </div>
                 <input
@@ -202,12 +202,12 @@ export default function RoundedCorners({ onBack }: Props) {
                 {busy ? <><span className="spinner" /> {t("common.saving")}</> : t("common.saveImage")}
               </button>
               {savedTo && !busy && (
-                <div className="banner banner-ok" style={{ marginTop: 12, wordBreak: "break-all" }}>
+                <div className="banner banner-ok mt-3 break-all">
                   {savedTo}
                 </div>
               )}
               {error && (
-                <div className="banner banner-error" style={{ marginTop: 12 }}>
+                <div className="banner banner-error mt-3">
                   {error}
                 </div>
               )}

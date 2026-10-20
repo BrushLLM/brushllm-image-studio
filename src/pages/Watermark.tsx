@@ -239,7 +239,7 @@ export default function Watermark({ onBack }: Props) {
             <div className="preview-frame">
               <canvas ref={previewRef} />
             </div>
-            <p className="status-note" style={{ marginTop: 8 }}>
+            <p className="status-note mt-2">
               {baseImage ? `${baseImage.naturalWidth}×${baseImage.naturalHeight}px` : "loading…"}
             </p>
           </div>
@@ -279,10 +279,10 @@ export default function Watermark({ onBack }: Props) {
                     <div>
                       <label>{t("watermark.color")}</label>
                       <input
-                        type="color"
+                        type="color" className="swatch-input"
                         value={textColor}
                         onChange={(e) => setTextColor(e.target.value)}
-                        style={{ width: 60, height: 34, padding: 2 }}
+                        
                       />
                     </div>
                     <div>
@@ -310,7 +310,7 @@ export default function Watermark({ onBack }: Props) {
                     </button>
                   </div>
                   {logoImage && (
-                    <div className="field" style={{ marginTop: 10 }}>
+                    <div className="field mt-3">
                       <label>{t("watermark.sizeOfWidth", { pct: logoSizePct })}</label>
                       <input
                         type="range"
@@ -412,8 +412,7 @@ export default function Watermark({ onBack }: Props) {
               />
               <OutputPanel value={output} onChange={setOutput} defaultSuffix="-watermarked" />
               <button
-                className="btn btn-primary btn-block"
-                style={{ marginTop: 10 }}
+                className="btn btn-primary btn-block mt-3"
                 onClick={run}
                 disabled={!hasWatermark || busy}
               >
@@ -426,15 +425,12 @@ export default function Watermark({ onBack }: Props) {
                 )}
               </button>
               {error && (
-                <div className="banner banner-error" style={{ marginTop: 12 }}>
+                <div className="banner banner-error mt-3">
                   {error}
                 </div>
               )}
               {resultPath && (
-                <div
-                  className="banner banner-warn"
-                  style={{ marginTop: 12, background: "#ecfdf5", borderColor: "#a7f3d0", color: "#065f46" }}
-                >
+                <div className="banner banner-ok mt-3">
                   <span>✓ Saved to {resultPath}</span>
                   <span className="banner-link" onClick={() => revealItemInDir(resultPath)}>
                     Show in folder
@@ -444,8 +440,7 @@ export default function Watermark({ onBack }: Props) {
             </div>
 
             <button
-              className="btn btn-block"
-              style={{ marginTop: 4 }}
+              className="btn btn-block mt-1"
               onClick={() => {
                 setFile(null);
                 setBaseImage(null);

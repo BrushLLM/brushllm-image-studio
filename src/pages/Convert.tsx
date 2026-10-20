@@ -76,7 +76,7 @@ export default function Convert({ onBack, initialFiles, initialNotice }: Props) 
             onBlockedInput={(files) => setInputError(blockedInputError(files))}
           />
           {firstFile && (
-            <div style={{ marginTop: 16 }}>
+            <div className="mt-4">
               <PreviewCard
                 beforeUrl={convertFileSrc(firstFile)}
                 result={preview.result}

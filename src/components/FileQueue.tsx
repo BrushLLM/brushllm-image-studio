@@ -77,9 +77,9 @@ export default function FileQueue({ files, onRemove, onClear }: Props) {
   if (files.length === 0) return null;
   return (
     <div className="card">
-      <div className="row" style={{ alignItems: "center", marginBottom: 12 }}>
-        <h2 style={{ margin: 0 }}>{t("common.files", { count: files.length })}</h2>
-        <div style={{ flex: 1 }} />
+      <div className="row row-center mb-3">
+        <h2 className="m-0">{t("common.files", { count: files.length })}</h2>
+        <div className="flex-1" />
         <button className="btn btn-sm" onClick={onClear}>
           Remove all
         </button>

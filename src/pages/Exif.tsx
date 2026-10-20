@@ -152,10 +152,10 @@ export default function Exif({ onBack }: Props) {
           <div>
             <div className="card">
               <div className="row" style={{ alignItems: "center", marginBottom: 10 }}>
-                <h2 style={{ margin: 0 }}>{t("exif.metadata")}</h2>
-                <div style={{ flex: 1 }} />
+                <h2 className="m-0">{t("exif.metadata")}</h2>
+                <div className="flex-1" />
                 {gpsCount > 0 && (
-                  <span className="badge badge-warn" style={{ background: "#fffbeb", border: "1px solid #fde68a", color: "#92400e" }}>
+                  <span className="badge badge-warn">
                     {gpsCount} GPS fields
                   </span>
                 )}
@@ -297,12 +297,12 @@ export default function Exif({ onBack }: Props) {
               )}
 
               {mode === "strip_gps" && (
-                <div className="hint" style={{ marginBottom: 12 }}>
+                <div className="hint mb-3">
                   {t("exif.stripGpsHint")}
                 </div>
               )}
               {mode === "strip_all" && (
-                <div className="hint" style={{ marginBottom: 12 }}>
+                <div className="hint mb-3">
                   Removes EXIF, XMP, IPTC and comments. JPEG and PNG are edited
                   losslessly; other formats are re-encoded.
                 </div>
@@ -326,14 +326,13 @@ export default function Exif({ onBack }: Props) {
                 )}
               </button>
               {error && (
-                <div className="banner banner-error" style={{ marginTop: 12 }}>
+                <div className="banner banner-error mt-3">
                   {error}
                 </div>
               )}
               {resultPath && (
                 <div
-                  className="banner banner-warn"
-                  style={{ marginTop: 12, background: "#ecfdf5", borderColor: "#a7f3d0", color: "#065f46" }}
+                  className="banner banner-ok mt-3"
                 >
                   <span>✓ Saved to {resultPath}</span>
                   <span className="banner-link" onClick={() => revealItemInDir(resultPath)}>
@@ -343,7 +342,7 @@ export default function Exif({ onBack }: Props) {
               )}
             </div>
 
-            <button className="btn btn-block" style={{ marginTop: 4 }} onClick={() => setFile(null)}>
+            <button className="btn btn-block mt-1" onClick={() => setFile(null)}>
               {t("common.chooseDifferentImage")}
             </button>
           </div>

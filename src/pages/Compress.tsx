@@ -79,7 +79,7 @@ export default function Compress({ onBack }: Props) {
             onBlockedInput={(files) => setInputError(blockedInputError(files))}
           />
           {firstFile && (
-            <div style={{ marginTop: 16 }}>
+            <div className="mt-4">
               <PreviewCard
                 beforeUrl={convertFileSrc(firstFile)}
                 result={preview.result}
@@ -103,7 +103,7 @@ export default function Compress({ onBack }: Props) {
               onPreserveExif={setPreserveExif}
               formats={COMPRESSIBLE_FORMATS}
             />
-            <div className="hint" style={{ marginBottom: 12 }}>
+            <div className="hint mb-3">
             </div>
             <OutputPanel value={output} onChange={setOutput} />
           </div>

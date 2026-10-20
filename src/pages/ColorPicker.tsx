@@ -129,7 +129,7 @@ export default function ColorPicker({ onBack }: Props) {
       {file && dataUrl && (
         <div className="split">
           <div>
-            <div className="picker-view" style={{ cursor: "crosshair" }}>
+            <div className="picker-view cursor-cross">
               <img
                 src={dataUrl}
                 alt="source"
@@ -146,7 +146,7 @@ export default function ColorPicker({ onBack }: Props) {
                 }}
               />
             </div>
-            <p className="status-note" style={{ marginTop: 8 }}>
+            <p className="status-note mt-2">
               {t("picker.hoverHint")}
             </p>
           </div>
@@ -180,7 +180,7 @@ export default function ColorPicker({ onBack }: Props) {
                       {copied === toRgbString(current) ? <Check /> : <Copy />} RGB
                     </button>
                   </div>
-                  <div className="hint" style={{ marginTop: 8 }}>
+                  <div className="hint mt-2">
                     {toHex(current).toUpperCase()} · {toRgbString(current)}
                   </div>
                 </>

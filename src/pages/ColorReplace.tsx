@@ -298,21 +298,21 @@ export default function ColorReplace({ onBack }: Props) {
       {file && dataUrl && naturalSize && (
         <div className="split">
           <div>
-            <div className="canvas-wrap" style={{ cursor: "crosshair" }}>
+            <div className="canvas-wrap cursor-cross">
               <canvas
                 ref={canvasRef}
                 onClick={pickSource}
                 style={{ position: "static", maxWidth: "100%", maxHeight: 480 }}
               />
             </div>
-            <p className="status-note" style={{ marginTop: 8 }}>
+            <p className="status-note mt-2">
               {t("recolor.hint")}
             </p>
           </div>
           <div className="side-col">
             <div className="card">
               <h2 className="card-title">{t("recolor.pairs")}</h2>
-              <p className="hint" style={{ marginBottom: 12 }}>{t("recolor.pairHint")}</p>
+              <p className="hint mb-3">{t("recolor.pairHint")}</p>
               {pairs.map((pair, index) => (
                 <div
                   className="field"
@@ -356,8 +356,7 @@ export default function ColorReplace({ onBack }: Props) {
                     />
                     {pairs.length > 1 && (
                       <button
-                        className="btn btn-sm"
-                        style={{ flex: "0 0 auto" }}
+                        className="btn btn-sm flex-fix"
                         onClick={() => setPairs((prev) => prev.filter((_, i) => i !== index))}
                         title={t("recolor.remove")}
                       >
@@ -377,9 +376,9 @@ export default function ColorReplace({ onBack }: Props) {
                   <Plus /> {t("recolor.addPair")}
                 </button>
               )}
-              <div className="field" style={{ marginTop: 14 }}>
+              <div className="field mt-3">
                 <div className="range-head">
-                  <label style={{ marginBottom: 0 }}>{t("recolor.tolerance")}</label>
+                  <label className="mb-0">{t("recolor.tolerance")}</label>
                   <span className="range-value">{tolerance}%</span>
                 </div>
                 <input
@@ -407,12 +406,12 @@ export default function ColorReplace({ onBack }: Props) {
                 )}
               </button>
               {savedTo && !busy && (
-                <div className="banner banner-ok" style={{ marginTop: 12, wordBreak: "break-all" }}>
+                <div className="banner banner-ok mt-3 break-all">
                   {savedTo}
                 </div>
               )}
               {error && (
-                <div className="banner banner-error" style={{ marginTop: 12 }}>
+                <div className="banner banner-error mt-3">
                   {error}
                 </div>
               )}

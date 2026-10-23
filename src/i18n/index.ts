@@ -19,7 +19,7 @@ export const LANGUAGES = [
   { value: "de", label: "Deutsch" },
   { value: "es", label: "Español" },
   { value: "fr", label: "Français" },
-  { value: "pt-BR", label: "Português (Brasil)" },
+  { value: "pt-BR", label: "Português (BR)" },
   { value: "ja", label: "日本語" },
   { value: "zh-CN", label: "简体中文" },
   { value: "zh-TW", label: "繁體中文" },

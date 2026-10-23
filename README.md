@@ -20,7 +20,7 @@
   <img src=".github/assets/screenshot.png" width="800" alt="BrushLLM Image Studio">
 </p>
 
-[English](README.md) | [Deutsch](docs/README.de.md) | [Español](docs/README.es.md) | [Français](docs/README.fr.md) | [Português (Brasil)](docs/README.pt-BR.md) | [日本語](docs/README.ja.md) | [简体中文](docs/README.zh-CN.md) | [繁體中文](docs/README.zh-TW.md) | [한국어](docs/README.ko.md)
+[English](README.md) | [Deutsch](docs/README.de.md) | [Español](docs/README.es.md) | [Français](docs/README.fr.md) | [Português (BR)](docs/README.pt-BR.md) | [日本語](docs/README.ja.md) | [简体中文](docs/README.zh-CN.md) | [繁體中文](docs/README.zh-TW.md) | [한국어](docs/README.ko.md)
 
 ---
 
@@ -47,7 +47,7 @@ Grab the latest installer from [Releases](https://github.com/BrushLLm/brushllm-i
 
 ## 🌐 UI Languages
 
-**Available now (9):** English · Deutsch · Español · Français · Português (Brasil) · 简体中文 · 繁體中文 · 日本語 · 한국어
+**Available now (9):** English · Deutsch · Español · Français · Português (BR) · 简体中文 · 繁體中文 · 日本語 · 한국어
 
 <details>
 <summary><strong>🛠 Develop</strong></summary>

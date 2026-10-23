@@ -20,13 +20,11 @@
   <img src=".github/assets/screenshot.png" width="800" alt="BrushLLM Image Studio">
 </p>
 
-[English](#english) | [Deutsch](#deutsch) | [Español](#español) | [Français](#français) | [Português (Brasil)](#português-brasil) | [日本語](#日本語) | [简体中文](#简体中文) | [繁體中文](#繁體中文) | [한국어](#한국어)
+[English](README.md) | [Deutsch](docs/README.de.md) | [Español](docs/README.es.md) | [Français](docs/README.fr.md) | [Português (Brasil)](docs/README.pt-BR.md) | [日本語](docs/README.ja.md) | [简体中文](docs/README.zh-CN.md) | [繁體中文](docs/README.zh-TW.md) | [한국어](docs/README.ko.md)
 
 ---
 
-## English
-
-### ✨ Features
+## ✨ Features
 
 - **Convert & compress** — batch-convert between 8 input and 8 output formats · quality presets with metadata stripping · same-format outputs never grow
 - **Resize & crop** — pixels, percentage or presets (Lanczos resampling) · aspect-ratio frames, 90° rotation, flips with live preview
@@ -35,7 +33,7 @@
 - **AI tools** — generate image · remove background · cutout · remove watermark · remove object · generative fill (with reference images) · restyle — cloud-powered via [brushllm.com](https://brushllm.com), billed per image
 - **Also** — 9-language UI · dark mode · ⌘K command palette · batch processing · manual check-for-updates · zero telemetry
 
-### 📥 Download
+## 📥 Download
 
 Grab the latest installer from [Releases](https://github.com/BrushLLm/brushllm-image-studio/releases):
 
@@ -47,9 +45,9 @@ Grab the latest installer from [Releases](https://github.com/BrushLLm/brushllm-i
 
 > **Apps are unsigned.** macOS: right-click the app → **Open** on first launch (Gatekeeper). Windows: choose **Run anyway** when SmartScreen appears — the installer opens with a 9-language selector.
 
-### 🌐 UI Languages
+## 🌐 UI Languages
 
-**Available now (9):** English · Deutsch · Español · Français · Português (BR) · 简体中文 · 繁體中文 · 日本語 · 한국어
+**Available now (9):** English · Deutsch · Español · Français · Português (Brasil) · 简体中文 · 繁體中文 · 日本語 · 한국어
 
 <details>
 <summary><strong>🛠 Develop</strong></summary>
@@ -74,142 +72,10 @@ Rust engine tests: `cd src-tauri && cargo test` — requires Node 22+, Rust stab
 
 </details>
 
-### ⚠️ Known limitations
+## ⚠️ Known limitations
 
 - HEIC/HEIF and AVIF **input** are not supported (AVIF output works).
 - WebP output is lossy (quality slider); SVG output embeds a raster image (not vector tracing); GIF inputs use the first frame.
 - Apps are unsigned (code signing can be added to CI later).
 
 ---
-
-## Deutsch
-
-Ein lokal-first Desktop-Werkzeugkasten für Bilder — 15 lokale Werkzeuge laufen kostenlos auf deinem Gerät; 7 KI-Bearbeitungen nutzen das BrushLLM-Gateway.
-
-**Funktionen:** Format konvertieren (8 rein / 8 raus) · Komprimieren mit Qualitätsvorgaben · Redimensionieren (Lanczos) · Rogneren & Drehen · Spiegeln (A \| A) · Anpassen · Bilder verbinden · Wasserzeichen · EXIF · Abgerundete Ecken · Farbpipette · Beschriften · Mosaik · Schatten · Farbwechsel (bis 6 Paare).
-
-**KI-Werkzeuge (Cloud, pro Bild abgerechnet):** Bild generieren · Hintergrund entfernen · Freistellen · Wasserzeichen entfernen · Objekt entfernen · Generatives Füllen (mit Referenzbildern) · Stil ändern.
-
-**Highlights:** UI in 9 Sprachen · Dunkelmodus · ⌘K-Befehlspalette · Stapelverarbeitung · manuelle Update-Prüfung · keine Telemetrie.
-
-**📥 Herunterladen:** aktuelle Installationspakete auf [Releases](https://github.com/BrushLLm/brushllm-image-studio/releases) — macOS `.dmg` (Apple Silicon), Windows `.exe` (x64 / ARM64). Unsignierte Apps: macOS beim ersten Start rechtsklicken und „Öffnen“ wählen; Windows „Ausführen“ bei SmartScreen.
-
-Entwicklung und Architektur: siehe Abschnitt [English](#english).
-
----
-
-## Español
-
-Una caja de herramientas de imágenes local-first — 15 herramientas locales se ejecutan gratis en tu equipo; 7 ediciones con IA usan la pasarela de BrushLLM.
-
-**Funciones:** convertir formato (8 de entrada / 8 de salida) · comprimir con presets de calidad · redimensionar (Lanczos) · recortar y rotar · espejo (A \| A) · ajustar · unir imágenes · marca de agua · EXIF · esquinas redondeadas · cuentagotas · anotar · mosaico · sombra · reemplazar color (hasta 6 pares).
-
-**Herramientas de IA (nube, por imagen):** generar imagen · quitar fondo · recorte de sujeto · quitar marca de agua · quitar objeto · relleno generativo (con imágenes de referencia) · cambiar estilo.
-
-**Lo destacado:** interfaz en 9 idiomas · modo oscuro · paleta de comandos ⌘K · proceso por lotes · comprobación manual de actualizaciones · sin telemetría.
-
-**📥 Descargar:** instaladores en [Releases](https://github.com/BrushLLm/brushllm-image-studio/releases) — macOS `.dmg` (Apple Silicon), Windows `.exe` (x64 / ARM64). Apps sin firmar: en el primer inicio, macOS exige clic derecho → *Abrir*; Windows muestra SmartScreen → *Ejecutar de todas formas*.
-
-Desarrollo y arquitectura: ver la sección [English](#english).
-
----
-
-## Français
-
-Une boîte à outils d'images local-first — 15 outils locaux tournent gratuitement sur votre machine ; 7 retouches IA passent par la passerelle BrushLLM.
-
-**Fonctions :** convertir le format (8 entrées / 8 sorties) · compresser avec préréglages qualité · redimensionner (Lanczos) · rogner et pivoter · miroir (A \| A) · régler · assembler · filigrane · EXIF · coins arrondis · pipette · annoter · mosaïque · ombre · remplacer couleur (jusqu'à 6 paires).
-
-**Outils IA (cloud, facturés à l'image) :** générer une image · supprimer l'arrière-plan · détourage · supprimer le filigrane · supprimer un objet · remplissage génératif (avec images de référence) · changer le style.
-
-**Points forts :** interface en 9 langues · mode sombre · palette de commandes ⌘K · traitement par lots · vérification manuelle des mises à jour · zéro télémétrie.
-
-**📥 Téléchargement :** installateurs sur [Releases](https://github.com/BrushLLm/brushllm-image-studio/releases) — macOS `.dmg` (Apple Silicon), Windows `.exe` (x64 / ARM64). Apps non signées : au premier lancement, macOS exige clic droit puis *Ouvrir* ; Windows affiche SmartScreen → *Exécuter quand même*.
-
-Développement et architecture : voir la section [English](#english).
-
----
-
-
-
-
-
-## Português (Brasil)
-
-Uma caixa de ferramentas de imagens local-first — 15 ferramentas locais rodam grátis na sua máquina; 7 edições com IA usam o gateway BrushLLM.
-
-**Funções:** converter formato (8 de entrada / 8 de saída) · comprimir com presets de qualidade · redimensionar (Lanczos) · cortar e girar · espelhar (A \| A) · ajustar · juntar imagens · marca d'água · EXIF · cantos arredondados · conta-gotas · anotar · mosaico · sombra · trocar cor (até 6 pares).
-
-**Ferramentas de IA (nuvem, por imagem):** gerar imagem · remover fundo · recortar sujeito · remover marca d'água · remover objeto · preenchimento generativo (com imagens de referência) · mudar estilo.
-
-**Destaques:** interface em 9 idiomas, 6 a caminho · modo escuro · paleta de comandos ⌘K · processamento em lote · verificação manual de atualizações · zero telemetria.
-
-**📥 Baixar:** instaladores em [Releases](https://github.com/BrushLLm/brushllm-image-studio/releases) — macOS `.dmg` (Apple Silicon), Windows `.exe` (x64 / ARM64). Apps não assinados: no primeiro início no macOS, clique com o botão direito → *Abrir*; no Windows escolha *Executar mesmo assim* no SmartScreen.
-
-Desenvolvimento e arquitetura: veja a seção [English](#english).
-
----
-
-
-
-## 日本語
-
-ローカルファーストのデスクトップ画像ツールボックス — 15 のローカルツールが 100% 端末上で無料で動作し、7 つの AI 編集は BrushLLM ゲートウェイを利用します。
-
-**機能：** フォーマット変換（8 入力 / 8 出力）· 圧縮（品質プリセット）· リサイズ（Lanczos）· 切り抜きと回転 · ミラー（A \| A）· 調整 · 画像連結 · ウォーターマーク · EXIF · 角丸 · カラーピッカー · 注釈 · モザイク · 影付け · 色置換（最大 6 ペア）。
-
-**AI ツール（クラウド、1 枚ごとに課金）：** 画像生成 · 背景除去 · 切り抜き · ウォーターマーク除去 · オブジェクト除去 · 生成フィル（参照画像対応）· スタイル変換。
-
-**ハイライト：** 9 言語 UI · ダークモード · ⌘K コマンドパレット · 一括処理 · 手動アップデート確認 · テレメトリなし。
-
-**📥 ダウンロード：** 最新のインストーラーは [Releases](https://github.com/BrushLLm/brushllm-image-studio/releases) — macOS `.dmg`（Apple Silicon）、Windows `.exe`（x64 / ARM64）。未署名アプリ：macOS は初回起動時に右クリックで「開く」を選択、Windows は SmartScreen の警告で「実行」を選んでください。
-
-開発とアーキテクチャの詳細は [English](#english) を参照。
-
----
-## 简体中文
-
-本地优先的桌面图像工具箱——15 个本地工具 100% 在本机免费运行；7 项 AI 编辑调用 BrushLLM 网关。
-
-**功能：** 格式转换（8 进 / 8 出）· 压缩（质量档位）· 调整大小（Lanczos）· 裁剪与旋转 · 镜像（A \| A）· 调节 · 拼接长图 · 水印 · EXIF · 圆角 · 取色器 · 标注 · 马赛克 · 阴影 · 颜色替换（最多 6 组）。
-
-**AI 工具（云端，按张计费）：** 生成图片 · 去除背景 · 抠图 · 去水印 · 去除物体 · 生成填充（支持参考图）· 风格变换。
-
-**亮点：** 九语言界面 · 深色模式 · ⌘K 命令面板 · 批量处理 · 手动检查更新 · 零遥测。
-
-**📥 下载：** 最新安装包见 [Releases](https://github.com/BrushLLm/brushllm-image-studio/releases)——macOS `.dmg`（Apple Silicon）、Windows `.exe`（x64 / ARM64）。应用未签名：macOS 首次运行右键点击→「打开」；Windows 在 SmartScreen 提示时选择「仍要运行」。
-
-开发与架构说明见 [English](#english) 章节。
-
----
-
-## 繁體中文
-
-本機優先的桌面影像工具箱——15 個本機工具 100% 在本機免費執行；7 項 AI 編輯呼叫 BrushLLM 閘道。
-
-**功能：** 格式轉換（8 進 / 8 出）· 壓縮（品質檔位）· 調整大小（Lanczos）· 裁切與旋轉 · 鏡像（A \| A）· 調節 · 拼接長圖 · 浮水印 · EXIF · 圓角 · 取色器 · 標註 · 馬賽克 · 陰影 · 顏色替換（最多 6 組）。
-
-**AI 工具（雲端，按張計費）：** 產生圖片 · 去除背景 · 去背 · 去浮水印 · 去除物件 · 生成填充（支援參考圖）· 風格變換。
-
-**亮點：** 九語言介面 · 深色模式 · ⌘K 命令面板 · 批次處理 · 手動檢查更新 · 零遙測。
-
-**📥 下載：** 最新安裝包見 [Releases](https://github.com/BrushLLm/brushllm-image-studio/releases)——macOS `.dmg`（Apple Silicon）、Windows `.exe`（x64 / ARM64）。應用程式未簽署：macOS 首次執行右鍵點擊→「開啟」；Windows 在 SmartScreen 提示時選擇「仍要執行」。
-
-開發與架構說明見 [English](#english) 章節。
-
----
-
-
-## 한국어
-
-로컬 우선 데스크톱 이미지 도구함 — 15 개의 로컬 도구가 100% 기기에서 무료로 실행되고, 7 가지 AI 편집은 BrushLLM 게이트웨이를 사용합니다.
-
-**기능:** 포맷 변환(8 입력 / 8 출력) · 품질 프리셋 압축 · 크기 조정(Lanczos) · 자르기와 회전 · 미러(A \| A) · 조정 · 이미지 이어붙이기 · 워터마크 · EXIF · 모서리 둥글게 · 컬러 피커 · 주석 · 모자이크 · 그림자 · 색상 교체(최대 6 쌍).
-
-**AI 도구(클라우드, 장당 과금):** 이미지 생성 · 배경 제거 · 누끼 · 워터마크 제거 · 사물 제거 · 생성 채우기(참조 이미지 지원) · 스타일 변환.
-
-**하이라이트:** 9개 언어 UI · 다크 모드 · ⌘K 커맨드 팔레트 · 일괄 처리 · 수동 업데이트 확인 · 텔레메트리 없음.
-
-**📥 다운로드:** 최신 설치 파일은 [Releases](https://github.com/BrushLLm/brushllm-image-studio/releases) — macOS `.dmg`(Apple Silicon), Windows `.exe`(x64 / ARM64). 미서명 앱: macOS는 첫 실행 시 마우스 오른쪽 클릭으로 *열기*를, Windows는 SmartScreen 경고에서 *실행*을 선택하세요.
-
-개발 및 아키텍처 세부 사항은 [English](#english) 섹션을 참고하세요.

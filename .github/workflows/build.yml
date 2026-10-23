@@ -199,8 +199,11 @@ jobs:
 
           ## Changes
 
-          - **Design system refactor** — one type scale (6 steps), one radius scale (4 steps) and an 8px spacing grid now govern the whole UI; success and warning banners render correctly in dark mode; every interactive element has a keyboard focus ring; animations respect the system reduced-motion setting
-          - **Language list finalized** — Auto plus 9 languages in a fixed order (English first), Português (Brasil) relabeled
+          - **Command palette upgrade** — search now understands English names and aliases (convert, ColorReplace, mosaic, settings…) in any UI language, with camelCase tokenization; zero results show suggested tools instead of a dead end; a clear (×) button sits next to esc; the list order matches the home grid
+          - **Contrast fixes** — the free-tool label (5.47:1), card chevrons (5.36:1) and disabled buttons now meet accessibility thresholds in light mode
+          - **Clearer format chips** — unselected chips are flat text, the selected format is the only pill, so the single-select state is obvious; WebP reads as WebP; picking an output format hints that quality control unlocks
+          - **Dark mode card edges** — tool cards and panels get a visible hairline border in dark mode instead of merging into the background
+          - **Canvas-tool empty states** — the drop zone fills the workspace height (~480px) before an image is loaded, so pages no longer show a stub above dead space
 
           ## Installation
 

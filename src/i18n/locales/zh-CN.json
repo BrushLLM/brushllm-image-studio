@@ -121,7 +121,8 @@
     "hintBmp": "BMP 始终无损（文件较大）。",
     "hintSvg": "无损 — 像素嵌入 SVG 容器（非矢量描摹）。",
     "hintIco": "ICO 存储无损 PNG 帧（Windows 图标格式）。",
-    "gifHint": "GIF 输入仅处理第一帧，输出为 PNG。"
+    "gifHint": "GIF 输入仅处理第一帧，输出为 PNG。",
+    "qualityUnlock": "选择具体输出格式可解锁质量控制。"
   },
   "compress": {
     "title": "压缩",
@@ -462,7 +463,9 @@
     "mosaicDesc": "涂抹区域打码",
     "shadowDesc": "投影",
     "recolorDesc": "保纹理换色",
-    "mirrorDesc": "整图镜像翻转"
+    "mirrorDesc": "整图镜像翻转",
+    "clear": "清除搜索",
+    "suggestSection": "试试这些工具"
   },
   "errors": {
     "unsupported": "{{count}} 个文件不受此工具支持 — 仅接受 {{formats}}。请先转换为 JPEG 或 PNG（格式转换工具可以帮忙）。",

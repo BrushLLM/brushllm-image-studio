@@ -36,50 +36,77 @@ export interface CommandItem {
   descKey: string;
   icon: LucideIcon;
   section: "Local tools" | "AI tools" | "Other";
+  /** Language-independent search terms: the English tool name plus common
+   *  aliases. Matched in addition to the translated label/description, so
+   *  "ColorReplace", "convert" or "webp" find the tool in any UI language. */
+  keywords?: string[];
 }
 
 export const COMMANDS: CommandItem[] = [
-  { page: "convert", labelKey: "home.convertName",
-  descKey: "cmdk.convertDesc", icon: Repeat, section: "Local tools" },
-  { page: "resize", labelKey: "home.resizeName",
-  descKey: "cmdk.resizeDesc", icon: Maximize2, section: "Local tools" },
-  { page: "compress", labelKey: "home.compressName",
-  descKey: "cmdk.compressDesc", icon: Minimize2, section: "Local tools" },
-  { page: "crop", labelKey: "home.cropName",
-  descKey: "cmdk.cropDesc", icon: Crop, section: "Local tools" },
-  { page: "stitch", labelKey: "home.stitchName",
-  descKey: "cmdk.stitchDesc", icon: Combine, section: "Local tools" },
-  { page: "watermark", labelKey: "home.watermarkName",
-  descKey: "cmdk.watermarkDesc", icon: Stamp, section: "Local tools" },
-  { page: "exif", labelKey: "home.exifName",
-  descKey: "cmdk.exifDesc", icon: Tags, section: "Local tools" },
-  { page: "rounded", labelKey: "home.roundedName",
-  descKey: "cmdk.roundedDesc", icon: Frame, section: "Local tools" },
-  { page: "picker", labelKey: "home.pickerName",
-  descKey: "cmdk.pickerDesc", icon: Pipette, section: "Local tools" },
-  { page: "annotate", labelKey: "home.annotateName",
-  descKey: "cmdk.annotateDesc", icon: PenTool, section: "Local tools" },
-  { page: "mirror", labelKey: "home.mirrorName", descKey: "cmdk.mirrorDesc", icon: FlipHorizontal, section: "Local tools" },
-  { page: "adjust", labelKey: "home.adjustName", descKey: "cmdk.adjustDesc", icon: SlidersHorizontal, section: "Local tools" },
-  { page: "mosaic", labelKey: "home.mosaicName", descKey: "cmdk.mosaicDesc", icon: Grid2x2, section: "Local tools" },
-  { page: "shadow", labelKey: "home.shadowName", descKey: "cmdk.shadowDesc", icon: Layers, section: "Local tools" },
-  { page: "colorreplace", labelKey: "home.recolorName", descKey: "cmdk.recolorDesc", icon: PaintBucket, section: "Local tools" },
-  { page: "repaint", tool: "generate-image", labelKey: "home.generateName",
-  descKey: "cmdk.generateDesc", icon: Sparkles, section: "AI tools" },
-  { page: "repaint", tool: "remove-background", labelKey: "home.removeBgName",
-  descKey: "cmdk.removeBgDesc", icon: ImageOff, section: "AI tools" },
-  { page: "repaint", tool: "cutout", labelKey: "home.cutoutName",
-  descKey: "cmdk.cutoutDesc", icon: Scissors, section: "AI tools" },
-  { page: "repaint", tool: "remove-watermark", labelKey: "home.removeWmName",
-  descKey: "cmdk.removeWmDesc", icon: Eraser, section: "AI tools" },
-  { page: "repaint", tool: "remove-object", labelKey: "home.removeObjectName",
-  descKey: "cmdk.removeObjDesc", icon: Bandage, section: "AI tools" },
-  { page: "repaint", tool: "generative-fill", labelKey: "home.fillName",
-  descKey: "cmdk.fillDesc", icon: Wand2, section: "AI tools" },
-  { page: "repaint", tool: "restyle", labelKey: "home.restyleName",
-  descKey: "cmdk.restyleDesc", icon: Palette, section: "AI tools" },
-  { page: "settings", labelKey: "common.settings",
-  descKey: "cmdk.settingsDesc", icon: SettingsIcon, section: "Other" },
+{ page: "convert", labelKey: "home.convertName",
+  descKey: "cmdk.convertDesc", icon: Repeat, section: "Local tools",
+  keywords: ["convert", "format", "jpg", "jpeg", "png", "webp", "avif"] },
+{ page: "compress", labelKey: "home.compressName",
+  descKey: "cmdk.compressDesc", icon: Minimize2, section: "Local tools",
+  keywords: ["compress", "shrink", "smaller", "quality"] },
+{ page: "resize", labelKey: "home.resizeName",
+  descKey: "cmdk.resizeDesc", icon: Maximize2, section: "Local tools",
+  keywords: ["resize", "scale"] },
+{ page: "crop", labelKey: "home.cropName",
+  descKey: "cmdk.cropDesc", icon: Crop, section: "Local tools",
+  keywords: ["crop", "rotate", "flip"] },
+{ page: "watermark", labelKey: "home.watermarkName",
+  descKey: "cmdk.watermarkDesc", icon: Stamp, section: "Local tools",
+  keywords: ["watermark", "overlay", "text"] },
+{ page: "exif", labelKey: "home.exifName",
+  descKey: "cmdk.exifDesc", icon: Tags, section: "Local tools",
+  keywords: ["exif", "metadata", "gps"] },
+{ page: "stitch", labelKey: "home.stitchName",
+  descKey: "cmdk.stitchDesc", icon: Combine, section: "Local tools",
+  keywords: ["stitch", "combine", "strip", "long"] },
+{ page: "rounded", labelKey: "home.roundedName",
+  descKey: "cmdk.roundedDesc", icon: Frame, section: "Local tools",
+  keywords: ["rounded", "corners", "radius"] },
+{ page: "picker", labelKey: "home.pickerName",
+  descKey: "cmdk.pickerDesc", icon: Pipette, section: "Local tools",
+  keywords: ["picker", "color", "eyedropper", "hex", "rgb"] },
+{ page: "annotate", labelKey: "home.annotateName",
+  descKey: "cmdk.annotateDesc", icon: PenTool, section: "Local tools",
+  keywords: ["annotate", "markup", "arrows", "shapes"] },
+{ page: "mirror", labelKey: "home.mirrorName", descKey: "cmdk.mirrorDesc", icon: FlipHorizontal, section: "Local tools",
+  keywords: ["mirror", "reflect", "symmetry"] },
+{ page: "adjust", labelKey: "home.adjustName", descKey: "cmdk.adjustDesc", icon: SlidersHorizontal, section: "Local tools",
+  keywords: ["adjust", "brightness", "contrast", "saturation"] },
+{ page: "mosaic", labelKey: "home.mosaicName", descKey: "cmdk.mosaicDesc", icon: Grid2x2, section: "Local tools",
+  keywords: ["mosaic", "pixelate", "blur", "censor"] },
+{ page: "shadow", labelKey: "home.shadowName", descKey: "cmdk.shadowDesc", icon: Layers, section: "Local tools",
+  keywords: ["shadow", "drop shadow"] },
+{ page: "colorreplace", labelKey: "home.recolorName", descKey: "cmdk.recolorDesc", icon: PaintBucket, section: "Local tools",
+  keywords: ["colorreplace", "color replace", "recolor", "swap color"] },
+{ page: "repaint", tool: "generate-image", labelKey: "home.generateName",
+  descKey: "cmdk.generateDesc", icon: Sparkles, section: "AI tools",
+  keywords: ["generate", "text to image", "t2i", "ai image"] },
+{ page: "repaint", tool: "remove-background", labelKey: "home.removeBgName",
+  descKey: "cmdk.removeBgDesc", icon: ImageOff, section: "AI tools",
+  keywords: ["remove background", "removebackground", "background"] },
+{ page: "repaint", tool: "cutout", labelKey: "home.cutoutName",
+  descKey: "cmdk.cutoutDesc", icon: Scissors, section: "AI tools",
+  keywords: ["cutout", "cut out", "subject"] },
+{ page: "repaint", tool: "remove-watermark", labelKey: "home.removeWmName",
+  descKey: "cmdk.removeWmDesc", icon: Eraser, section: "AI tools",
+  keywords: ["remove watermark", "removewatermark"] },
+{ page: "repaint", tool: "remove-object", labelKey: "home.removeObjectName",
+  descKey: "cmdk.removeObjDesc", icon: Bandage, section: "AI tools",
+  keywords: ["remove object", "removeobject", "erase"] },
+{ page: "repaint", tool: "generative-fill", labelKey: "home.fillName",
+  descKey: "cmdk.fillDesc", icon: Wand2, section: "AI tools",
+  keywords: ["generative fill", "fill", "inpaint"] },
+{ page: "repaint", tool: "restyle", labelKey: "home.restyleName",
+  descKey: "cmdk.restyleDesc", icon: Palette, section: "AI tools",
+  keywords: ["restyle", "style", "redraw"] },
+{ page: "settings", labelKey: "common.settings",
+  descKey: "cmdk.settingsDesc", icon: SettingsIcon, section: "Other",
+  keywords: ["settings", "preferences", "config", "api key"] },
 ];
 
 interface Props {
@@ -97,11 +124,19 @@ export default function CommandPalette({ onNavigate, onClose }: Props) {
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return COMMANDS;
-    return COMMANDS.filter(
-      (item) =>
-        t(item.labelKey).toLowerCase().includes(q) ||
-        t(item.descKey).toLowerCase().includes(q),
-    );
+    // CamelCase queries like "ColorReplace" tokenize to ["colorreplace",
+    // "color", "replace"] so both the joined form and individual words hit.
+    const tokens = q.match(/[a-z0-9]+/g) ?? [q];
+    return COMMANDS.filter((item) => {
+      const haystack = [
+        t(item.labelKey).toLowerCase(),
+        t(item.descKey).toLowerCase(),
+        ...(item.keywords ?? []),
+      ];
+      return haystack.some((h) => h.includes(q)) || tokens.every((tok) =>
+        haystack.some((h) => h.includes(tok)),
+      );
+    });
   }, [query]);
 
   useEffect(() => {
@@ -163,11 +198,43 @@ export default function CommandPalette({ onNavigate, onClose }: Props) {
             onChange={(e) => setQuery(e.target.value)}
             spellCheck={false}
           />
+          {query && (
+            <button
+              className="cmdk-clear"
+              aria-label={t("cmdk.clear")}
+              onClick={() => {
+                setQuery("");
+                inputRef.current?.focus();
+              }}
+            >
+              ×
+            </button>
+          )}
           <span className="kbd cmdk-kbd">esc</span>
         </div>
         <div className="cmdk-list" ref={listRef}>
           {results.length === 0 && (
-            <div className="cmdk-empty">{t("cmdk.empty", { query: query.trim() })}</div>
+            <>
+              <div className="cmdk-empty">{t("cmdk.empty", { query: query.trim() })}</div>
+              <div className="cmdk-section">{t("cmdk.suggestSection")}</div>
+              {COMMANDS.slice(0, 5).map((item, i) => (
+                <button
+                  key={`sug-${item.page}-${item.tool ?? ""}`}
+                  className="cmdk-item"
+                  data-index={i}
+                  role="option"
+                  aria-selected={false}
+                  onPointerEnter={() => setSelected(-1)}
+                  onClick={() => run(item)}
+                >
+                  <item.icon />
+                  <span className="cmdk-item-text">
+                    {t(item.labelKey)}
+                    <span className="cmdk-item-desc">{t(item.descKey)}</span>
+                  </span>
+                </button>
+              ))}
+            </>
           )}
           {results.map((item, index) => {
             const header =

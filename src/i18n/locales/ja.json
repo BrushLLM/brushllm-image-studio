@@ -121,7 +121,8 @@
     "hintBmp": "BMP は常にロスレス（大容量）。",
     "hintSvg": "ロスレス — ピクセルを SVG ラッパーに埋め込み（ベクトル化ではない）。",
     "hintIco": "ICO はロスレス PNG フレームを格納（Windows アイコン形式）。",
-    "gifHint": "GIF は最初のフレームとして処理され PNG で保存されます。"
+    "gifHint": "GIF は最初のフレームとして処理され PNG で保存されます。",
+    "qualityUnlock": "出力フォーマットを選ぶと品質制御が使えます。"
   },
   "compress": {
     "title": "圧縮",
@@ -462,7 +463,9 @@
     "mosaicDesc": "塗った部分をモザイク",
     "shadowDesc": "ドロップシャドウ",
     "recolorDesc": "質感を保つ色置換",
-    "mirrorDesc": "画像を反転"
+    "mirrorDesc": "画像を反転",
+    "clear": "検索をクリア",
+    "suggestSection": "これらのツールを試す"
   },
   "errors": {
     "unsupported": "{{count}} 個のファイルはこのツールでサポートされていません — 対応は {{formats}} のみ。先に JPEG か PNG に変換してください（フォーマット変換ツールが利用できます）。",

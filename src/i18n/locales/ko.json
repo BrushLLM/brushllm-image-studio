@@ -121,7 +121,8 @@
     "hintBmp": "BMP는 항상 무손실 (대용량).",
     "hintSvg": "무손실 — 픽셀을 SVG 래퍼에 삽입 (벡터 변환 아님).",
     "hintIco": "ICO는 무손실 PNG 프레임 저장 (Windows 아이콘 형식).",
-    "gifHint": "GIF는 첫 프레임만 처리되어 PNG로 저장됩니다."
+    "gifHint": "GIF는 첫 프레임만 처리되어 PNG로 저장됩니다.",
+    "qualityUnlock": "출력 형식을 선택하면 품질 조절을 사용할 수 있습니다."
   },
   "compress": {
     "title": "압축",
@@ -462,7 +463,9 @@
     "mosaicDesc": "칠한 영역 모자이크",
     "shadowDesc": "드롭 섀도우",
     "recolorDesc": "질감 유지 색 교체",
-    "mirrorDesc": "이미지 반전"
+    "mirrorDesc": "이미지 반전",
+    "clear": "검색 지우기",
+    "suggestSection": "이 도구들을 사용해 보세요"
   },
   "errors": {
     "unsupported": "{{count}}개 파일을 이 도구에서 지원하지 않습니다 — {{formats}}만 가능. 먼저 JPEG나 PNG로 변환하세요 (포맷 변환 도구 사용).",

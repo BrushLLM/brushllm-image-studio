@@ -121,7 +121,8 @@
     "hintBmp": "BMP is always lossless (large files).",
     "hintSvg": "Lossless — pixels are embedded in an SVG wrapper (not vector tracing).",
     "hintIco": "ICO stores a lossless PNG frame (Windows icon format).",
-    "gifHint": "GIF inputs are processed as their first frame and saved as PNG."
+    "gifHint": "GIF inputs are processed as their first frame and saved as PNG.",
+    "qualityUnlock": "Pick an output format to unlock quality control."
   },
   "compress": {
     "title": "Compress",
@@ -462,7 +463,9 @@
     "mosaicDesc": "Pixelate painted areas",
     "shadowDesc": "Drop shadow",
     "recolorDesc": "Swap color, keep texture",
-    "mirrorDesc": "Flip whole images"
+    "mirrorDesc": "Flip whole images",
+    "clear": "Clear search",
+    "suggestSection": "Try one of these"
   },
   "errors": {
     "unsupported": "{{what}} not supported by this tool — it only accepts {{formats}}. Convert to JPEG or PNG first (the Convert Format tool can help).",

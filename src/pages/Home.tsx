@@ -227,7 +227,7 @@ export default function Home({ onNavigate }: Props) {
             </span>
           </span>
           <button
-            className="btn btn-sm flex-fix"
+            className="banner-dismiss"
             title={t("home.updateDismiss")}
             onClick={() => dismissUpdateBanner(update.latest)}
           >

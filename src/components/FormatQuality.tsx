@@ -40,6 +40,18 @@ const QUALITY_HINT_KEYS: Record<FormatChoice, string> = {
   same: "",
 };
 
+// Mixed-case labels so chips read like brand names (WebP, not WEBP).
+const FORMAT_LABELS: Record<string, string> = {
+  jpeg: "JPEG",
+  png: "PNG",
+  webp: "WebP",
+  avif: "AVIF",
+  svg: "SVG",
+  tiff: "TIFF",
+  bmp: "BMP",
+  ico: "ICO",
+};
+
 /** Formats where the quality slider / preset chips apply. */
 const QUALITY_FORMATS: FormatChoice[] = ["jpeg", "png", "webp", "avif"];
 
@@ -72,12 +84,14 @@ export default function FormatQualityWithI18n({
               className={`radio-chip${format === option ? " active" : ""}`}
               onClick={() => onFormat(option)}
             >
-              {option === "same" ? t("convert.original") : option.toUpperCase()}
+              {option === "same" ? t("convert.original") : FORMAT_LABELS[option] ?? option.toUpperCase()}
             </button>
           ))}
         </div>
         {format === "same" && (
-          <div className="hint">{t('convert.originalHint')}</div>
+          <div className="hint">
+            {t('convert.originalHint')} {t('convert.qualityUnlock')}
+          </div>
         )}
       </div>
       {showQuality && (

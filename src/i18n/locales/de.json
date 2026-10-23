@@ -121,7 +121,8 @@
     "hintBmp": "BMP ist immer verlustfrei (große Dateien).",
     "hintSvg": "Verlustfrei — Pixel werden in einen SVG-Rahmen eingebettet (kein Vektor-Tracing).",
     "hintIco": "ICO speichert einen verlustfreien PNG-Frame (Windows-Symbolformat).",
-    "gifHint": "GIF-Eingaben werden als erstes Frame verarbeitet und als PNG gespeichert."
+    "gifHint": "GIF-Eingaben werden als erstes Frame verarbeitet und als PNG gespeichert.",
+    "qualityUnlock": "Wählen Sie ein Ausgabeformat, um die Qualitätssteuerung freizuschalten."
   },
   "compress": {
     "title": "Komprimieren",
@@ -462,7 +463,9 @@
     "mosaicDesc": "Bereiche pixelieren",
     "shadowDesc": "Schlagschatten",
     "recolorDesc": "Farbe tauschen, Textur bleibt",
-    "mirrorDesc": "Bilder spiegeln"
+    "mirrorDesc": "Bilder spiegeln",
+    "clear": "Suche löschen",
+    "suggestSection": "Versuchen Sie eines dieser Tools"
   },
   "errors": {
     "unsupported": "{{count}} Dateien werden von diesem Tool nicht unterstützt — nur {{formats}}. Wandle sie zuerst in JPEG oder PNG um (das Tool „Format konvertieren“ hilft).",

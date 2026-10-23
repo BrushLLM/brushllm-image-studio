@@ -121,7 +121,8 @@
     "hintBmp": "BMP 始終無損（檔案較大）。",
     "hintSvg": "無損 — 像素嵌入 SVG 容器（非向量描摹）。",
     "hintIco": "ICO 儲存無損 PNG 幀（Windows 圖示格式）。",
-    "gifHint": "GIF 輸入僅處理第一幀，輸出為 PNG。"
+    "gifHint": "GIF 輸入僅處理第一幀，輸出為 PNG。",
+    "qualityUnlock": "選擇具體輸出格式可解鎖品質控制。"
   },
   "compress": {
     "title": "壓縮",
@@ -462,7 +463,9 @@
     "mosaicDesc": "塗抹區域打碼",
     "shadowDesc": "投影",
     "recolorDesc": "保紋理換色",
-    "mirrorDesc": "整圖鏡像翻轉"
+    "mirrorDesc": "整圖鏡像翻轉",
+    "clear": "清除搜尋",
+    "suggestSection": "試試這些工具"
   },
   "errors": {
     "unsupported": "{{count}} 個檔案不受此工具支援 — 僅接受 {{formats}}。請先轉換為 JPEG 或 PNG（格式轉換工具可以幫忙）。",

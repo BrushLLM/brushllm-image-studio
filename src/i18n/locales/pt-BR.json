@@ -121,7 +121,8 @@
     "hintBmp": "BMP é sempre sem perdas (arquivos grandes).",
     "hintSvg": "Sem perdas — os pixels são incorporados em um contêiner SVG (não é vetorização).",
     "hintIco": "ICO armazena um quadro PNG sem perdas (formato de ícone do Windows).",
-    "gifHint": "Entradas GIF são processadas como o primeiro quadro e salvas em PNG."
+    "gifHint": "Entradas GIF são processadas como o primeiro quadro e salvas em PNG.",
+    "qualityUnlock": "Escolha um formato de saída para liberar o controle de qualidade."
   },
   "compress": {
     "title": "Comprimir",
@@ -462,7 +463,9 @@
     "mosaicDesc": "Pixelizar áreas pintadas",
     "shadowDesc": "Sombra projetada",
     "recolorDesc": "Trocar cor, manter textura",
-    "mirrorDesc": "Espelhar imagens"
+    "mirrorDesc": "Espelhar imagens",
+    "clear": "Limpar busca",
+    "suggestSection": "Experimente uma destas ferramentas"
   },
   "errors": {
     "unsupported": "{{count}} arquivos não são suportados por esta ferramenta — ela aceita apenas {{formats}}. Converta antes para JPEG ou PNG (a ferramenta Converter formato pode ajudar).",

@@ -121,7 +121,8 @@
     "hintBmp": "BMP est toujours sans perte (fichiers volumineux).",
     "hintSvg": "Sans perte — les pixels sont intégrés dans un conteneur SVG (pas de vectorisation).",
     "hintIco": "ICO stocke une image PNG sans perte (format d'icône Windows).",
-    "gifHint": "Les GIF sont traités sur leur première image et enregistrés en PNG."
+    "gifHint": "Les GIF sont traités sur leur première image et enregistrés en PNG.",
+    "qualityUnlock": "Choisissez un format de sortie pour déverrouiller le réglage de qualité."
   },
   "compress": {
     "title": "Compresser",
@@ -462,7 +463,9 @@
     "mosaicDesc": "Pixeliser les zones peintes",
     "shadowDesc": "Ombre portée",
     "recolorDesc": "Changer la couleur, garder la texture",
-    "mirrorDesc": "Refléter les images"
+    "mirrorDesc": "Refléter les images",
+    "clear": "Effacer la recherche",
+    "suggestSection": "Essayez l'un de ces outils"
   },
   "errors": {
     "unsupported": "{{count}} fichiers ne sont pas pris en charge par cet outil — il accepte uniquement {{formats}}. Convertissez-les d'abord en JPEG ou PNG (l'outil Convertir le format peut vous y aider).",

@@ -284,6 +284,7 @@ export default function ColorReplace({ onBack }: Props) {
       {!file && error && <div className="banner banner-error">{error}</div>}
       {!file && (
         <DropZone
+          workbench
           onFiles={loadFile}
           label={t("recolor.dropLabel")}
           multiple={false}

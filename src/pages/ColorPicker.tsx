@@ -115,6 +115,7 @@ export default function ColorPicker({ onBack }: Props) {
       {!file && error && <div className="banner banner-error">{error}</div>}
       {!file && (
         <DropZone
+          workbench
           onFiles={loadFile}
           label={t("picker.dropLabel")}
           multiple={false}

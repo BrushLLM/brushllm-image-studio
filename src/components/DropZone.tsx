@@ -11,6 +11,9 @@ interface Props {
   multiple?: boolean;
   /** Hero-sized empty state (before any files arrive). */
   hero?: boolean;
+  /** Workspace-height empty state for canvas tools — fills the page as a
+   *  reserved canvas area instead of a stub above dead space. */
+  workbench?: boolean;
   /** Extensions this tool accepts; defaults to every supported format. */
   accept?: string[];
   /** Overrides the "or click to browse" formats line. */
@@ -31,6 +34,7 @@ export default function DropZone({
   label,
   multiple = true,
   hero = false,
+  workbench = false,
   accept,
   hint,
   onUnsupported,
@@ -111,7 +115,7 @@ export default function DropZone({
 
   return (
     <div
-      className={`dropzone${active ? " active" : ""}${hero ? " hero" : ""}`}
+      className={`dropzone${active ? " active" : ""}${hero ? " hero" : ""}${workbench ? " workbench" : ""}`}
       onClick={pick}
       role="button"
       tabIndex={0}

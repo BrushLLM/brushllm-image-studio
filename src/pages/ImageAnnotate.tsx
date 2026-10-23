@@ -266,6 +266,7 @@ export default function ImageAnnotate({ onBack }: Props) {
       {!file && error && <div className="banner banner-error">{error}</div>}
       {!file && (
         <DropZone
+          workbench
           onFiles={loadFile}
           label={t("annotate.dropLabel")}
           multiple={false}

@@ -260,6 +260,7 @@ export default function Mosaic({ onBack }: Props) {
       {!file && error && <div className="banner banner-error">{error}</div>}
       {!file && (
         <DropZone
+          workbench
           onFiles={loadFile}
           label={t("mosaic.dropLabel")}
           multiple={false}

@@ -199,11 +199,9 @@ jobs:
 
           ## Changes
 
-          - **Command palette upgrade** — search now understands English names and aliases (convert, ColorReplace, mosaic, settings…) in any UI language, with camelCase tokenization; zero results show suggested tools instead of a dead end; a clear (×) button sits next to esc; the list order matches the home grid
-          - **Contrast fixes** — the free-tool label (5.47:1), card chevrons (5.36:1) and disabled buttons now meet accessibility thresholds in light mode
-          - **Clearer format chips** — unselected chips are flat text, the selected format is the only pill, so the single-select state is obvious; WebP reads as WebP; picking an output format hints that quality control unlocks
-          - **Dark mode card edges** — tool cards and panels get a visible hairline border in dark mode instead of merging into the background
-          - **Canvas-tool empty states** — the drop zone fills the workspace height (~480px) before an image is loaded, so pages no longer show a stub above dead space
+          - **Full descriptions in every language** — tool cards clamp at three lines, so German and Portuguese descriptions keep their payoff sentences instead of cutting mid-word
+          - **Aligned home grid across locales** — the hero reserves a fixed height, so Chinese (one-line subtitle) renders the grid at exactly the same position as English and German
+          - **Português (BR) label** — the language option fits its picker cell without clipping
 
           ## Installation
 

@@ -428,6 +428,9 @@ h2 {
 .home-hero {
   margin: 4px 0 30px;
   text-align: center;
+  /* h1 + two subtitle lines: locales whose subtitle fits one line (zh)
+     must not pull the grid up, so the block reserves the 2-line height. */
+  min-height: 118px;
 }
 
 .home-hero h1 {
@@ -567,9 +570,9 @@ h2 {
   color: var(--muted);
   font-size: var(--text-sm);
   line-height: 1.45;
-  min-height: 2.9em;
+  min-height: 4.35em;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }

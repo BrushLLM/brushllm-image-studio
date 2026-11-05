@@ -1,4 +1,5 @@
-import { useEffect, useState, type CSSProperties } from "react";
+import { usePersistedState } from "../lib/persistedState";
+import { useEffect, type CSSProperties } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import BatchRunner from "../components/BatchRunner";
 import DropZone from "../components/DropZone";
@@ -9,7 +10,7 @@ import PageShell from "../components/PageShell";
 import PreviewCard from "../components/PreviewCard";
 import { useTranslation } from "react-i18next";
 import { loadDefaultOutputDir, previewBatch } from "../lib/ipc";
-import type { OutFormat, Step } from "../lib/types";
+import { blockedInputError, type OutFormat, type Step } from "../lib/types";
 import { useImageFiles } from "../lib/useImageFiles";
 import { usePreview } from "../lib/usePreview";
 
@@ -30,20 +31,22 @@ const SLIDERS: Slider[] = [
 
 export default function Adjust({ onBack }: Props) {
   const { t } = useTranslation();
-  const { files, add, remove, clear } = useImageFiles();
-  const [brightness, setBrightness] = useState(0);
-  const [contrast, setContrast] = useState(0);
-  const [saturation, setSaturation] = useState(0);
-  const [format, setFormat] = useState<FormatChoice>("same");
-  const [quality, setQuality] = useState(92);
-  const [preserveExif, setPreserveExif] = useState(false);
-  const [output, setOutput] = useState<OutputConfig>({
+  const { files, add, remove, clear } = useImageFiles("adjust");
+  const [inputError, setInputError] = usePersistedState<string | null>("local.adjust.inputError", null);
+  const [brightness, setBrightness] = usePersistedState("local.adjust.brightness", 0);
+  const [contrast, setContrast] = usePersistedState("local.adjust.contrast", 0);
+  const [saturation, setSaturation] = usePersistedState("local.adjust.saturation", 0);
+  const [format, setFormat] = usePersistedState<FormatChoice>("local.adjust.format", "same");
+  const [quality, setQuality] = usePersistedState("local.adjust.quality", 92);
+  const [preserveExif, setPreserveExif] = usePersistedState("local.adjust.preserveExif", false);
+  const [output, setOutput] = usePersistedState<OutputConfig>("local.adjust.output", {
     dir: null,
     suffix: "-adjusted",
     collision: "rename",
   });
 
   useEffect(() => {
+    if (output.dir) return;
     loadDefaultOutputDir().then((dir) => {
       if (dir) setOutput((prev) => ({ ...prev, dir }));
     });
@@ -60,13 +63,15 @@ export default function Adjust({ onBack }: Props) {
     () =>
       firstFile
         ? previewBatch({
+            preserveExif: preserveExif,
             file: firstFile,
             steps: JSON.parse(stepsJson) as Step[],
             format: format === "same" ? null : (format as OutFormat),
             quality,
           })
         : null,
-    [firstFile, stepsJson, format, quality],
+    [firstFile, stepsJson, format, quality, preserveExif],
+    format === "avif",
   );
 
   const values = { brightness, contrast, saturation };
@@ -80,19 +85,21 @@ export default function Adjust({ onBack }: Props) {
       onBack={onBack}
       badge={<span className="badge badge-mint">{t("common.localBadge")}</span>}
     >
+      {inputError && <div className="banner banner-error">{inputError}</div>}
       <div className="split">
         <div>
           <FileQueue files={files} onRemove={remove} onClear={clear} />
           <DropZone
-            onFiles={add}
+            onFiles={(paths) => { setInputError(null); add(paths); }}
             label={t("adjust.dropLabel")}
             hero={files.length === 0}
-            onBlockedInput={() => {}}
+            onBlockedInput={(files) => setInputError(blockedInputError(files))}
           />
           {firstFile && (
             <div className="mt-4">
               <PreviewCard
                 beforeUrl={convertFileSrc(firstFile)}
+                onRefresh={format === "avif" ? preview.refresh : undefined}
                 result={preview.result}
                 loading={preview.loading}
                 error={preview.error}

@@ -5,6 +5,7 @@ import {
   clearPersistedByPrefix,
   readPersisted,
   usePersistedState,
+  usePersistedRef,
   writePersisted,
 } from "./persistedState";
 
@@ -14,6 +15,14 @@ afterEach(() => {
 });
 
 describe("persistedState", () => {
+  it("retains image references on remount without retaining the page DOM", () => {
+    const first = renderHook(() => usePersistedRef<object | null>("test.image", null));
+    const image = { width: 400, height: 600 };
+    first.result.current.current = image;
+    first.unmount();
+    const second = renderHook(() => usePersistedRef<object | null>("test.image", null));
+    expect(second.result.current.current).toBe(image);
+  });
   it("persists across unmount and remount", () => {
     const first = renderHook(() => usePersistedState<string>("test.a", "x"));
     act(() => first.result.current[1]("hello"));

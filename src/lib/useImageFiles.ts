@@ -1,9 +1,10 @@
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
+import { usePersistedState } from "./persistedState";
 
-export function useImageFiles(initial: string[] = []) {
-  const [files, setFiles] = useState<string[]>(initial);
+export function useImageFiles(slot: string, initial: string[] = []) {
+  const [files, setFiles] = usePersistedState<string[]>(`local.${slot}.files`, initial);
   const add = useCallback((paths: string[]) => {
-    setFiles((prev) => [...prev, ...paths.filter((p) => !prev.includes(p))]);
+    setFiles((prev) => [...prev, ...new Set(paths.filter((p) => !prev.includes(p)))]);
   }, []);
   const remove = useCallback((index: number) => {
     setFiles((prev) => prev.filter((_, i) => i !== index));

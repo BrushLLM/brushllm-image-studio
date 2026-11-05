@@ -1,11 +1,12 @@
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { canvasDataUrl } from "../lib/canvas";
+import { useEffect, useRef, type PointerEvent as ReactPointerEvent } from "react";
 import { Circle, Eraser, Square } from "lucide-react";
 import DropZone from "../components/DropZone";
 import PageShell from "../components/PageShell";
 import { useTranslation } from "react-i18next";
 import { loadDefaultOutputDir, readAssetDataUrl, saveBytes } from "../lib/ipc";
 import { CANVAS_FORMATS, unsupportedImageError } from "../lib/types";
-import { clearPersisted, usePersistedState } from "../lib/persistedState";
+import { clearPersisted, usePersistedState, usePersistedRef } from "../lib/persistedState";
 
 interface Props {
   onBack: () => void;
@@ -75,18 +76,18 @@ function drawAll(canvas: HTMLCanvasElement, strokes: Stroke[], color: string) {
 
 export default function Mosaic({ onBack }: Props) {
   const { t } = useTranslation();
-  const [file, setFile] = useState<string | null>(null);
-  const [dataUrl, setDataUrl] = useState<string | null>(null);
-  const [naturalSize, setNaturalSize] = useState<{ width: number; height: number } | null>(null);
-  const [tool, setTool] = useState<"brush" | "rect" | "erase">("brush");
-  const [brushSize, setBrushSize] = useState(48);
-  const [blockSize, setBlockSize] = useState(24);
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [savedTo, setSavedTo] = useState<string | null>(null);
+  const [file, setFile] = usePersistedState<string | null>("local.mosaic.file", null);
+  const [dataUrl, setDataUrl] = usePersistedState<string | null>("local.mosaic.dataUrl", null);
+  const [naturalSize, setNaturalSize] = usePersistedState<{ width: number; height: number } | null>("local.mosaic.naturalSize", null);
+  const [tool, setTool] = usePersistedState<"brush" | "rect" | "erase">("local.mosaic.tool", "brush");
+  const [brushSize, setBrushSize] = usePersistedState("local.mosaic.brushSize", 48);
+  const [blockSize, setBlockSize] = usePersistedState("local.mosaic.blockSize", 24);
+  const [error, setError] = usePersistedState<string | null>("local.mosaic.error", null);
+  const [busy, setBusy] = usePersistedState("local.mosaic.busy", false);
+  const [savedTo, setSavedTo] = usePersistedState<string | null>("local.mosaic.savedTo", null);
   const [strokes, setStrokes] = usePersistedState<Stroke[]>("mosaic.strokes", []);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const imgElRef = useRef<HTMLImageElement | null>(null);
+  const imgElRef = usePersistedRef<HTMLImageElement | null>("local.mosaic.imgElRef", null);
   const activeRef = useRef<Stroke | null>(null);
   /** natural px per displayed px — export uses it to keep preview-sized
    *  blocks proportional at full resolution. */
@@ -237,7 +238,7 @@ export default function Mosaic({ onBack }: Props) {
       mctx.globalCompositeOperation = "destination-in";
       mctx.drawImage(mask, 0, 0);
       ctx.drawImage(mosaic, 0, 0);
-      const out = canvas.toDataURL("image/png");
+      const out = await canvasDataUrl(canvas);
       const dir = await loadDefaultOutputDir();
       if (!dir) return;
       const path = `${dir.replace(/\/+$/, "")}/mosaic-${Date.now()}.png`;

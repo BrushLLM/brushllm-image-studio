@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { usePersistedState } from "../lib/persistedState";
+import { useCallback, useEffect, useRef } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import DropZone from "../components/DropZone";
@@ -20,34 +21,35 @@ const FONT_STACK = `system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", 
 
 export default function Watermark({ onBack }: Props) {
   const { t } = useTranslation();
-  const [file, setFile] = useState<string | null>(null);
-  const [baseImage, setBaseImage] = useState<HTMLImageElement | null>(null);
-  const [type, setType] = useState<WatermarkType>("text");
-  const [text, setText] = useState("© BrushLLM");
-  const [textColor, setTextColor] = useState("#ffffff");
-  const [textSizePct, setTextSizePct] = useState(6);
-  const [logoPath, setLogoPath] = useState<string | null>(null);
-  const [logoImage, setLogoImage] = useState<HTMLImageElement | null>(null);
-  const [logoSizePct, setLogoSizePct] = useState(25);
-  const [opacity, setOpacity] = useState(35);
-  const [rotation, setRotation] = useState(-30);
-  const [mode, setMode] = useState<Mode>("tiled");
-  const [position, setPosition] = useState(8); // 3×3 grid, 8 = bottom-right
-  const [gapPct, setGapPct] = useState(120);
-  const [format, setFormat] = useState<FormatChoice>("same");
-  const [quality, setQuality] = useState(90);
-  const [preserveExif, setPreserveExif] = useState(false);
-  const [output, setOutput] = useState<OutputConfig>({
+  const [file, setFile] = usePersistedState<string | null>("local.watermark.file", null);
+  const [baseImage, setBaseImage] = usePersistedState<HTMLImageElement | null>("local.watermark.baseImage", null);
+  const [type, setType] = usePersistedState<WatermarkType>("local.watermark.type", "text");
+  const [text, setText] = usePersistedState("local.watermark.text", "© BrushLLM");
+  const [textColor, setTextColor] = usePersistedState("local.watermark.textColor", "#ffffff");
+  const [textSizePct, setTextSizePct] = usePersistedState("local.watermark.textSizePct", 6);
+  const [logoPath, setLogoPath] = usePersistedState<string | null>("local.watermark.logoPath", null);
+  const [logoImage, setLogoImage] = usePersistedState<HTMLImageElement | null>("local.watermark.logoImage", null);
+  const [logoSizePct, setLogoSizePct] = usePersistedState("local.watermark.logoSizePct", 25);
+  const [opacity, setOpacity] = usePersistedState("local.watermark.opacity", 35);
+  const [rotation, setRotation] = usePersistedState("local.watermark.rotation", -30);
+  const [mode, setMode] = usePersistedState<Mode>("local.watermark.mode", "tiled");
+  const [position, setPosition] = usePersistedState("local.watermark.position", 8); // 3×3 grid, 8 = bottom-right
+  const [gapPct, setGapPct] = usePersistedState("local.watermark.gapPct", 120);
+  const [format, setFormat] = usePersistedState<FormatChoice>("local.watermark.format", "same");
+  const [quality, setQuality] = usePersistedState("local.watermark.quality", 90);
+  const [preserveExif, setPreserveExif] = usePersistedState("local.watermark.preserveExif", false);
+  const [output, setOutput] = usePersistedState<OutputConfig>("local.watermark.output", {
     dir: null,
     suffix: "-watermarked",
     collision: "rename",
   });
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [resultPath, setResultPath] = useState<string | null>(null);
+  const [busy, setBusy] = usePersistedState("local.watermark.busy", false);
+  const [error, setError] = usePersistedState<string | null>("local.watermark.error", null);
+  const [resultPath, setResultPath] = usePersistedState<string | null>("local.watermark.resultPath", null);
   const previewRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
+    if (output.dir) return;
     loadDefaultOutputDir().then((dir) => {
       if (dir) setOutput((prev) => ({ ...prev, dir }));
     });
@@ -401,7 +403,7 @@ export default function Watermark({ onBack }: Props) {
             </div>
 
             <div className="card">
-              <h2 className="card-title">Output</h2>
+              <h2 className="card-title">{t("settings.output")}</h2>
               <FormatQuality
                 format={format}
                 onFormat={setFormat}

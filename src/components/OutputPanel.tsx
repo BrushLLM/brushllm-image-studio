@@ -1,3 +1,4 @@
+import { useId } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { FolderOpen } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -18,6 +19,8 @@ interface Props {
 
 export default function OutputPanel({ value, onChange, defaultSuffix = "" }: Props) {
   const { t } = useTranslation();
+  const suffixId = useId();
+  const collisionId = useId();
 
   const pickDir = async () => {
     const dir = await open({ directory: true, multiple: false });
@@ -51,8 +54,9 @@ export default function OutputPanel({ value, onChange, defaultSuffix = "" }: Pro
         </div>
       </div>
       <div className="field">
-        <label>{t("convert.suffix")}</label>
+        <label htmlFor={suffixId}>{t("convert.suffix")}</label>
         <input
+          id={suffixId}
           type="text"
           value={value.suffix}
           placeholder={defaultSuffix || "e.g. -converted"}
@@ -60,8 +64,9 @@ export default function OutputPanel({ value, onChange, defaultSuffix = "" }: Pro
         />
       </div>
       <div className="field">
-        <label>{t("convert.collision")}</label>
+        <label htmlFor={collisionId}>{t("convert.collision")}</label>
         <select
+          id={collisionId}
           value={value.collision}
           onChange={(e) =>
             onChange({ ...value, collision: e.target.value as Collision })

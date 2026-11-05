@@ -1,4 +1,5 @@
 import CompareSlider from "./CompareSlider";
+import { useTranslation } from "react-i18next";
 
 interface Props {
   before: string;
@@ -8,12 +9,13 @@ interface Props {
 }
 
 export default function BeforeAfter({ before, after, beforeTag, afterTag }: Props) {
+  const { t } = useTranslation();
   return (
     <CompareSlider
       before={before}
       after={after}
-      beforeTag={beforeTag ?? "Before"}
-      afterTag={afterTag ?? "After"}
+      beforeTag={beforeTag ?? t("errors.original")}
+      afterTag={afterTag ?? t("common.result")}
     />
   );
 }

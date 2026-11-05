@@ -2,6 +2,7 @@ mod api;
 mod api_key;
 mod commands;
 mod engine;
+mod requests;
 mod settings;
 mod update;
 
@@ -18,6 +19,7 @@ pub fn run() {
             app.manage(commands::AppState {
                 settings: std::sync::Mutex::new(loaded),
                 active_batch: std::sync::Mutex::new(None),
+                ai_requests: requests::AiRequests::default(),
             });
             Ok(())
         })
@@ -35,6 +37,7 @@ pub fn run() {
             commands::preview_stitch,
             commands::ai_edit,
             commands::ai_generate,
+            commands::ai_cancel,
             commands::api_test,
             commands::api_key_status,
             commands::api_key_set,

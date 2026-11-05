@@ -1,4 +1,5 @@
-import { useEffect, useState, type CSSProperties } from "react";
+import { usePersistedState } from "../lib/persistedState";
+import { useEffect, type CSSProperties } from "react";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import DropZone from "../components/DropZone";
 import FormatQuality, { type FormatChoice } from "../components/FormatQuality";
@@ -17,26 +18,27 @@ interface Props {
 
 export default function Stitch({ onBack }: Props) {
   const { t } = useTranslation();
-  const { files, add, remove, clear, replace } = useImageFiles();
-  const [direction, setDirection] = useState<StitchOpts["direction"]>("vertical");
-  const [inputError, setInputError] = useState<string | null>(null);
-  const [spacing, setSpacing] = useState(0);
-  const [align, setAlign] = useState<StitchOpts["align"]>("center");
-  const [background, setBackground] = useState("#ffffff");
-  const [normalize, setNormalize] = useState<StitchOpts["normalize"]>("first");
-  const [format, setFormat] = useState<FormatChoice>("jpeg");
-  const [quality, setQuality] = useState(90);
-  const [preserveExif, setPreserveExif] = useState(false);
-  const [output, setOutput] = useState<OutputConfig>({
+  const { files, add, remove, clear, replace } = useImageFiles("stitch");
+  const [direction, setDirection] = usePersistedState<StitchOpts["direction"]>("local.stitch.direction", "vertical");
+  const [inputError, setInputError] = usePersistedState<string | null>("local.stitch.inputError", null);
+  const [spacing, setSpacing] = usePersistedState("local.stitch.spacing", 0);
+  const [align, setAlign] = usePersistedState<StitchOpts["align"]>("local.stitch.align", "center");
+  const [background, setBackground] = usePersistedState("local.stitch.background", "#ffffff");
+  const [normalize, setNormalize] = usePersistedState<StitchOpts["normalize"]>("local.stitch.normalize", "first");
+  const [format, setFormat] = usePersistedState<FormatChoice>("local.stitch.format", "jpeg");
+  const [quality, setQuality] = usePersistedState("local.stitch.quality", 90);
+  const [preserveExif, setPreserveExif] = usePersistedState("local.stitch.preserveExif", false);
+  const [output, setOutput] = usePersistedState<OutputConfig>("local.stitch.output", {
     dir: null,
     suffix: "-stitched",
     collision: "rename",
   });
-  const [busy, setBusy] = useState(false);
-  const [resultPath, setResultPath] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = usePersistedState("local.stitch.busy", false);
+  const [resultPath, setResultPath] = usePersistedState<string | null>("local.stitch.resultPath", null);
+  const [error, setError] = usePersistedState<string | null>("local.stitch.error", null);
 
   useEffect(() => {
+    if (output.dir) return;
     loadDefaultOutputDir().then((dir) => {
       if (dir) setOutput((prev) => ({ ...prev, dir }));
     });
@@ -100,7 +102,7 @@ export default function Stitch({ onBack }: Props) {
                 </h2>
                 <div className="flex-1" />
                 <button className="btn btn-sm" onClick={clear}>
-                  Remove all
+                  {t("common.removeAll")}
                 </button>
               </div>
               <div className="queue" style={{ alignItems: "flex-start" }}>
@@ -141,7 +143,7 @@ export default function Stitch({ onBack }: Props) {
             </div>
           )}
           <DropZone
-            onFiles={add}
+            onFiles={(paths) => { setInputError(null); add(paths); }}
             label={t("stitch.dropLabel")}
             hero={files.length === 0}
             onBlockedInput={(files) => setInputError(blockedInputError(files))}
@@ -243,7 +245,7 @@ export default function Stitch({ onBack }: Props) {
                 {t("stitch.normalizeHint")}
               </div>
             </div>
-            <FormatQuality
+            <FormatQuality allowExif={false}
               format={format === "same" ? "jpeg" : format}
               onFormat={setFormat}
               quality={quality}

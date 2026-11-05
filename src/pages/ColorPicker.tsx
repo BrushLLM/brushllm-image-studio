@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { usePersistedState, usePersistedRef } from "../lib/persistedState";
+import { useEffect, useRef } from "react";
 import { Check, Copy } from "lucide-react";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import DropZone from "../components/DropZone";
@@ -32,14 +33,14 @@ function contrastText({ r, g, b }: Rgb): string {
 
 export default function ColorPicker({ onBack }: Props) {
   const { t } = useTranslation();
-  const [file, setFile] = useState<string | null>(null);
-  const [dataUrl, setDataUrl] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [hover, setHover] = useState<Rgb | null>(null);
-  const [picked, setPicked] = useState<Rgb | null>(null);
-  const [copied, setCopied] = useState<string | null>(null);
-  const [swatches, setSwatches] = useState<Rgb[]>([]);
-  const offscreenRef = useRef<HTMLCanvasElement | null>(null);
+  const [file, setFile] = usePersistedState<string | null>("local.picker.file", null);
+  const [dataUrl, setDataUrl] = usePersistedState<string | null>("local.picker.dataUrl", null);
+  const [error, setError] = usePersistedState<string | null>("local.picker.error", null);
+  const [hover, setHover] = usePersistedState<Rgb | null>("local.picker.hover", null);
+  const [picked, setPicked] = usePersistedState<Rgb | null>("local.picker.picked", null);
+  const [copied, setCopied] = usePersistedState<string | null>("local.picker.copied", null);
+  const [swatches, setSwatches] = usePersistedState<Rgb[]>("local.picker.swatches", []);
+  const offscreenRef = usePersistedRef<HTMLCanvasElement | null>("local.picker.offscreenRef", null);
   const imgRef = useRef<HTMLImageElement | null>(null);
 
   const loadFile = (paths: string[]) => {

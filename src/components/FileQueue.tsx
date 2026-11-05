@@ -76,19 +76,19 @@ export default function FileQueue({ files, onRemove, onClear }: Props) {
 
   if (files.length === 0) return null;
   return (
-    <div className="card">
+    <div className="card queue-card">
       <div className="row row-center mb-3">
         <h2 className="m-0">{t("common.files", { count: files.length })}</h2>
         <div className="flex-1" />
         <button className="btn btn-sm" onClick={onClear}>
-          Remove all
+          {t("common.removeAll")}
         </button>
       </div>
       <div className="queue">
         {files.map((file, index) => {
           const name = baseName(file);
           const state = status[file];
-          const key = `${file}-${index}`;
+          const key = file;
           return (
             <div
               className="queue-item"

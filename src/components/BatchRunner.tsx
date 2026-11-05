@@ -115,7 +115,7 @@ export default function BatchRunner({ files, buildJob, runLabel }: Props) {
 
       {running && (
         <button className="btn btn-block mt-2" onClick={() => batchCancel()}>
-          Cancel
+          {t("common.cancel")}
         </button>
       )}
 
@@ -159,8 +159,7 @@ export default function BatchRunner({ files, buildJob, runLabel }: Props) {
               <span className="badge badge-skip">{t("batch.cancelledBadge")}</span>
             )}
             <span className="dim">
-              in {(report.ms / 1000).toFixed(1)}s
-              {report.ok > 0 ? ` · ${Math.round(report.ms / report.ok)} ms/image avg` : ""}
+              {t("batch.stats", { sec: (report.ms / 1000).toFixed(1), ms: report.ok > 0 ? Math.round(report.ms / report.ok) : 0 })}
             </span>
           </div>
           <button

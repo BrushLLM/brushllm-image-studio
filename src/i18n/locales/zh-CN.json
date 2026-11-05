@@ -36,7 +36,11 @@
     "presetBalanced": "均衡",
     "presetBest": "最佳",
     "allTools": "← 全部工具",
-    "canvasTapHint": "点按浏览 — JPEG · PNG · WebP · BMP"
+    "canvasTapHint": "点按浏览 — JPEG · PNG · WebP · BMP",
+    "exactPreview": "生成精确预览",
+    "manualPreviewHint": "AVIF 需要完整编码。调整参数后，点击生成精确预览。",
+    "compare": "对比原图与结果",
+    "savedTo": "已保存到 {{path}}"
   },
   "home": {
     "heroTitle": "图片处理，本地速度 — 需要时再用 AI。",
@@ -237,7 +241,7 @@
     "apply": "应用",
     "applying": "应用中…",
     "noExif": "此文件中未找到 EXIF 元数据。",
-    "dropHint": "EXIF 存在于 JPEG 和 TIFF 文件中。",
+    "dropHint": "JPEG · PNG · TIFF",
     "dateTime": "拍摄日期/时间",
     "dateTimePh": "YYYY-MM-DD HH:MM:SS",
     "cameraMake": "相机制造商",
@@ -254,7 +258,9 @@
     "artistPh": "拍摄者姓名",
     "copyright": "版权",
     "copyrightPh": "© 2026 …",
-    "stripGpsHint": "仅移除 GPS 标签，其余保留。支持 JPEG 和 PNG。"
+    "stripGpsHint": "仅移除 GPS 标签，其余保留。支持 JPEG 和 PNG。",
+    "readOnlyTiff": "TIFF 元数据仅支持查看；JPEG 和 PNG 支持编辑。",
+    "stripHint": "无损清除 JPEG 或 PNG 中的 EXIF、XMP、IPTC 和注释，不重新编码像素。"
   },
   "rounded": {
     "title": "圆角制作",
@@ -362,7 +368,10 @@
     "refImages": "参考图（可选）",
     "refHint": "添加 1–3 张参考图（如要替换进去的人物）。多图仅 gpt-image 系模型支持；不添加时与单图行为一致。",
     "refDrop": "拖入参考图",
-    "refMax": "参考图最多 3 张。"
+    "refMax": "参考图最多 3 张。",
+    "cancelHint": "取消会断开本次连接；已被服务器接受的任务仍可能计费。",
+    "editSizeHint": "图片编辑支持列表中的三种尺寸；2K/4K 和自定义尺寸适用于生成图片。",
+    "imageEdits": "图片编辑"
   },
   "settings": {
     "title": "设置",
@@ -433,7 +442,9 @@
     "updateAvailable": "新版本 {{version}} 可用",
     "updateNotes": "更新说明",
     "openReleasePage": "前往 GitHub 下载",
-    "updateCheckFailed": "检查更新失败 — 仓库需设为公开后才能检查更新。"
+    "updateCheckFailed": "检查更新失败 — 仓库需设为公开后才能检查更新。",
+    "gatewayHint": "填写 API 基础地址（例如以 /v1 结尾），请求路径会自动添加。",
+    "modelListHint": "测试连接以获取可用模型，再选择默认模型。"
   },
   "cmdk": {
     "placeholder": "搜索工具…",

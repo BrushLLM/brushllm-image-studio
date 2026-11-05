@@ -115,7 +115,7 @@ export default function DropZone({
 
   return (
     <div
-      className={`dropzone${active ? " active" : ""}${hero ? " hero" : ""}${workbench ? " workbench" : ""}`}
+      className={`dropzone${active ? " active" : ""}${hero ? " hero" : ""}${workbench ? " workbench" : ""}${!hero && !workbench ? " compact" : ""}`}
       onClick={pick}
       role="button"
       tabIndex={0}

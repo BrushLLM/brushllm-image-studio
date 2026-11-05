@@ -492,8 +492,20 @@ mod tests {
             sock.write_all(format!("{:x}\r\n", 2 * 1024 * 1024).as_bytes())
                 .unwrap();
             let block = vec![b'x'; 2 * 1024 * 1024];
-            sock.write_all(&block).unwrap();
-            sock.write_all(b"\r\n0\r\n\r\n").unwrap();
+            // The client deliberately drops the response as soon as it sees
+            // >1 MB. A reset while writing the remaining bytes is expected.
+            if let Err(e) = sock
+                .write_all(&block)
+                .and_then(|_| sock.write_all(b"\r\n0\r\n\r\n"))
+            {
+                assert!(
+                    matches!(
+                        e.kind(),
+                        std::io::ErrorKind::BrokenPipe | std::io::ErrorKind::ConnectionReset
+                    ),
+                    "{e}"
+                );
+            }
         });
         let fut = async move {
             let resp = reqwest::Client::new()
@@ -505,6 +517,9 @@ mod tests {
         };
         let result = tauri::async_runtime::block_on(fut);
         server.join().unwrap();
-        assert!(result.is_err(), "oversized chunked body must be rejected");
+        assert!(
+            result.unwrap_err().contains("exceeds"),
+            "must reject at the streaming size cap"
+        );
     }
 }

@@ -36,7 +36,11 @@
     "presetBalanced": "Balanced",
     "presetBest": "Best",
     "allTools": "← All tools",
-    "canvasTapHint": "tap to browse — JPEG · PNG · WebP · BMP"
+    "canvasTapHint": "tap to browse — JPEG · PNG · WebP · BMP",
+    "exactPreview": "Render exact preview",
+    "manualPreviewHint": "AVIF requires a full encode. After adjusting settings, render an exact preview.",
+    "compare": "Compare original and result",
+    "savedTo": "Saved to {{path}}"
   },
   "home": {
     "heroTitle": "Your images, local speed — AI when you need it.",
@@ -237,7 +241,7 @@
     "apply": "Apply",
     "applying": "Applying…",
     "noExif": "No EXIF metadata found in this file.",
-    "dropHint": "EXIF lives in JPEG and TIFF files.",
+    "dropHint": "JPEG · PNG · TIFF",
     "dateTime": "Date / time taken",
     "dateTimePh": "YYYY-MM-DD HH:MM:SS",
     "cameraMake": "Camera make",
@@ -254,7 +258,9 @@
     "artistPh": "photographer name",
     "copyright": "Copyright",
     "copyrightPh": "© 2026 …",
-    "stripGpsHint": "Removes GPS tags, keeps everything else. JPEG and PNG."
+    "stripGpsHint": "Removes GPS tags, keeps everything else. JPEG and PNG.",
+    "readOnlyTiff": "TIFF metadata is view-only. Editing is supported for JPEG and PNG.",
+    "stripHint": "Remove EXIF, XMP, IPTC and comments without re-encoding JPEG or PNG pixels."
   },
   "rounded": {
     "title": "Rounded Corners",
@@ -362,7 +368,10 @@
     "refImages": "Reference images (optional)",
     "refHint": "Add 1–3 reference images (e.g. a person to swap in). Multi-image works with gpt-image models only; leave empty for single-image behavior.",
     "refDrop": "Drop reference images",
-    "refMax": "Up to 3 reference images."
+    "refMax": "Up to 3 reference images.",
+    "cancelHint": "Cancel disconnects this request. Work already accepted by the server may still be billed.",
+    "editSizeHint": "Image edits support the three listed sizes. 2K/4K and custom sizes are available for image generation.",
+    "imageEdits": "Image edits"
   },
   "settings": {
     "title": "Settings",
@@ -433,7 +442,9 @@
     "updateAvailable": "Version {{version}} is available",
     "updateNotes": "Release notes",
     "openReleasePage": "Download on GitHub",
-    "updateCheckFailed": "Update check failed — the repository must be public for update checks to work."
+    "updateCheckFailed": "Update check failed — the repository must be public for update checks to work.",
+    "gatewayHint": "Enter the API base URL (for example, ending in /v1). Endpoint paths are added automatically.",
+    "modelListHint": "Test the connection to list available models, then choose a default."
   },
   "cmdk": {
     "placeholder": "Search tools…",

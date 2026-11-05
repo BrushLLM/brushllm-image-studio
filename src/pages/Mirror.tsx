@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { usePersistedState } from "../lib/persistedState";
+import { useEffect } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { Columns2, Rows2 } from "lucide-react";
 import BatchRunner from "../components/BatchRunner";
@@ -27,18 +28,19 @@ const MODES: { value: Mode; labelKey: string; icon: typeof Columns2 }[] = [
 
 export default function Mirror({ onBack }: Props) {
   const { t } = useTranslation();
-  const { files, add, remove, clear } = useImageFiles();
-  const [mode, setMode] = useState<Mode>("horizontal");
-  const [format, setFormat] = useState<FormatChoice>("same");
-  const [quality, setQuality] = useState(92);
-  const [preserveExif, setPreserveExif] = useState(false);
-  const [output, setOutput] = useState<OutputConfig>({
+  const { files, add, remove, clear } = useImageFiles("mirror");
+  const [mode, setMode] = usePersistedState<Mode>("local.mirror.mode", "horizontal");
+  const [format, setFormat] = usePersistedState<FormatChoice>("local.mirror.format", "same");
+  const [quality, setQuality] = usePersistedState("local.mirror.quality", 92);
+  const [preserveExif, setPreserveExif] = usePersistedState("local.mirror.preserveExif", false);
+  const [output, setOutput] = usePersistedState<OutputConfig>("local.mirror.output", {
     dir: null,
     suffix: "-mirrored",
     collision: "rename",
   });
 
   useEffect(() => {
+    if (output.dir) return;
     loadDefaultOutputDir().then((dir) => {
       if (dir) setOutput((prev) => ({ ...prev, dir }));
     });
@@ -53,13 +55,15 @@ export default function Mirror({ onBack }: Props) {
     () =>
       firstFile
         ? previewBatch({
+            preserveExif: preserveExif,
             file: firstFile,
             steps: JSON.parse(stepsJson) as Step[],
             format: format === "same" ? null : (format as OutFormat),
             quality,
           })
         : null,
-    [firstFile, stepsJson, format, quality],
+    [firstFile, stepsJson, format, quality, preserveExif],
+    format === "avif",
   );
 
   return (
@@ -81,6 +85,7 @@ export default function Mirror({ onBack }: Props) {
             <div className="mt-4">
               <PreviewCard
                 beforeUrl={convertFileSrc(firstFile)}
+                onRefresh={format === "avif" ? preview.refresh : undefined}
                 result={preview.result}
                 loading={preview.loading}
                 error={preview.error}

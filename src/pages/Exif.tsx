@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { usePersistedState } from "../lib/persistedState";
+import { useEffect, useRef } from "react";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import DropZone from "../components/DropZone";
 import OutputPanel, { type OutputConfig } from "../components/OutputPanel";
@@ -21,29 +22,30 @@ type Mode = "edit" | "strip_gps" | "strip_all";
 
 export default function Exif({ onBack }: Props) {
   const { t } = useTranslation();
-  const [file, setFile] = useState<string | null>(null);
-  const [fields, setFields] = useState<ExifField[] | null>(null);
-  const [mode, setMode] = useState<Mode>("edit");
-  const [dateTime, setDateTime] = useState("");
-  const [make, setMake] = useState("");
-  const [model, setModel] = useState("");
-  const [gpsLat, setGpsLat] = useState("");
-  const [gpsLon, setGpsLon] = useState("");
-  const [description, setDescription] = useState("");
-  const [artist, setArtist] = useState("");
-  const [copyright, setCopyright] = useState("");
-  const [output, setOutput] = useState<OutputConfig>({
+  const [file, setFile] = usePersistedState<string | null>("local.exif.file", null);
+  const [fields, setFields] = usePersistedState<ExifField[] | null>("local.exif.fields", null);
+  const [mode, setMode] = usePersistedState<Mode>("local.exif.mode", "edit");
+  const [dateTime, setDateTime] = usePersistedState("local.exif.dateTime", "");
+  const [make, setMake] = usePersistedState("local.exif.make", "");
+  const [model, setModel] = usePersistedState("local.exif.model", "");
+  const [gpsLat, setGpsLat] = usePersistedState("local.exif.gpsLat", "");
+  const [gpsLon, setGpsLon] = usePersistedState("local.exif.gpsLon", "");
+  const [description, setDescription] = usePersistedState("local.exif.description", "");
+  const [artist, setArtist] = usePersistedState("local.exif.artist", "");
+  const [copyright, setCopyright] = usePersistedState("local.exif.copyright", "");
+  const [output, setOutput] = usePersistedState<OutputConfig>("local.exif.output", {
     dir: null,
     suffix: "-exif",
     collision: "rename",
   });
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [resultPath, setResultPath] = useState<string | null>(null);
+  const [busy, setBusy] = usePersistedState("local.exif.busy", false);
+  const [error, setError] = usePersistedState<string | null>("local.exif.error", null);
+  const [resultPath, setResultPath] = usePersistedState<string | null>("local.exif.resultPath", null);
   /** Bumped on every loadFile; stale readExif results are discarded. */
   const loadTokenRef = useRef(0);
 
   useEffect(() => {
+    if (output.dir) return;
     loadDefaultOutputDir().then((dir) => {
       if (dir) setOutput((prev) => ({ ...prev, dir }));
     });
@@ -88,8 +90,10 @@ export default function Exif({ onBack }: Props) {
       });
   };
 
+  const readOnly = file !== null && /\.tiff?$/i.test(file);
+
   const run = async () => {
-    if (!file || busy) return;
+    if (!file || busy || readOnly) return;
     setBusy(true);
     setError(null);
     setResultPath(null);
@@ -141,12 +145,13 @@ export default function Exif({ onBack }: Props) {
           accept={EXIF_FORMATS}
           hint={t("exif.dropHint")}
           onUnsupported={(files) =>
-            setError(unsupportedImageError(files.length, "JPEG or TIFF"))
+            setError(unsupportedImageError(files.length, "JPEG, PNG or TIFF"))
           }
           onBlockedInput={(files) => setError(blockedInputError(files))}
         />
       )}
 
+      {file && readOnly && <div className="banner banner-info">{t("exif.readOnlyTiff")}</div>}
       {file && (
         <div className="split">
           <div>
@@ -160,7 +165,7 @@ export default function Exif({ onBack }: Props) {
                   </span>
                 )}
               </div>
-              {fields === null && <p className="status-note">Reading…</p>}
+              {fields === null && <p className="status-note">{t("common.processing")}</p>}
               {fields !== null && fields.length === 0 && (
                 <p className="status-note">
                   {t("exif.noExif")}
@@ -303,8 +308,7 @@ export default function Exif({ onBack }: Props) {
               )}
               {mode === "strip_all" && (
                 <div className="hint mb-3">
-                  Removes EXIF, XMP, IPTC and comments. JPEG and PNG are edited
-                  losslessly; other formats are re-encoded.
+                  {t("exif.stripHint")}
                 </div>
               )}
 
@@ -315,7 +319,7 @@ export default function Exif({ onBack }: Props) {
               <button
                 className="btn btn-primary btn-block"
                 onClick={run}
-                disabled={busy || (mode === "edit" && fields === null)}
+                disabled={readOnly || busy || (mode === "edit" && fields === null)}
               >
                 {busy ? (
                   <>
@@ -334,9 +338,9 @@ export default function Exif({ onBack }: Props) {
                 <div
                   className="banner banner-ok mt-3"
                 >
-                  <span>✓ Saved to {resultPath}</span>
+                  <span>✓ {t("common.savedTo", { path: resultPath })}</span>
                   <span className="banner-link" onClick={() => revealItemInDir(resultPath)}>
-                    Show in folder
+                    {t("common.openFolder")}
                   </span>
                 </div>
               )}

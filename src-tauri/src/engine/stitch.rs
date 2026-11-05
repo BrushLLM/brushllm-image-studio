@@ -1,6 +1,6 @@
 //! Stitch multiple images into one long image (vertical or horizontal).
 
-use image::{DynamicImage, GenericImage};
+use image::DynamicImage;
 use serde::Deserialize;
 
 use super::{Result, StudioError};
@@ -39,21 +39,93 @@ pub struct StitchOpts {
     pub normalize: Normalize,
 }
 
-pub fn stitch(images: Vec<DynamicImage>, opts: &StitchOpts) -> Result<DynamicImage> {
-    if images.is_empty() {
+/// Compute the normalized canvas from headers before allocating any rasters.
+fn layout(sizes: &[(u32, u32)], opts: &StitchOpts) -> Result<(u32, u32, u32)> {
+    if sizes.is_empty() {
         return Err(StudioError::Param("no images to stitch".into()));
     }
-    let cross: Vec<u32> = if opts.direction == Direction::Vertical {
-        images.iter().map(|i| i.width()).collect()
-    } else {
-        images.iter().map(|i| i.height()).collect()
-    };
+    let cross: Vec<u32> = sizes
+        .iter()
+        .map(|&(w, h)| {
+            if opts.direction == Direction::Vertical {
+                w
+            } else {
+                h
+            }
+        })
+        .collect();
     let target = match opts.normalize {
         Normalize::First => cross[0],
         Normalize::Max => *cross.iter().max().unwrap(),
         Normalize::Min => *cross.iter().min().unwrap(),
     }
     .max(1);
+    let mut length = opts.spacing as u64 * (sizes.len() as u64 - 1);
+    for &(w, h) in sizes {
+        let (cross, along) = if opts.direction == Direction::Vertical {
+            (w, h)
+        } else {
+            (h, w)
+        };
+        if cross == 0 {
+            return Err(StudioError::Param("empty stitch input".into()));
+        }
+        let scaled = (along as f64 * target as f64 / cross as f64)
+            .round()
+            .max(1.0) as u64;
+        super::guard::validate_pixels(target as u64, scaled, "stitched image")?;
+        length = length
+            .checked_add(scaled)
+            .ok_or_else(|| StudioError::Param("stitched image dimensions overflow".into()))?;
+    }
+    if length > u32::MAX as u64 {
+        return Err(StudioError::Param(
+            "stitched image dimensions overflow".into(),
+        ));
+    }
+    super::guard::validate_pixels(target as u64, length, "stitched image")?;
+    let (w, h) = if opts.direction == Direction::Vertical {
+        (target, length as u32)
+    } else {
+        (length as u32, target)
+    };
+    Ok((target, w, h))
+}
+
+/// Bound all input rasters together before decoding any of them.
+pub fn from_files(files: &[String], opts: &StitchOpts) -> Result<DynamicImage> {
+    if files.is_empty() || files.len() > super::guard::limits::MAX_BATCH_FILES {
+        return Err(StudioError::Param(
+            "choose between 1 and 500 images to stitch".into(),
+        ));
+    }
+    let mut pixels = 0u64;
+    let mut sizes = Vec::with_capacity(files.len());
+    for file in files {
+        let path = std::path::Path::new(file);
+        super::guard::validate_input_file(path)?;
+        let bytes = super::decode::read_bytes(path)?;
+        let (w, h) = super::decode::dimensions(&bytes)?;
+        sizes.push((w, h));
+        pixels = pixels
+            .checked_add(w as u64 * h as u64)
+            .ok_or_else(|| StudioError::Param("stitch input dimensions overflow".into()))?;
+        super::guard::validate_pixels(pixels, 1, "combined stitch inputs")?;
+    }
+    layout(&sizes, opts)?;
+    let images = files
+        .iter()
+        .map(|file| super::decode::decode_file(std::path::Path::new(file)))
+        .collect::<Result<Vec<_>>>()?;
+    stitch(images, opts)
+}
+
+pub fn stitch(images: Vec<DynamicImage>, opts: &StitchOpts) -> Result<DynamicImage> {
+    let sizes: Vec<_> = images
+        .iter()
+        .map(|image| (image.width(), image.height()))
+        .collect();
+    let (target, out_w, out_h) = layout(&sizes, opts)?;
 
     let mut scaled: Vec<DynamicImage> = Vec::with_capacity(images.len());
     for img in images {
@@ -88,32 +160,6 @@ pub fn stitch(images: Vec<DynamicImage>, opts: &StitchOpts) -> Result<DynamicIma
     }
 
     let bg = parse_hex(&opts.background).unwrap_or([255, 255, 255]);
-    let count = scaled.len() as u64;
-    // Accumulate in u64 so heights/widths and spacing cannot wrap, then
-    // enforce both the u32 canvas limit and the pixel budget before
-    // allocating the canvas.
-    let (out_w, out_h): (u64, u64) = match opts.direction {
-        Direction::Vertical => {
-            let w = scaled.iter().map(|i| i.width()).max().unwrap() as u64;
-            let h = scaled.iter().map(|i| i.height() as u64).sum::<u64>()
-                + opts.spacing as u64 * (count - 1);
-            (w, h)
-        }
-        Direction::Horizontal => {
-            let h = scaled.iter().map(|i| i.height()).max().unwrap() as u64;
-            let w = scaled.iter().map(|i| i.width() as u64).sum::<u64>()
-                + opts.spacing as u64 * (count - 1);
-            (w, h)
-        }
-    };
-    if out_w > u32::MAX as u64 || out_h > u32::MAX as u64 {
-        return Err(StudioError::Param(
-            "stitched image dimensions overflow".into(),
-        ));
-    }
-    super::guard::validate_pixels(out_w, out_h, "stitched image")?;
-    let (out_w, out_h) = (out_w as u32, out_h as u32);
-
     let mut canvas =
         image::RgbaImage::from_pixel(out_w, out_h, image::Rgba([bg[0], bg[1], bg[2], 255]));
     let mut offset = 0u32;
@@ -141,9 +187,7 @@ pub fn stitch(images: Vec<DynamicImage>, opts: &StitchOpts) -> Result<DynamicIma
                 (x, y)
             }
         };
-        canvas
-            .copy_from(&rgba, x, y)
-            .map_err(|e| StudioError::Param(format!("stitch paste: {e}")))?;
+        image::imageops::overlay(&mut canvas, &rgba, x as i64, y as i64);
     }
     Ok(DynamicImage::ImageRgba8(canvas))
 }

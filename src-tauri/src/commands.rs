@@ -11,6 +11,7 @@ use crate::settings::Settings;
 
 /// Mutable app state managed by Tauri.
 pub struct AppState {
+    pub ai_requests: crate::requests::AiRequests,
     pub settings: std::sync::Mutex<Settings>,
     /// One active batch at a time; the token belongs to that job only, so
     /// cancelling never leaks into a later run.
@@ -91,13 +92,7 @@ pub async fn run_stitch(job: StitchJob) -> Result<String, String> {
         if job.files.is_empty() {
             return Err("no images to stitch".into());
         }
-        let mut images = Vec::with_capacity(job.files.len());
-        for file in &job.files {
-            let path = std::path::Path::new(file);
-            guard::validate_input_file(path).map_err(|e| e.to_string())?;
-            images.push(decode::decode_file(path).map_err(|e| e.to_string())?);
-        }
-        let stitched = stitch::stitch(images, &job.opts).map_err(|e| e.to_string())?;
+        let stitched = stitch::from_files(&job.files, &job.opts).map_err(|e| e.to_string())?;
         let encoded = encode::encode(
             &stitched,
             &EncodeSettings {
@@ -147,7 +142,7 @@ pub async fn apply_overlay(job: OverlayJob) -> Result<String, String> {
         let overlay_raw = base64::engine::general_purpose::STANDARD
             .decode(&job.overlay_b64)
             .map_err(|e| format!("invalid overlay data: {e}"))?;
-        let overlay = image::load_from_memory(&overlay_raw)
+        let overlay = decode::decode_from_buffer(&overlay_raw)
             .map_err(|e| format!("invalid overlay PNG: {e}"))?
             .to_rgba8();
         if overlay.dimensions() != base.dimensions() {
@@ -172,7 +167,7 @@ pub async fn apply_overlay(job: OverlayJob) -> Result<String, String> {
         )
         .map_err(|e| e.to_string())?;
         if job.preserve_exif && format == OutFormat::Jpeg {
-            if let Some(exif_block) = crate::engine::metadata::extract_exif_jpeg(&bytes) {
+            if let Some(exif_block) = crate::engine::metadata::normalized_exif_jpeg(&bytes) {
                 crate::engine::metadata::insert_exif_jpeg(&mut encoded, &exif_block);
             }
         }
@@ -227,18 +222,23 @@ fn single_output_path(
 /// Serve a local image as a data: URL. Canvas drawing of asset-protocol images
 /// taints the canvas in the webview; data URLs are same-origin and safe.
 #[tauri::command]
-pub fn read_asset(path: String) -> Result<String, String> {
-    use base64::Engine;
-    if !guard::has_no_parent_traversal(&path) {
-        return Err(format!("unsafe image path: {path}"));
-    }
-    guard::validate_input_file(std::path::Path::new(&path)).map_err(|e| e.to_string())?;
-    let bytes = std::fs::read(&path).map_err(|e| format!("cannot read {path}: {e}"))?;
-    let mime = sniff_image_mime(&bytes, &path);
-    Ok(format!(
-        "data:{mime};base64,{}",
-        base64::engine::general_purpose::STANDARD.encode(bytes)
-    ))
+pub async fn read_asset(path: String) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        use base64::Engine;
+        if !guard::has_no_parent_traversal(&path) {
+            return Err(format!("unsafe image path: {path}"));
+        }
+        guard::validate_input_file(std::path::Path::new(&path)).map_err(|e| e.to_string())?;
+        let bytes = std::fs::read(&path).map_err(|e| format!("cannot read {path}: {e}"))?;
+        decode::dimensions(&bytes).map_err(|e| e.to_string())?;
+        let mime = sniff_image_mime(&bytes, &path);
+        Ok(format!(
+            "data:{mime};base64,{}",
+            base64::engine::general_purpose::STANDARD.encode(bytes)
+        ))
+    })
+    .await
+    .map_err(|e| format!("image load failed: {e}"))?
 }
 
 /// The user's OS Pictures folder — one-click default output directory.
@@ -467,22 +467,24 @@ pub async fn preview_batch(
     steps: Vec<crate::engine::ops::Step>,
     format: Option<OutFormat>,
     quality: u8,
+    preserve_exif: bool,
 ) -> Result<PreviewResult, String> {
     use base64::Engine;
     tauri::async_runtime::spawn_blocking(move || {
-        guard::validate_input_file(std::path::Path::new(&file)).map_err(|e| e.to_string())?;
-        let bytes = decode::read_bytes(std::path::Path::new(&file)).map_err(|e| e.to_string())?;
-        let img = decode::decode_from_buffer(&bytes).map_err(|e| e.to_string())?;
-        let processed = crate::engine::ops::apply_steps(img, &steps).map_err(|e| e.to_string())?;
-        let format = format.unwrap_or_else(|| decode::same_output_format(&bytes));
-        let encoded = encode::encode(&processed, &EncodeSettings { format, quality })
-            .map_err(|e| e.to_string())?;
-        // Mirror the batch pipeline: a same-format "compress" that cannot
-        // beat the original keeps the original bytes, so the previewed size
-        // matches what actually gets written. Edited images (steps present)
-        // never fall back — the preview must show the real edit.
-        let encoded =
-            crate::engine::batch::never_grow(&file, format, &bytes, encoded, steps.is_empty());
+        let source =
+            crate::engine::preview::load(std::path::Path::new(&file)).map_err(|e| e.to_string())?;
+        let (format, encoded) = batch::render(
+            &file,
+            &source.bytes,
+            std::borrow::Cow::Borrowed(&source.image),
+            &batch::RenderSettings {
+                steps: &steps,
+                format,
+                quality,
+                preserve_exif,
+            },
+        )
+        .map_err(|e| e.to_string())?;
         let len = encoded.len() as u64;
         let mime = match format {
             OutFormat::Jpeg => "image/jpeg",
@@ -500,7 +502,7 @@ pub async fn preview_batch(
                 base64::engine::general_purpose::STANDARD.encode(encoded)
             ),
             bytes: len,
-            in_bytes: bytes.len() as u64,
+            in_bytes: source.bytes.len() as u64,
         })
     })
     .await
@@ -516,13 +518,7 @@ pub async fn preview_stitch(
     const MAX_PREVIEW_IMAGES: usize = 10;
     tauri::async_runtime::spawn_blocking(move || {
         let files = &files[..files.len().min(MAX_PREVIEW_IMAGES)];
-        let mut images = Vec::with_capacity(files.len());
-        for file in files {
-            let path = std::path::Path::new(file);
-            guard::validate_input_file(path).map_err(|e| e.to_string())?;
-            images.push(decode::decode_file(path).map_err(|e| e.to_string())?);
-        }
-        let stitched = stitch::stitch(images, &opts).map_err(|e| e.to_string())?;
+        let stitched = stitch::from_files(files, &opts).map_err(|e| e.to_string())?;
         let encoded = encode::encode(
             &stitched,
             &EncodeSettings {
@@ -584,9 +580,11 @@ fn to_edit_result(resp: api::client::EditResponse) -> EditResult {
 
 /// Text-to-image generation — no source image needed.
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub async fn ai_generate(
     app: AppHandle,
     state: State<'_, AppState>,
+    request_id: String,
     model: String,
     prompt: String,
     size: Option<String>,
@@ -594,20 +592,24 @@ pub async fn ai_generate(
     n: Option<u8>,
 ) -> Result<EditResult, String> {
     let settings = state.settings.lock().unwrap().clone();
-    let api_key = api_key::get(&app)
-        .ok_or_else(|| "no API key configured — add one in Settings first".to_string())?;
+    let api_key = api_key::load(app.clone()).await?;
 
-    let resp = api::client::generate_image(
-        // Text-to-image runs against its own gateway.
-        &settings.base_url_t2i,
-        &api_key,
-        &model,
-        &prompt,
-        size.as_deref(),
-        quality.as_deref(),
-        n,
-    )
-    .await?;
+    let resp = state
+        .ai_requests
+        .run(
+            request_id,
+            api::client::generate_image(
+                // Text-to-image runs against its own gateway.
+                &settings.base_url_t2i,
+                &api_key,
+                &model,
+                &prompt,
+                size.as_deref(),
+                quality.as_deref(),
+                n,
+            ),
+        )
+        .await?;
 
     Ok(to_edit_result(resp))
 }
@@ -617,6 +619,7 @@ pub async fn ai_generate(
 pub async fn ai_edit(
     app: AppHandle,
     state: State<'_, AppState>,
+    request_id: String,
     model: String,
     prompt: String,
     image_paths: Vec<String>,
@@ -627,8 +630,7 @@ pub async fn ai_edit(
 ) -> Result<EditResult, String> {
     let settings = state.settings.lock().unwrap().clone();
     use base64::Engine;
-    let api_key = api_key::get(&app)
-        .ok_or_else(|| "no API key configured — add one in Settings first".to_string())?;
+    let api_key = api_key::load(app.clone()).await?;
 
     if image_paths.is_empty() {
         return Err("no image provided".into());
@@ -672,22 +674,32 @@ pub async fn ai_edit(
         ),
     };
 
-    let resp = api::client::edit_image(
-        &settings.base_url,
-        &api_key,
-        api::client::EditRequest {
-            model: &model,
-            prompt: &prompt,
-            images: &images,
-            mask: mask.as_deref(),
-            size: size.as_deref(),
-            quality: quality.as_deref(),
-            n,
-        },
-    )
-    .await?;
+    let resp = state
+        .ai_requests
+        .run(
+            request_id,
+            api::client::edit_image(
+                &settings.base_url,
+                &api_key,
+                api::client::EditRequest {
+                    model: &model,
+                    prompt: &prompt,
+                    images: &images,
+                    mask: mask.as_deref(),
+                    size: size.as_deref(),
+                    quality: quality.as_deref(),
+                    n,
+                },
+            ),
+        )
+        .await?;
 
     Ok(to_edit_result(resp))
+}
+
+#[tauri::command]
+pub fn ai_cancel(state: State<'_, AppState>, request_id: String) {
+    state.ai_requests.cancel(request_id);
 }
 
 #[derive(Serialize)]
@@ -711,11 +723,10 @@ pub async fn api_test(
     let base_t2i = base_url_t2i.unwrap_or(settings.base_url_t2i);
     // A freshly typed key wins (Settings tests before saving); otherwise
     // fall back to the stored one.
-    let key = api_key
-        .filter(|k| !k.trim().is_empty())
-        .map(|k| k.trim().to_string())
-        .or_else(|| api_key::get(&app))
-        .ok_or_else(|| "no API key configured — add one in Settings first".to_string())?;
+    let key = match api_key.filter(|key| !key.trim().is_empty()) {
+        Some(key) => key.trim().to_string(),
+        None => api_key::load(app.clone()).await?,
+    };
     // Both gateways must answer — each AI tool depends on one of them.
     let edits = api::client::test_key(&base, &key)
         .await
@@ -730,22 +741,28 @@ pub async fn api_test(
 }
 
 #[tauri::command]
-pub fn api_key_status(app: AppHandle) -> bool {
-    api_key::get(&app).is_some()
+pub async fn api_key_status(app: AppHandle) -> bool {
+    tauri::async_runtime::spawn_blocking(move || api_key::exists(&app))
+        .await
+        .unwrap_or(false)
 }
 
 #[tauri::command]
-pub fn api_key_set(app: AppHandle, key: String) -> Result<(), String> {
+pub async fn api_key_set(app: AppHandle, key: String) -> Result<(), String> {
     let key = key.trim().to_string();
     if key.len() < 8 {
         return Err("this does not look like a valid API key".into());
     }
-    api_key::set(&app, &key)
+    tauri::async_runtime::spawn_blocking(move || api_key::set(&app, &key))
+        .await
+        .map_err(|e| format!("keychain task failed: {e}"))?
 }
 
 #[tauri::command]
-pub fn api_key_clear(app: AppHandle) -> Result<(), String> {
-    api_key::clear(&app)
+pub async fn api_key_clear(app: AppHandle) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || api_key::clear(&app))
+        .await
+        .map_err(|e| format!("keychain task failed: {e}"))?
 }
 
 #[tauri::command]

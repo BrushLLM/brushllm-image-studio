@@ -29,6 +29,7 @@ export function applyOverlay(job: OverlayJob): Promise<string> {
 }
 
 export function aiGenerate(args: {
+  requestId: string;
   model: string;
   prompt: string;
   size?: string | null;
@@ -36,6 +37,7 @@ export function aiGenerate(args: {
   n?: number | null;
 }): Promise<EditResult> {
   return invoke("ai_generate", {
+    requestId: args.requestId,
     model: args.model,
     prompt: args.prompt,
     size: args.size ?? null,
@@ -128,12 +130,14 @@ export interface PreviewOutcome {
 }
 
 export function previewBatch(args: {
+  preserveExif: boolean;
   file: string;
   steps: Step[];
   format: OutFormat | null;
   quality: number;
 }): Promise<PreviewOutcome> {
-  return invoke("preview_batch", args);
+  const { preserveExif, ...rest } = args;
+  return invoke("preview_batch", { ...rest, preserveExif });
 }
 
 export function previewStitch(files: string[], opts: StitchOpts): Promise<PreviewOutcome> {
@@ -141,6 +145,7 @@ export function previewStitch(files: string[], opts: StitchOpts): Promise<Previe
 }
 
 export interface AiEditArgs {
+  requestId: string;
   model: string;
   prompt: string;
   /** Primary image first, then up to 3 reference images. */
@@ -153,6 +158,7 @@ export interface AiEditArgs {
 
 export function aiEdit(args: AiEditArgs): Promise<EditResult> {
   return invoke("ai_edit", {
+    requestId: args.requestId,
     model: args.model,
     prompt: args.prompt,
     imagePaths: args.imagePaths,
@@ -218,3 +224,7 @@ export function checkUpdate(): Promise<UpdateInfo> {
   return invoke("check_update");
 }
 
+
+export function aiCancel(requestId: string): Promise<void> {
+  return invoke("ai_cancel", { requestId });
+}

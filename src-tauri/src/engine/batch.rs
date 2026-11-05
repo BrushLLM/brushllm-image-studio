@@ -2,6 +2,48 @@ use serde::{Deserialize, Serialize};
 
 use super::{decode, encode, guard, metadata, ops, output};
 
+pub struct RenderSettings<'a> {
+    pub steps: &'a [ops::Step],
+    pub format: Option<encode::OutFormat>,
+    pub quality: u8,
+    pub preserve_exif: bool,
+}
+
+/// The same pixels, metadata policy and fallback rules serve export and preview.
+pub fn render(
+    file: &str,
+    bytes: &[u8],
+    img: std::borrow::Cow<'_, image::DynamicImage>,
+    settings: &RenderSettings<'_>,
+) -> super::Result<(encode::OutFormat, Vec<u8>)> {
+    let processed = if settings.steps.is_empty() {
+        img
+    } else {
+        std::borrow::Cow::Owned(ops::apply_steps(img.into_owned(), settings.steps)?)
+    };
+    let format = settings
+        .format
+        .unwrap_or_else(|| decode::same_output_format(bytes));
+    let mut encoded = encode::encode(
+        &processed,
+        &encode::EncodeSettings {
+            format,
+            quality: settings.quality,
+        },
+    )?;
+    if settings.preserve_exif && format == encode::OutFormat::Jpeg {
+        if let Some(exif) = metadata::normalized_exif_jpeg(bytes) {
+            metadata::insert_exif_jpeg(&mut encoded, &exif);
+        }
+    }
+    let allow_fallback = settings.steps.is_empty()
+        && (settings.preserve_exif || metadata::extract_exif_jpeg(bytes).is_none());
+    Ok((
+        format,
+        never_grow(file, format, bytes, encoded, allow_fallback),
+    ))
+}
+
 /// True when the output format matches the file's own extension, so
 /// re-encoding is a same-format "compress" rather than a conversion.
 pub fn is_same_format(input_path: &str, format: encode::OutFormat) -> bool {
@@ -243,40 +285,20 @@ fn process_one(file: &str, job: &BatchJob, protected: &[std::path::PathBuf]) -> 
         Err(e) => return fail(e.to_string(), in_bytes),
     };
 
-    let processed = match ops::apply_steps(img, &job.steps) {
-        Ok(img) => img,
-        Err(e) => return fail(e.to_string(), in_bytes),
-    };
-
-    let format = job
-        .format
-        .unwrap_or_else(|| decode::same_output_format(&bytes));
-    let encoded = match encode::encode(
-        &processed,
-        &encode::EncodeSettings {
-            format,
+    let (format, encoded) = match render(
+        file,
+        &bytes,
+        std::borrow::Cow::Owned(img),
+        &RenderSettings {
+            steps: &job.steps,
+            format: job.format,
             quality: job.quality,
+            preserve_exif: job.preserve_exif,
         },
     ) {
-        Ok(b) => b,
+        Ok(result) => result,
         Err(e) => return fail(e.to_string(), in_bytes),
     };
-
-    let mut encoded = encoded;
-    if job.preserve_exif && format == encode::OutFormat::Jpeg {
-        if let Some(exif_block) = metadata::extract_exif_jpeg(&bytes) {
-            metadata::insert_exif_jpeg(&mut encoded, &exif_block);
-        }
-    }
-
-    // A compression must never grow a same-format file — but only a pure
-    // compress may fall back to the original bytes. Any edit step must ship
-    // its own encoding, and when EXIF is being dropped (preserve_exif =
-    // false on a JPEG that carries EXIF) the re-encode is the honest
-    // result: falling back would silently keep the metadata.
-    let allow_fallback = job.steps.is_empty()
-        && !(!job.preserve_exif && metadata::extract_exif_jpeg(&bytes).is_some());
-    let encoded = never_grow(file, format, &bytes, encoded, allow_fallback);
 
     // Output path: target dir (or the input's folder) + stem + suffix + extension.
     let stem = path

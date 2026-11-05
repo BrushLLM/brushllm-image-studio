@@ -161,8 +161,8 @@ export const CANVAS_FORMATS = ["jpg", "jpeg", "png", "webp", "bmp"];
 /** AI tools send the source image to the API as-is: JPG or PNG only. */
 export const AI_FORMATS = ["jpg", "jpeg", "png"];
 
-/** EXIF metadata only lives in JPEG and TIFF files. */
-export const EXIF_FORMATS = ["jpg", "jpeg", "tif", "tiff"];
+/** JPEG/PNG support lossless editing; TIFF metadata is view-only. */
+export const EXIF_FORMATS = ["jpg", "jpeg", "png", "tif", "tiff"];
 
 /** Image formats this app cannot read (decoding needs external/C libraries). */
 export const KNOWN_UNSUPPORTED_EXTENSIONS = ["avif", "heic", "heif", "jxl"];

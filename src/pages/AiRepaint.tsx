@@ -8,7 +8,7 @@ import BeforeAfter from "../components/BeforeAfter";
 import DropZone from "../components/DropZone";
 import MaskCanvas, { type MaskCanvasHandle } from "../components/MaskCanvas";
 import PageShell from "../components/PageShell";
-import { aiEdit, aiGenerate, apiKeyStatus, getSettings, loadDefaultOutputDir, saveBytes } from "../lib/ipc";
+import { aiCancel, aiEdit, aiGenerate, apiKeyStatus, getSettings, loadDefaultOutputDir, saveBytes } from "../lib/ipc";
 import { clearPersisted, readPersisted, usePersistedState, writePersisted } from "../lib/persistedState";
 import { AI_FORMATS, blockedInputError, unsupportedImageError } from "../lib/types";
 import { useTranslation } from "react-i18next";
@@ -199,6 +199,9 @@ export default function AiRepaint({ onBack, onOpenSettings, initialToolId }: Pro
   /** Fresh session for one tool: clear its result/error/busy/mask slots and
    *  bump its generation counter. */
   const resetToolSession = (id: string) => {
+    const requestId = readPersisted<string>(`ai.requestId.${id}`);
+    if (requestId) void aiCancel(requestId).catch(() => {});
+    clearPersisted(`ai.requestId.${id}`);
     clearPersisted(`ai.result.${id}`);
     clearPersisted(`ai.error.${id}`);
     clearPersisted(`ai.busy.${id}`);
@@ -279,12 +282,15 @@ export default function AiRepaint({ onBack, onOpenSettings, initialToolId }: Pro
     writePersisted(`ai.req.${toolId}`, myReq);
     const isCurrent = () =>
       readPersisted<number>(`ai.req.${toolId}`) === myReq;
+    const requestId = crypto.randomUUID();
+    writePersisted(`ai.requestId.${toolId}`, requestId);
     setBusy(true);
     setError(null);
     setResult(null);
     try {
       const edit = activeTool.generates
         ? await aiGenerate({
+            requestId,
             model,
             prompt: prompt.trim(),
             size: sizeParam,
@@ -292,6 +298,7 @@ export default function AiRepaint({ onBack, onOpenSettings, initialToolId }: Pro
             n: count > 1 ? count : null,
           })
         : await aiEdit({
+            requestId,
             model,
             prompt: prompt.trim(),
             imagePaths: [file!, ...refImages],
@@ -316,7 +323,10 @@ export default function AiRepaint({ onBack, onOpenSettings, initialToolId }: Pro
     } catch (e) {
       if (isCurrent()) setError(String(e));
     } finally {
-      if (isCurrent()) setBusy(false);
+      if (isCurrent()) {
+        setBusy(false);
+        clearPersisted(`ai.requestId.${toolId}`);
+      }
     }
   };
 
@@ -352,7 +362,7 @@ export default function AiRepaint({ onBack, onOpenSettings, initialToolId }: Pro
       ? t("ai.customEmpty")
       : null;
   const canRun =
-    prompt.trim().length > 0 &&
+    hasKey && prompt.trim().length > 0 &&
     (activeTool.generates || Boolean(file)) &&
     !busy &&
     customSizeInvalid === null;
@@ -376,7 +386,7 @@ export default function AiRepaint({ onBack, onOpenSettings, initialToolId }: Pro
         />
       </div>
       <div className="field">
-        <label>Model</label>
+        <label>{t("settings.defaultModel")}</label>
         <div className="hint selectable">
           {model ? t("ai.modelHint", { model }) : t("ai.modelHint", { model: t("ai.modelNotSet") })}
         </div>
@@ -396,8 +406,7 @@ export default function AiRepaint({ onBack, onOpenSettings, initialToolId }: Pro
         </select>
         {!activeTool.generates && (
           <div className="hint">
-            Image edits accept the three official tiers; 2K/4K and custom
-            sizes are text-to-image only.
+            {t("ai.editSizeHint")}
           </div>
         )}
         {customSize && activeTool.generates && (
@@ -461,8 +470,10 @@ export default function AiRepaint({ onBack, onOpenSettings, initialToolId }: Pro
         <button
           className="btn btn-block btn-danger mt-2"
           onClick={() => {
-            // Invalidate the in-flight request: when it eventually settles,
-            // its result is dropped and it cannot touch the busy flag.
+            const requestId = readPersisted<string>(`ai.requestId.${toolId}`);
+            if (requestId) void aiCancel(requestId).catch((e) => setError(String(e)));
+            clearPersisted(`ai.requestId.${toolId}`);
+            // Invalidate any result racing with cancellation.
             writePersisted(
               `ai.req.${toolId}`,
               (readPersisted<number>(`ai.req.${toolId}`) ?? 0) + 1,
@@ -474,6 +485,7 @@ export default function AiRepaint({ onBack, onOpenSettings, initialToolId }: Pro
           {t("common.cancel")}
         </button>
       )}
+      {busy && <p className="hint">{t("ai.cancelHint")}</p>}
       <button
         className="btn btn-block btn-credits mt-2"
         onClick={() => openUrl("https://api.brushllm.com/login")}
@@ -605,7 +617,7 @@ export default function AiRepaint({ onBack, onOpenSettings, initialToolId }: Pro
                   className="banner-link"
                   onClick={() => openUrl("https://api.brushllm.com/login")}
                 >
-                  Add Credits →
+                  {t("ai.getCredits")} →
                 </span>
               </>
             )}

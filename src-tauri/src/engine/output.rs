@@ -158,14 +158,9 @@ fn temp_sibling(path: &Path) -> Result<PathBuf> {
 }
 
 fn rename(from: &Path, to: &Path) -> std::io::Result<()> {
-    // On Unix std::fs::rename atomically replaces an existing target; on
-    // Windows it fails, so an existing target is removed first. That remove
-    // is the only non-atomic step and only affects Overwrite commits.
-    #[cfg(windows)]
-    if to.exists() {
-        // Best-effort same-volume atomic replace via temp + remove + rename.
-        std::fs::remove_file(to)?;
-    }
+    // Rust also supports replacing a file on Windows (MoveFileExW /
+    // SetFileInformationByHandle). Never delete the destination first:
+    // a failed rename must leave the previous file intact.
     std::fs::rename(from, to)
 }
 
@@ -253,6 +248,16 @@ mod tests {
         assert!(matches!(out, WriteOutcome::Written(_)));
         assert_eq!(std::fs::read(&fresh).unwrap(), b"y");
         std::fs::remove_dir_all(&d).ok();
+    }
+
+    #[test]
+    fn failed_rename_does_not_remove_the_destination() {
+        let d = dir("rename-failure");
+        let target = d.join("original.png");
+        std::fs::write(&target, b"original").unwrap();
+        assert!(rename(&d.join("missing-temp"), &target).is_err());
+        assert_eq!(std::fs::read(&target).unwrap(), b"original");
+        std::fs::remove_dir_all(d).unwrap();
     }
 
     #[test]

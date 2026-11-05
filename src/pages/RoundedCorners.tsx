@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { canvasDataUrl } from "../lib/canvas";
+import { usePersistedState } from "../lib/persistedState";
+import { useEffect, useRef } from "react";
 import DropZone from "../components/DropZone";
 import PageShell from "../components/PageShell";
 import { loadDefaultOutputDir, readAssetDataUrl, saveBytes } from "../lib/ipc";
@@ -13,14 +15,14 @@ type OutFormat = "png" | "jpeg";
 
 export default function RoundedCorners({ onBack }: Props) {
   const { t } = useTranslation();
-  const [file, setFile] = useState<string | null>(null);
-  const [dataUrl, setDataUrl] = useState<string | null>(null);
-  const [naturalSize, setNaturalSize] = useState<{ width: number; height: number } | null>(null);
-  const [radiusPct, setRadiusPct] = useState(15);
-  const [format, setFormat] = useState<OutFormat>("png");
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [savedTo, setSavedTo] = useState<string | null>(null);
+  const [file, setFile] = usePersistedState<string | null>("local.rounded.file", null);
+  const [dataUrl, setDataUrl] = usePersistedState<string | null>("local.rounded.dataUrl", null);
+  const [naturalSize, setNaturalSize] = usePersistedState<{ width: number; height: number } | null>("local.rounded.naturalSize", null);
+  const [radiusPct, setRadiusPct] = usePersistedState("local.rounded.radiusPct", 15);
+  const [format, setFormat] = usePersistedState<OutFormat>("local.rounded.format", "png");
+  const [error, setError] = usePersistedState<string | null>("local.rounded.error", null);
+  const [busy, setBusy] = usePersistedState("local.rounded.busy", false);
+  const [savedTo, setSavedTo] = usePersistedState<string | null>("local.rounded.savedTo", null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const loadFile = (paths: string[]) => {
@@ -106,9 +108,9 @@ export default function RoundedCorners({ onBack }: Props) {
         fctx.fillStyle = "#ffffff";
         fctx.fillRect(0, 0, flat.width, flat.height);
         fctx.drawImage(canvas, 0, 0);
-        out = flat.toDataURL("image/jpeg");
+        out = await canvasDataUrl(flat, "image/jpeg");
       } else {
-        out = canvas.toDataURL("image/png");
+        out = await canvasDataUrl(canvas);
       }
       await saveBytes(path, out.slice(out.indexOf(",") + 1));
       setSavedTo(path);

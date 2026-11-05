@@ -150,3 +150,15 @@ export function writePersisted(key: string, value: unknown) {
   store.set(key, value);
   notifyKey(key);
 }
+
+/** Session-owned image/offscreen references survive page navigation, while
+ * DOM refs and event listeners remain tied to their mounted components. */
+export function usePersistedRef<T>(key: string, initial: T): { current: T } {
+  const slot = useRef<{ key: string; value: { current: T } } | null>(null);
+  if (slot.current === null || slot.current.key !== key) {
+    const value = store.has(key) ? store.get(key) as { current: T } : { current: initial };
+    store.set(key, value);
+    slot.current = { key, value };
+  }
+  return slot.current.value;
+}

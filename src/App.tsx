@@ -25,6 +25,7 @@ const Resize = lazy(() => import("./pages/Resize"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Stitch = lazy(() => import("./pages/Stitch"));
 const Watermark = lazy(() => import("./pages/Watermark"));
+import { readPersisted, writePersisted } from "./lib/persistedState";
 import { getSettings } from "./lib/ipc";
 import { silentUpdateCheck } from "./lib/update";
 import {
@@ -94,6 +95,12 @@ export default function App() {
   }, []);
 
   const navigate = (next: Page, tool?: string, files?: string[], notice?: string) => {
+    if (next === "convert" && files?.length) {
+      const queued = readPersisted<string[]>("local.convert.files") ?? [];
+      writePersisted("local.convert.files", [...new Set([...queued, ...files])]);
+      writePersisted("local.convert.inputError", notice ?? null);
+    }
+    if (next === "convert" && notice) writePersisted("local.convert.inputError", notice);
     backStack.current.push(location);
     forwardStack.current = [];
     setLocation({
@@ -236,7 +243,7 @@ export default function App() {
         <button
           className="btn btn-sm"
           onClick={openCmdk}
-          title={t("cmdk.searchTitle")}
+          title={t("common.searchTitle")}
         >
           <Search />
         </button>

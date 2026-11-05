@@ -2,16 +2,15 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import { getSettings } from "./lib/ipc";
-import { initI18n } from "./i18n";
+import i18next, { initI18n, resolveLanguage } from "./i18n";
 import { initTheme } from "./lib/theme";
 
 // Resolve the theme and language before first paint (system defaults), then
 // let App refine once the saved preferences arrive over IPC.
 async function boot() {
   initTheme();
-  // Render FIRST with the English/system fallback so a slow settings IPC
-  // never shows a blank window; the saved language applies as soon as it
-  // arrives (i18next re-renders mounted components).
+  // Initialize the bundled system locale before rendering any translated UI.
+  await initI18n("system");
   ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
     <React.StrictMode>
       <App />
@@ -27,7 +26,7 @@ async function boot() {
     // IPC not ready (e.g. plain browser) — system default.
   }
   try {
-    await initI18n(language);
+    await i18next.changeLanguage(resolveLanguage(language));
   } catch {
     // i18n failure must never blank the app — English fallback stays.
   }

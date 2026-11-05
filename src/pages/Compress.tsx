@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { usePersistedState } from "../lib/persistedState";
+import { useEffect } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import BatchRunner from "../components/BatchRunner";
 import DropZone from "../components/DropZone";
@@ -19,8 +20,8 @@ interface Props {
 
 export default function Compress({ onBack }: Props) {
   const { t } = useTranslation();
-  const { files, add, remove, clear } = useImageFiles();
-  const [inputError, setInputError] = useState<string | null>(null);
+  const { files, add, remove, clear } = useImageFiles("compress");
+  const [inputError, setInputError] = usePersistedState<string | null>("local.compress.inputError", null);
   /** All encodable formats stay available in Compress — the same-format
    *  fallback keeps the original bytes whenever re-encoding cannot shrink,
    *  so no format can grow its own kind. */
@@ -28,16 +29,17 @@ export default function Compress({ onBack }: Props) {
     "same", "jpeg", "png", "webp", "avif", "svg", "tiff", "bmp", "ico",
   ];
 
-  const [format, setFormat] = useState<FormatChoice>("same");
-  const [quality, setQuality] = useState(75);
-  const [preserveExif, setPreserveExif] = useState(false);
-  const [output, setOutput] = useState<OutputConfig>({
+  const [format, setFormat] = usePersistedState<FormatChoice>("local.compress.format", "same");
+  const [quality, setQuality] = usePersistedState("local.compress.quality", 75);
+  const [preserveExif, setPreserveExif] = usePersistedState("local.compress.preserveExif", false);
+  const [output, setOutput] = usePersistedState<OutputConfig>("local.compress.output", {
     dir: null,
     suffix: "-min",
     collision: "rename",
   });
 
   useEffect(() => {
+    if (output.dir) return;
     loadDefaultOutputDir().then((dir) => {
       if (dir) setOutput((prev) => ({ ...prev, dir }));
     });
@@ -48,13 +50,15 @@ export default function Compress({ onBack }: Props) {
     () =>
       firstFile
         ? previewBatch({
+            preserveExif: preserveExif,
             file: firstFile,
             steps: [],
             format: format === "same" ? null : (format as OutFormat),
             quality,
           })
         : null,
-    [firstFile, format, quality],
+    [firstFile, format, quality, preserveExif],
+    format === "avif",
   );
 
   return (
@@ -73,7 +77,7 @@ export default function Compress({ onBack }: Props) {
         <div>
           <FileQueue files={files} onRemove={remove} onClear={clear} />
           <DropZone
-            onFiles={add}
+            onFiles={(paths) => { setInputError(null); add(paths); }}
             label={t("compress.dropLabel")}
             hero={files.length === 0}
             onBlockedInput={(files) => setInputError(blockedInputError(files))}
@@ -82,6 +86,7 @@ export default function Compress({ onBack }: Props) {
             <div className="mt-4">
               <PreviewCard
                 beforeUrl={convertFileSrc(firstFile)}
+                onRefresh={format === "avif" ? preview.refresh : undefined}
                 result={preview.result}
                 loading={preview.loading}
                 error={preview.error}

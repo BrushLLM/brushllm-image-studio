@@ -5,6 +5,47 @@
 const SERVICE: &str = "BrushLLM Studio";
 const ACCOUNT: &str = "api_key";
 
+#[cfg(all(desktop, target_os = "macos"))]
+pub fn exists(_app: &tauri::AppHandle) -> bool {
+    use security_framework::{
+        item::{ItemClass, ItemSearchOptions, Limit},
+        os::macos::keychain::{SecKeychain, SecPreferencesDomain},
+    };
+    let Ok(keychain) = SecKeychain::default_for_domain(SecPreferencesDomain::User) else {
+        return false;
+    };
+    ItemSearchOptions::new()
+        .keychains(&[keychain])
+        .class(ItemClass::generic_password())
+        .service(SERVICE)
+        .account(ACCOUNT)
+        .limit(Limit::Max(1))
+        .load_refs(true)
+        .load_data(false)
+        .skip_authenticated_items(true)
+        .search()
+        .is_ok_and(|items| !items.is_empty())
+}
+
+#[cfg(all(desktop, not(target_os = "macos")))]
+pub fn exists(app: &tauri::AppHandle) -> bool {
+    get(app).is_some()
+}
+
+#[cfg(mobile)]
+pub fn exists(app: &tauri::AppHandle) -> bool {
+    key_path(app).is_some_and(|path| path.is_file())
+}
+
+/// OS credential APIs may wait for an interactive unlock. They must never
+/// run on the WebView's main thread or occupy an async runtime worker.
+pub async fn load(app: tauri::AppHandle) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || get(&app))
+        .await
+        .map_err(|e| format!("keychain task failed: {e}"))?
+        .ok_or_else(|| "no API key configured — add one in Settings first".into())
+}
+
 #[cfg(desktop)]
 pub fn get(_app: &tauri::AppHandle) -> Option<String> {
     let entry = keyring::Entry::new(SERVICE, ACCOUNT).ok()?;

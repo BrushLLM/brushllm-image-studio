@@ -1,10 +1,10 @@
+import { usePersistedState } from "../lib/persistedState";
 import {
   forwardRef,
   useCallback,
   useEffect,
   useImperativeHandle,
   useRef,
-  useState,
 } from "react";
 
 export interface CropRect {
@@ -21,6 +21,7 @@ export interface CropCanvasHandle {
 interface Props {
   src: string;
   naturalSize: { width: number; height: number };
+  persistKey: string;
   aspect: number | null; // width / height, null = free
 }
 
@@ -33,11 +34,11 @@ type Drag =
 const MIN_SIZE = 12;
 
 const CropCanvas = forwardRef<CropCanvasHandle, Props>(function CropCanvas(
-  { src, naturalSize, aspect },
+  { src, naturalSize, aspect, persistKey },
   ref,
 ) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [rect, setRect] = useState<CropRect | null>(null);
+  const [rect, setRect] = usePersistedState<CropRect | null>(persistKey, null);
   const drag = useRef<Drag>(null);
 
   const initialRect = useCallback((): CropRect => {
@@ -64,26 +65,8 @@ const CropCanvas = forwardRef<CropCanvasHandle, Props>(function CropCanvas(
   }, [naturalSize.width, naturalSize.height, aspect]);
 
   useEffect(() => {
-    setRect(initialRect());
-  }, [initialRect]);
-
-  // Re-fit the rect when the aspect lock changes.
-  useEffect(() => {
-    setRect((prev) => {
-      if (!prev || !aspect) return prev;
-      // From a full-image or free rect, fit the new aspect at full width.
-      const width = Math.min(prev.width, naturalSize.width);
-      const height = Math.min(Math.round(width / aspect), naturalSize.height);
-      const fittedWidth = Math.min(Math.round(height * aspect), naturalSize.width);
-      return {
-        x: Math.round((naturalSize.width - fittedWidth) / 2),
-        y: Math.round((naturalSize.height - height) / 2),
-        width: fittedWidth,
-        height,
-      };
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [aspect]);
+    setRect((current) => current ?? initialRect());
+  }, [initialRect, setRect]);
 
   useEffect(() => {
     const canvas = canvasRef.current;

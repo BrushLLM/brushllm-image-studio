@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import { useId, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import type { OutFormat } from "../lib/types";
 
@@ -13,6 +13,7 @@ interface Props {
   onPreserveExif: (value: boolean) => void;
   /** Restrict the picker (e.g. Compress only offers formats that can shrink). */
   formats?: FormatChoice[];
+  allowExif?: boolean;
 }
 
 // Labels are resolved at render time (t is only available in components).
@@ -69,8 +70,10 @@ export default function FormatQualityWithI18n({
   preserveExif,
   onPreserveExif,
   formats,
+  allowExif = true,
 }: Props) {
   const { t } = useTranslation();
+  const qualityId = useId();
   const showQuality = QUALITY_FORMATS.includes(format);
   const options = formats ?? FORMAT_OPTIONS;
   return (
@@ -82,6 +85,7 @@ export default function FormatQualityWithI18n({
             <button
               key={option}
               className={`radio-chip${format === option ? " active" : ""}`}
+              aria-pressed={format === option}
               onClick={() => onFormat(option)}
             >
               {option === "same" ? t("convert.original") : FORMAT_LABELS[option] ?? option.toUpperCase()}
@@ -97,10 +101,11 @@ export default function FormatQualityWithI18n({
       {showQuality && (
         <div className="field">
           <div className="range-head">
-            <label className="mb-0">{t("convert.quality")}</label>
+            <label htmlFor={qualityId} className="mb-0">{t("convert.quality")}</label>
             <span className="range-value">{quality}</span>
           </div>
           <input
+            id={qualityId}
             type="range"
             className="range"
             min={1}
@@ -123,7 +128,7 @@ export default function FormatQualityWithI18n({
           <div className="hint">{t(QUALITY_HINT_KEYS[format])}</div>
         </div>
       )}
-      {format === "jpeg" && (
+      {format === "jpeg" && allowExif && (
         <div className="field">
           <label className="check">
             <input

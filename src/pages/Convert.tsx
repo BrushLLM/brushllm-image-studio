@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { usePersistedState } from "../lib/persistedState";
+import { useEffect } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import BatchRunner from "../components/BatchRunner";
 import DropZone from "../components/DropZone";
@@ -23,18 +24,19 @@ interface Props {
 
 export default function Convert({ onBack, initialFiles, initialNotice }: Props) {
   const { t } = useTranslation();
-  const { files, add, remove, clear } = useImageFiles(initialFiles ?? undefined);
-  const [inputError, setInputError] = useState<string | null>(initialNotice ?? null);
-  const [format, setFormat] = useState<FormatChoice>("jpeg");
-  const [quality, setQuality] = useState(90);
-  const [preserveExif, setPreserveExif] = useState(false);
-  const [output, setOutput] = useState<OutputConfig>({
+  const { files, add, remove, clear } = useImageFiles("convert", initialFiles ?? undefined);
+  const [inputError, setInputError] = usePersistedState<string | null>("local.convert.inputError", initialNotice ?? null);
+  const [format, setFormat] = usePersistedState<FormatChoice>("local.convert.format", "jpeg");
+  const [quality, setQuality] = usePersistedState("local.convert.quality", 90);
+  const [preserveExif, setPreserveExif] = usePersistedState("local.convert.preserveExif", false);
+  const [output, setOutput] = usePersistedState<OutputConfig>("local.convert.output", {
     dir: null,
     suffix: "",
     collision: "rename",
   });
 
   useEffect(() => {
+    if (output.dir) return;
     loadDefaultOutputDir().then((dir) => {
       if (dir) setOutput((prev) => ({ ...prev, dir }));
     });
@@ -45,13 +47,15 @@ export default function Convert({ onBack, initialFiles, initialNotice }: Props) 
     () =>
       firstFile
         ? previewBatch({
+            preserveExif: preserveExif,
             file: firstFile,
             steps: [],
             format: format === "same" ? null : (format as OutFormat),
             quality,
           })
         : null,
-    [firstFile, format, quality],
+    [firstFile, format, quality, preserveExif],
+    format === "avif",
   );
 
   return (
@@ -70,7 +74,7 @@ export default function Convert({ onBack, initialFiles, initialNotice }: Props) 
         <div>
           <FileQueue files={files} onRemove={remove} onClear={clear} />
           <DropZone
-            onFiles={add}
+            onFiles={(paths) => { setInputError(null); add(paths); }}
             label={t("convert.dropLabel")}
             hero={files.length === 0}
             onBlockedInput={(files) => setInputError(blockedInputError(files))}
@@ -79,6 +83,7 @@ export default function Convert({ onBack, initialFiles, initialNotice }: Props) 
             <div className="mt-4">
               <PreviewCard
                 beforeUrl={convertFileSrc(firstFile)}
+                onRefresh={format === "avif" ? preview.refresh : undefined}
                 result={preview.result}
                 loading={preview.loading}
                 error={preview.error}

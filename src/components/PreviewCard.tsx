@@ -11,6 +11,7 @@ interface Props {
   note?: string;
   /** Label for the "after" pane, e.g. "AVIF · q75". */
   afterTitle?: string;
+  onRefresh?: () => void;
 }
 
 export default function PreviewCard({
@@ -20,11 +21,12 @@ export default function PreviewCard({
   error,
   note,
   afterTitle,
+  onRefresh,
 }: Props) {
+  const { t } = useTranslation();
   // An empty beforeUrl means "result only" (e.g. stitch composites).
   const showBefore = beforeUrl !== "";
   if (!beforeUrl && !result && !loading && !error) return null;
-  const { t } = useTranslation();
   const saved =
     result && result.in_bytes > 0
       ? Math.round((1 - result.bytes / result.in_bytes) * 100)
@@ -35,6 +37,7 @@ export default function PreviewCard({
       <div className="row row-center mb-3">
         <h2 className="m-0">{t("common.preview")}</h2>
         <div className="flex-1" />
+        {onRefresh && <button className="btn btn-sm" disabled={loading} onClick={onRefresh}>{t("common.exactPreview")}</button>}
         {result && saved !== null && saved > 0 && (
           <span className="badge badge-ok">{t("errors.smallerBadge", { pct: saved })}</span>
         )}
@@ -44,6 +47,7 @@ export default function PreviewCard({
           </span>
         )}
       </div>
+      {onRefresh && !result && !loading && <p className="status-note">{t("common.manualPreviewHint")}</p>}
 
       {showBefore && result ? (
         <div style={{ textAlign: "center" }}>
@@ -60,7 +64,7 @@ export default function PreviewCard({
             <figure className="preview-fig">
               <img src={beforeUrl} alt="before" />
               <figcaption>
-                Before{result ? ` · ${formatBytes(result.in_bytes)}` : ""}
+                {t("errors.original")}{result ? ` · ${formatBytes(result.in_bytes)}` : ""}
               </figcaption>
             </figure>
           )}
@@ -74,7 +78,7 @@ export default function PreviewCard({
               </div>
             )}
             <figcaption>
-              After
+              {t("common.result")}
               {result ? (
                 <>
                   {" · "}

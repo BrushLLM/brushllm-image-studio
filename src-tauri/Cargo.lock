@@ -2178,6 +2178,7 @@ dependencies = [
  "reqwest 0.12.28",
  "resvg",
  "rgb",
+ "security-framework 3.7.0",
  "serde",
  "serde_json",
  "tauri",

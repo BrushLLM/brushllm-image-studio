@@ -36,7 +36,11 @@
     "presetBalanced": "Ausgewogen",
     "presetBest": "Beste",
     "allTools": "← Alle Tools",
-    "canvasTapHint": "tippen zum Auswählen — JPEG · PNG · WebP · BMP"
+    "canvasTapHint": "tippen zum Auswählen — JPEG · PNG · WebP · BMP",
+    "exactPreview": "Exakte Vorschau erstellen",
+    "manualPreviewHint": "AVIF benötigt eine vollständige Kodierung. Nach Änderungen die exakte Vorschau starten.",
+    "compare": "Original und Ergebnis vergleichen",
+    "savedTo": "Gespeichert unter {{path}}"
   },
   "home": {
     "heroTitle": "Deine Bilder, lokales Tempo — KI, wenn du sie brauchst.",
@@ -237,7 +241,7 @@
     "apply": "Anwenden",
     "applying": "Anwenden…",
     "noExif": "Keine EXIF-Metadaten in dieser Datei gefunden.",
-    "dropHint": "EXIF steckt in JPEG- und TIFF-Dateien.",
+    "dropHint": "JPEG · PNG · TIFF",
     "dateTime": "Aufnahmedatum",
     "dateTimePh": "YYYY-MM-DD HH:MM:SS",
     "cameraMake": "Kameramarke",
@@ -254,7 +258,9 @@
     "artistPh": "Fotografenname",
     "copyright": "Urheberrecht",
     "copyrightPh": "© 2026 …",
-    "stripGpsHint": "Entfernt GPS-Tags, behält alles andere. JPEG und PNG."
+    "stripGpsHint": "Entfernt GPS-Tags, behält alles andere. JPEG und PNG.",
+    "readOnlyTiff": "TIFF-Metadaten sind schreibgeschützt. Bearbeitung ist für JPEG und PNG verfügbar.",
+    "stripHint": "EXIF, XMP, IPTC und Kommentare entfernen, ohne JPEG- oder PNG-Pixel neu zu kodieren."
   },
   "rounded": {
     "title": "Abgerundete Ecken",
@@ -362,7 +368,10 @@
     "refImages": "Referenzbilder (optional)",
     "refHint": "1–3 Referenzbilder hinzufügen (z. B. eine einzusetzende Person). Mehrfachbilder nur mit gpt-image-Modellen; ohne bleibt alles wie beim Einzelbild.",
     "refDrop": "Referenzbilder ablegen",
-    "refMax": "Bis zu 3 Referenzbilder."
+    "refMax": "Bis zu 3 Referenzbilder.",
+    "cancelHint": "Abbrechen trennt die Verbindung. Bereits vom Server angenommene Aufträge können weiterhin berechnet werden.",
+    "editSizeHint": "Bildbearbeitung unterstützt die drei aufgeführten Größen. 2K/4K und eigene Größen sind für die Bilderzeugung verfügbar.",
+    "imageEdits": "Bildbearbeitung"
   },
   "settings": {
     "title": "Einstellungen",
@@ -433,7 +442,9 @@
     "updateAvailable": "Version {{version}} ist verfügbar",
     "updateNotes": "Versionshinweise",
     "openReleasePage": "Auf GitHub herunterladen",
-    "updateCheckFailed": "Update-Prüfung fehlgeschlagen — das Repository muss öffentlich sein."
+    "updateCheckFailed": "Update-Prüfung fehlgeschlagen — das Repository muss öffentlich sein.",
+    "gatewayHint": "API-Basis-URL eingeben (zum Beispiel mit /v1 am Ende). Endpunktpfade werden automatisch ergänzt.",
+    "modelListHint": "Verbindung testen, um verfügbare Modelle aufzulisten und ein Standardmodell auszuwählen."
   },
   "cmdk": {
     "placeholder": "Tools suchen…",

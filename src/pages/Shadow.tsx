@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { canvasDataUrl } from "../lib/canvas";
+import { usePersistedState, usePersistedRef } from "../lib/persistedState";
+import { useEffect, useRef, type CSSProperties } from "react";
 import DropZone from "../components/DropZone";
 import PageShell from "../components/PageShell";
 import { useTranslation } from "react-i18next";
@@ -11,19 +13,19 @@ interface Props {
 
 export default function Shadow({ onBack }: Props) {
   const { t } = useTranslation();
-  const [file, setFile] = useState<string | null>(null);
-  const [dataUrl, setDataUrl] = useState<string | null>(null);
-  const [naturalSize, setNaturalSize] = useState<{ width: number; height: number } | null>(null);
-  const [offsetX, setOffsetX] = useState(18);
-  const [offsetY, setOffsetY] = useState(24);
-  const [blur, setBlur] = useState(28);
-  const [color, setColor] = useState("#1c1917");
-  const [opacityPct, setOpacityPct] = useState(35);
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [savedTo, setSavedTo] = useState<string | null>(null);
+  const [file, setFile] = usePersistedState<string | null>("local.shadow.file", null);
+  const [dataUrl, setDataUrl] = usePersistedState<string | null>("local.shadow.dataUrl", null);
+  const [naturalSize, setNaturalSize] = usePersistedState<{ width: number; height: number } | null>("local.shadow.naturalSize", null);
+  const [offsetX, setOffsetX] = usePersistedState("local.shadow.offsetX", 18);
+  const [offsetY, setOffsetY] = usePersistedState("local.shadow.offsetY", 24);
+  const [blur, setBlur] = usePersistedState("local.shadow.blur", 28);
+  const [color, setColor] = usePersistedState("local.shadow.color", "#1c1917");
+  const [opacityPct, setOpacityPct] = usePersistedState("local.shadow.opacityPct", 35);
+  const [error, setError] = usePersistedState<string | null>("local.shadow.error", null);
+  const [busy, setBusy] = usePersistedState("local.shadow.busy", false);
+  const [savedTo, setSavedTo] = usePersistedState<string | null>("local.shadow.savedTo", null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const imgElRef = useRef<HTMLImageElement | null>(null);
+  const imgElRef = usePersistedRef<HTMLImageElement | null>("local.shadow.imgElRef", null);
 
   const loadFile = (paths: string[]) => {
     const path = paths[0];
@@ -71,7 +73,7 @@ export default function Shadow({ onBack }: Props) {
     if (!canvas) return;
     setBusy(true);
     try {
-      const out = canvas.toDataURL("image/png");
+      const out = await canvasDataUrl(canvas);
       const dir = await loadDefaultOutputDir();
       if (!dir) return;
       const path = `${dir.replace(/\/+$/, "")}/shadow-${Date.now()}.png`;

@@ -10,6 +10,51 @@ pub fn extract_exif_jpeg(bytes: &[u8]) -> Option<Vec<u8>> {
     Some(block)
 }
 
+/// Pixels have already been oriented by the decoder. Patch the primary
+/// orientation in the copied EXIF block so viewers cannot rotate them twice.
+/// Preserve all other metadata bytes, including fields unknown to this app.
+pub fn normalized_exif_jpeg(bytes: &[u8]) -> Option<Vec<u8>> {
+    let mut block = extract_exif_jpeg(bytes)?;
+    let tiff = &mut block[6..];
+    let little = tiff.get(..2)? == b"II";
+    if !little && tiff.get(..2)? != b"MM" {
+        return None;
+    }
+    let u16_at = |b: &[u8], pos: usize| -> Option<u16> {
+        let raw: [u8; 2] = b.get(pos..pos.checked_add(2)?)?.try_into().ok()?;
+        Some(if little {
+            u16::from_le_bytes(raw)
+        } else {
+            u16::from_be_bytes(raw)
+        })
+    };
+    let u32_at = |b: &[u8], pos: usize| -> Option<u32> {
+        let raw: [u8; 4] = b.get(pos..pos.checked_add(4)?)?.try_into().ok()?;
+        Some(if little {
+            u32::from_le_bytes(raw)
+        } else {
+            u32::from_be_bytes(raw)
+        })
+    };
+    let ifd = u32_at(tiff, 4)? as usize;
+    let count = u16_at(tiff, ifd)? as usize;
+    for i in 0..count {
+        let pos = ifd.checked_add(2)?.checked_add(i.checked_mul(12)?)?;
+        if u16_at(tiff, pos)? == 0x0112
+            && u16_at(tiff, pos + 2)? == 3
+            && u32_at(tiff, pos + 4)? == 1
+        {
+            let one = if little {
+                1u16.to_le_bytes()
+            } else {
+                1u16.to_be_bytes()
+            };
+            tiff.get_mut(pos + 8..pos + 10)?.copy_from_slice(&one);
+        }
+    }
+    Some(block)
+}
+
 /// Insert an EXIF APP1 segment into a JPEG buffer (right after the SOI marker).
 /// Silently skips if the segment would not fit the 64 KiB APP1 limit.
 pub fn insert_exif_jpeg(jpeg: &mut Vec<u8>, exif: &[u8]) {

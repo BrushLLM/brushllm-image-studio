@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { canvasDataUrl } from "../lib/canvas";
+import { usePersistedState, usePersistedRef } from "../lib/persistedState";
+import { useEffect, useRef, type PointerEvent as ReactPointerEvent } from "react";
 import {
   ArrowUpRight,
   Circle,
@@ -140,20 +142,20 @@ function outlineColor(color: string): string {
 
 export default function ImageAnnotate({ onBack }: Props) {
   const { t } = useTranslation();
-  const [file, setFile] = useState<string | null>(null);
-  const [dataUrl, setDataUrl] = useState<string | null>(null);
-  const [naturalSize, setNaturalSize] = useState<{ width: number; height: number } | null>(null);
-  const [tool, setTool] = useState<Tool>("rect");
-  const [color, setColor] = useState(PALETTE[0]);
-  const [strokeSize, setStrokeSize] = useState(8);
-  const [textDraft, setTextDraft] = useState("Note");
-  const [annotations, setAnnotations] = useState<Annotation[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [savedTo, setSavedTo] = useState<string | null>(null);
+  const [file, setFile] = usePersistedState<string | null>("local.annotate.file", null);
+  const [dataUrl, setDataUrl] = usePersistedState<string | null>("local.annotate.dataUrl", null);
+  const [naturalSize, setNaturalSize] = usePersistedState<{ width: number; height: number } | null>("local.annotate.naturalSize", null);
+  const [tool, setTool] = usePersistedState<Tool>("local.annotate.tool", "rect");
+  const [color, setColor] = usePersistedState("local.annotate.color", PALETTE[0]);
+  const [strokeSize, setStrokeSize] = usePersistedState("local.annotate.strokeSize", 8);
+  const [textDraft, setTextDraft] = usePersistedState("local.annotate.textDraft", "Note");
+  const [annotations, setAnnotations] = usePersistedState<Annotation[]>("local.annotate.annotations", []);
+  const [error, setError] = usePersistedState<string | null>("local.annotate.error", null);
+  const [busy, setBusy] = usePersistedState("local.annotate.busy", false);
+  const [savedTo, setSavedTo] = usePersistedState<string | null>("local.annotate.savedTo", null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const activeRef = useRef<Annotation | null>(null);
-  const imgElRef = useRef<HTMLImageElement | null>(null);
+  const imgElRef = usePersistedRef<HTMLImageElement | null>("local.annotate.imgElRef", null);
 
   const loadFile = (paths: string[]) => {
     const path = paths[0];
@@ -246,7 +248,7 @@ export default function ImageAnnotate({ onBack }: Props) {
     const path = `${dir.replace(/\/+$/, "")}/annotated-${Date.now()}.png`;
     setBusy(true);
     try {
-      const out = canvas.toDataURL("image/png");
+      const out = await canvasDataUrl(canvas);
       await saveBytes(path, out.slice(out.indexOf(",") + 1));
       setSavedTo(path);
     } catch (e) {
@@ -312,7 +314,7 @@ export default function ImageAnnotate({ onBack }: Props) {
           </div>
           <div className="side-col">
             <div className="card">
-              <h2 className="card-title">Settings</h2>
+              <h2 className="card-title">{t("common.settingsCard")}</h2>
               <div className="field">
                 <label>{t("annotate.color")}</label>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>

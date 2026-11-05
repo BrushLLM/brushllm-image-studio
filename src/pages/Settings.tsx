@@ -245,9 +245,7 @@ export default function Settings({ onBack }: Props) {
     };
     try {
       const result = await apiTest(tested.base, tested.baseT2i, tested.key || null);
-      const text =
-        `Connected — image edits: ${result.models.length} models · ` +
-        `text-to-image: ${result.models_t2i.length} models`;
+      const text = t("settings.connected", { edits: result.models.length, t2i: result.models_t2i.length });
       setStatusOk(true);
       setStatus(`✓ ${text}`);
       if (
@@ -258,12 +256,12 @@ export default function Settings({ onBack }: Props) {
         setTestedOk(true);
         setAvailableModels([...new Set([...result.models, ...result.models_t2i])]);
       }
-      await message(text, { title: "Connection OK", kind: "info" });
+      await message(text, { title: t("settings.connectionOk"), kind: "info" });
     } catch (e) {
       const text = String(e);
       setStatusOk(false);
       setStatus(text);
-      await message(text, { title: "Connection failed", kind: "error" });
+      await message(text, { title: t("settings.connectionFailed"), kind: "error" });
     } finally {
       setTesting(false);
     }
@@ -280,14 +278,14 @@ export default function Settings({ onBack }: Props) {
 
   // Save stays locked until every connection field is filled in.
   const missing: string[] = [];
-  if (!baseUrlT2i.trim()) missing.push("Text-to-image base URL");
-  if (!baseUrl.trim()) missing.push("Image edits base URL");
-  if (!hasKey && keyInput.trim().length === 0) missing.push("API key");
+  if (!baseUrlT2i.trim()) missing.push(t("settings.missingT2i"));
+  if (!baseUrl.trim()) missing.push(t("settings.missingEdits"));
+  if (!hasKey && keyInput.trim().length === 0) missing.push(t("settings.missingKey"));
   if (
     !defaultModel.trim() ||
     (availableModels.length > 0 && !availableModels.includes(defaultModel))
   ) {
-    missing.push("Default image model (pick from the tested list)");
+    missing.push(t("settings.missingModel"));
   }
 
   return (
@@ -324,11 +322,10 @@ export default function Settings({ onBack }: Props) {
                 className="selectable"
               />
               <div className="hint">
-                Generate Image → POST{" "}
+                {t("home.generateName")} → POST{" "}
                 <code>{baseUrlT2i.trim().replace(/\/+$/, "")}/images/generations</code>
                 <br />
-                Gateway root only — must end with /v1; the path is appended
-                automatically.
+                {t("settings.gatewayHint")}
               </div>
             </div>
             <div className="field">
@@ -343,11 +340,10 @@ export default function Settings({ onBack }: Props) {
                 className="selectable"
               />
               <div className="hint">
-                Every other AI tool → POST{" "}
+                {t("ai.imageEdits")} → POST{" "}
                 <code>{baseUrl.trim().replace(/\/+$/, "")}/images/edits</code>
                 <br />
-                Gateway root only — must end with /v1; the path is appended
-                automatically.
+                {t("settings.gatewayHint")}
               </div>
             </div>
             <div className="field">
@@ -400,8 +396,7 @@ export default function Settings({ onBack }: Props) {
                     {t("settings.modelCurrent", { model: defaultModel || t("ai.modelNotSet") })}
                   </div>
                   <div className="hint">
-                    Test the connection to list the models your gateway
-                    serves — the default model is picked from that list.
+                    {t("settings.modelListHint")}
                   </div>
                 </>
               )}
@@ -434,7 +429,7 @@ export default function Settings({ onBack }: Props) {
                 disabled={saving || !testedOk || missing.length > 0}
                 title={
                   missing.length > 0
-                    ? `Missing: ${missing.join(", ")}`
+                    ? t("settings.missingFields", { fields: missing.join(", ") })
                     : testedOk
                       ? undefined
                       : t("settings.testFirst")
@@ -452,7 +447,7 @@ export default function Settings({ onBack }: Props) {
               className="btn btn-block btn-credits mt-3"
               onClick={() => openUrl("https://api.brushllm.com/login")}
             >
-              <Coins /> Get BrushLLM Credits
+              <Coins /> {t("ai.getCredits")}
             </button>
           </div>
 

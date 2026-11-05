@@ -36,7 +36,11 @@
     "presetBalanced": "標準",
     "presetBest": "高",
     "allTools": "← すべてのツール",
-    "canvasTapHint": "タップして選択 — JPEG · PNG · WebP · BMP"
+    "canvasTapHint": "タップして選択 — JPEG · PNG · WebP · BMP",
+    "exactPreview": "正確なプレビューを生成",
+    "manualPreviewHint": "AVIF には完全なエンコードが必要です。設定後に正確なプレビューを生成してください。",
+    "compare": "元画像と結果を比較",
+    "savedTo": "保存先：{{path}}"
   },
   "home": {
     "heroTitle": "画像処理はローカル高速 — 必要な時だけ AI。",
@@ -237,7 +241,7 @@
     "apply": "適用",
     "applying": "適用中…",
     "noExif": "このファイルに EXIF メタデータは見つかりませんでした。",
-    "dropHint": "EXIF は JPEG と TIFF に含まれます。",
+    "dropHint": "JPEG · PNG · TIFF",
     "dateTime": "撮影日時",
     "dateTimePh": "YYYY-MM-DD HH:MM:SS",
     "cameraMake": "カメラメーカー",
@@ -254,7 +258,9 @@
     "artistPh": "撮影者名",
     "copyright": "著作権",
     "copyrightPh": "© 2026 …",
-    "stripGpsHint": "GPS タグのみ除去し、他は保持。JPEG と PNG。"
+    "stripGpsHint": "GPS タグのみ除去し、他は保持。JPEG と PNG。",
+    "readOnlyTiff": "TIFF のメタデータは閲覧のみです。JPEG と PNG は編集できます。",
+    "stripHint": "JPEG・PNG の画素を再エンコードせずに EXIF、XMP、IPTC、コメントを削除します。"
   },
   "rounded": {
     "title": "角丸加工",
@@ -362,7 +368,10 @@
     "refImages": "参照画像（任意）",
     "refHint": "1〜3 枚の参照画像を追加（差し替えたい人物など）。複数画像は gpt-image 系モデルのみ対応。未追加なら通常の単一画像動作。",
     "refDrop": "参照画像をドロップ",
-    "refMax": "参照画像は最大 3 枚。"
+    "refMax": "参照画像は最大 3 枚。",
+    "cancelHint": "キャンセルすると接続を切断します。サーバーが受け付けた処理は課金される場合があります。",
+    "editSizeHint": "画像編集は一覧の3サイズに対応します。2K/4K・カスタムサイズは画像生成で使用できます。",
+    "imageEdits": "画像編集"
   },
   "settings": {
     "title": "設定",
@@ -433,7 +442,9 @@
     "updateAvailable": "バージョン {{version}} が利用可能",
     "updateNotes": "リリースノート",
     "openReleasePage": "GitHub でダウンロード",
-    "updateCheckFailed": "更新の確認に失敗しました — リポジトリが公開されている必要があります。"
+    "updateCheckFailed": "更新の確認に失敗しました — リポジトリが公開されている必要があります。",
+    "gatewayHint": "API のベース URL（例：末尾が /v1）を入力してください。パスは自動で追加されます。",
+    "modelListHint": "接続をテストして利用可能なモデルを取得し、既定のモデルを選択してください。"
   },
   "cmdk": {
     "placeholder": "ツールを検索…",

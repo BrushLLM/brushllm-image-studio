@@ -1,3 +1,4 @@
+use image::{ImageDecoder, ImageReader};
 use std::path::Path;
 
 use super::encode;
@@ -21,11 +22,21 @@ pub fn decode_bytes(bytes: &[u8]) -> Result<image::DynamicImage> {
     let img = if is_svg(bytes) {
         decode_svg(bytes)?
     } else {
-        image::load_from_memory(bytes).map_err(|e| {
-            StudioError::Decode(format!(
-                "{e}. Note: HEIC/HEIF and AVIF inputs are not supported."
-            ))
-        })?
+        let mut decoder = ImageReader::new(std::io::Cursor::new(bytes))
+            .with_guessed_format()
+            .map_err(|e| StudioError::Decode(e.to_string()))?
+            .into_decoder()
+            .map_err(|e| StudioError::Decode(e.to_string()))?;
+        let (width, height) = decoder.dimensions();
+        // Inspect the header BEFORE allocating the decoded pixel buffer.
+        super::guard::validate_pixels(width as u64, height as u64, "decoded image")?;
+        let orientation = decoder
+            .orientation()
+            .unwrap_or(image::metadata::Orientation::NoTransforms);
+        let mut img = image::DynamicImage::from_decoder(decoder)
+            .map_err(|e| StudioError::Decode(e.to_string()))?;
+        img.apply_orientation(orientation);
+        img
     };
     // Central pixel budget — applies to every decode path.
     super::guard::validate_pixels(img.width() as u64, img.height() as u64, "decoded image")?;
@@ -59,27 +70,7 @@ fn is_svg(bytes: &[u8]) -> bool {
 fn decode_svg(bytes: &[u8]) -> Result<image::DynamicImage> {
     let tree = resvg::usvg::Tree::from_data(bytes, &resvg::usvg::Options::default())
         .map_err(|e| StudioError::Decode(format!("svg: {e}")))?;
-    let size = tree.size();
-    let (mut w, mut h) = (size.width(), size.height());
-    if !w.is_finite() || !h.is_finite() || w <= 0.0 || h <= 0.0 {
-        w = 1024.0;
-        h = 1024.0;
-    }
-    let max_side = w.max(h);
-    if max_side > 8192.0 {
-        let k = 8192.0 / max_side;
-        w *= k;
-        h *= k;
-    }
-    // Total-pixel cap for rasterized SVGs.
-    if (w * h) as u64 > super::guard::limits::MAX_SVG_PIXELS {
-        return Err(StudioError::Param(format!(
-            "SVG rasterizes to too many pixels ({} MP limit)",
-            super::guard::limits::MAX_SVG_PIXELS / 1_000_000
-        )));
-    }
-    let wpx = w.round().max(1.0) as u32;
-    let hpx = h.round().max(1.0) as u32;
+    let (wpx, hpx) = svg_size(&tree)?;
     let mut pixmap = resvg::tiny_skia::Pixmap::new(wpx, hpx)
         .ok_or_else(|| StudioError::Decode("svg: cannot allocate pixmap".into()))?;
     resvg::render(
@@ -106,6 +97,50 @@ fn decode_svg(bytes: &[u8]) -> Result<image::DynamicImage> {
         }
     }
     Ok(image::DynamicImage::ImageRgba8(rgba))
+}
+
+/// Header-only dimensions in display orientation; no raster allocation.
+pub fn dimensions(bytes: &[u8]) -> Result<(u32, u32)> {
+    if is_svg(bytes) {
+        let tree = resvg::usvg::Tree::from_data(bytes, &resvg::usvg::Options::default())
+            .map_err(|e| StudioError::Decode(e.to_string()))?;
+        return svg_size(&tree);
+    }
+    let mut decoder = ImageReader::new(std::io::Cursor::new(bytes))
+        .with_guessed_format()
+        .map_err(|e| StudioError::Decode(e.to_string()))?
+        .into_decoder()
+        .map_err(|e| StudioError::Decode(e.to_string()))?;
+    let (w, h) = decoder.dimensions();
+    super::guard::validate_pixels(w as u64, h as u64, "decoded image")?;
+    let swapped = decoder
+        .orientation()
+        .map(|o| o.to_exif() >= 5)
+        .unwrap_or(false);
+    Ok(if swapped { (h, w) } else { (w, h) })
+}
+
+fn svg_size(tree: &resvg::usvg::Tree) -> Result<(u32, u32)> {
+    let size = tree.size();
+    let (mut w, mut h) = (size.width(), size.height());
+    if !w.is_finite() || !h.is_finite() || w <= 0.0 || h <= 0.0 {
+        w = 1024.0;
+        h = 1024.0;
+    }
+    let max_side = w.max(h);
+    if max_side > 8192.0 {
+        let k = 8192.0 / max_side;
+        w *= k;
+        h *= k;
+    }
+    // Total-pixel cap for rasterized SVGs.
+    if (w * h) as u64 > super::guard::limits::MAX_SVG_PIXELS {
+        return Err(StudioError::Param(format!(
+            "SVG rasterizes to too many pixels ({} MP limit)",
+            super::guard::limits::MAX_SVG_PIXELS / 1_000_000
+        )));
+    }
+    Ok((w.round().max(1.0) as u32, h.round().max(1.0) as u32))
 }
 
 pub fn read_bytes(path: &Path) -> Result<Vec<u8>> {

@@ -7,6 +7,9 @@ pub mod guard;
 pub mod metadata;
 pub mod ops;
 pub mod output;
+pub mod preview;
+#[cfg(test)]
+mod regression_tests;
 pub mod stitch;
 
 use thiserror::Error;

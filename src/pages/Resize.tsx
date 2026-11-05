@@ -1,4 +1,5 @@
-import { useEffect, useState, type CSSProperties } from "react";
+import { usePersistedState } from "../lib/persistedState";
+import { useEffect, type CSSProperties } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import BatchRunner from "../components/BatchRunner";
 import DropZone from "../components/DropZone";
@@ -27,23 +28,24 @@ const PRESETS: { label: string; width: number; height: number }[] = [
 
 export default function Resize({ onBack }: Props) {
   const { t } = useTranslation();
-  const { files, add, remove, clear } = useImageFiles();
-  const [inputError, setInputError] = useState<string | null>(null);
-  const [mode, setMode] = useState<Mode>("percent");
-  const [width, setWidth] = useState<string>("1920");
-  const [height, setHeight] = useState<string>("1080");
-  const [lockAspect, setLockAspect] = useState(true);
-  const [fitMode, setFitMode] = useState<FitMode>("fit");
-  const [noEnlarge, setNoEnlarge] = useState(true);
-  const [percent, setPercent] = useState(50);
-  const [preset, setPreset] = useState(0);
-  const [output, setOutput] = useState<OutputConfig>({
+  const { files, add, remove, clear } = useImageFiles("resize");
+  const [inputError, setInputError] = usePersistedState<string | null>("local.resize.inputError", null);
+  const [mode, setMode] = usePersistedState<Mode>("local.resize.mode", "percent");
+  const [width, setWidth] = usePersistedState<string>("local.resize.width", "1920");
+  const [height, setHeight] = usePersistedState<string>("local.resize.height", "1080");
+  const [lockAspect, setLockAspect] = usePersistedState("local.resize.lockAspect", true);
+  const [fitMode, setFitMode] = usePersistedState<FitMode>("local.resize.fitMode", "fit");
+  const [noEnlarge, setNoEnlarge] = usePersistedState("local.resize.noEnlarge", true);
+  const [percent, setPercent] = usePersistedState("local.resize.percent", 50);
+  const [preset, setPreset] = usePersistedState("local.resize.preset", 0);
+  const [output, setOutput] = usePersistedState<OutputConfig>("local.resize.output", {
     dir: null,
     suffix: "",
     collision: "rename",
   });
 
   useEffect(() => {
+    if (output.dir) return;
     loadDefaultOutputDir().then((dir) => {
       if (dir) setOutput((prev) => ({ ...prev, dir }));
     });
@@ -95,6 +97,7 @@ export default function Resize({ onBack }: Props) {
     () =>
       firstFile
         ? previewBatch({
+            preserveExif: false,
             file: firstFile,
             steps: JSON.parse(stepsJson) as Step[],
             format: null,
@@ -120,7 +123,7 @@ export default function Resize({ onBack }: Props) {
         <div>
           <FileQueue files={files} onRemove={remove} onClear={clear} />
           <DropZone
-            onFiles={add}
+            onFiles={(paths) => { setInputError(null); add(paths); }}
             label={t("resize.dropLabel")}
             hero={files.length === 0}
             onBlockedInput={(files) => setInputError(blockedInputError(files))}

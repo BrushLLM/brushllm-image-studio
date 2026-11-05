@@ -36,7 +36,11 @@
     "presetBalanced": "Equilibrado",
     "presetBest": "Mejor",
     "allTools": "← Todas las herramientas",
-    "canvasTapHint": "toca para explorar — JPEG · PNG · WebP · BMP"
+    "canvasTapHint": "toca para explorar — JPEG · PNG · WebP · BMP",
+    "exactPreview": "Crear vista previa exacta",
+    "manualPreviewHint": "AVIF requiere una codificación completa. Tras ajustar los parámetros, crea una vista previa exacta.",
+    "compare": "Comparar original y resultado",
+    "savedTo": "Guardado en {{path}}"
   },
   "home": {
     "heroTitle": "Tus imágenes, velocidad local — IA cuando la necesites.",
@@ -237,7 +241,7 @@
     "apply": "Aplicar",
     "applying": "Aplicando…",
     "noExif": "No se encontraron metadatos EXIF en este archivo.",
-    "dropHint": "El EXIF está en archivos JPEG y TIFF.",
+    "dropHint": "JPEG · PNG · TIFF",
     "dateTime": "Fecha/hora de captura",
     "dateTimePh": "YYYY-MM-DD HH:MM:SS",
     "cameraMake": "Marca de cámara",
@@ -254,7 +258,9 @@
     "artistPh": "nombre del fotógrafo",
     "copyright": "Derechos de autor",
     "copyrightPh": "© 2026 …",
-    "stripGpsHint": "Elimina las etiquetas GPS y conserva el resto. JPEG y PNG."
+    "stripGpsHint": "Elimina las etiquetas GPS y conserva el resto. JPEG y PNG.",
+    "readOnlyTiff": "Los metadatos TIFF son de solo lectura. JPEG y PNG admiten edición.",
+    "stripHint": "Elimina EXIF, XMP, IPTC y comentarios sin recodificar los píxeles JPEG o PNG."
   },
   "rounded": {
     "title": "Esquinas redondeadas",
@@ -362,7 +368,10 @@
     "refImages": "Imágenes de referencia (opcional)",
     "refHint": "Añade 1–3 imágenes de referencia (p. ej. una persona a insertar). Varios archivos solo con modelos gpt-image; sin añadir, todo funciona como con una sola imagen.",
     "refDrop": "Suelta imágenes de referencia",
-    "refMax": "Hasta 3 imágenes de referencia."
+    "refMax": "Hasta 3 imágenes de referencia.",
+    "cancelHint": "Cancelar desconecta esta solicitud. El trabajo ya aceptado por el servidor puede seguir facturándose.",
+    "editSizeHint": "La edición admite los tres tamaños indicados. 2K/4K y los tamaños personalizados están disponibles para generar imágenes.",
+    "imageEdits": "Edición de imágenes"
   },
   "settings": {
     "title": "Ajustes",
@@ -433,7 +442,9 @@
     "updateAvailable": "Versión {{version}} disponible",
     "updateNotes": "Notas de la versión",
     "openReleasePage": "Descargar en GitHub",
-    "updateCheckFailed": "No se pudo comprobar la actualización — el repositorio debe ser público."
+    "updateCheckFailed": "No se pudo comprobar la actualización — el repositorio debe ser público.",
+    "gatewayHint": "Introduce la URL base de la API (por ejemplo, terminada en /v1). Las rutas se añaden automáticamente.",
+    "modelListHint": "Prueba la conexión para obtener los modelos disponibles y elegir uno predeterminado."
   },
   "cmdk": {
     "placeholder": "Buscar herramientas…",

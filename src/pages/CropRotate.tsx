@@ -1,3 +1,4 @@
+import { clearPersistedByPrefix, usePersistedState } from "../lib/persistedState";
 import { useCallback, useEffect, useRef, useState } from "react";
 import BatchRunner from "../components/BatchRunner";
 import CropCanvas, { type CropCanvasHandle } from "../components/CropCanvas";
@@ -39,36 +40,43 @@ function loadImage(url: string): Promise<HTMLImageElement> {
 
 export default function CropRotate({ onBack }: Props) {
   const { t } = useTranslation();
-  const [file, setFile] = useState<string | null>(null);
+  const [file, setFile] = usePersistedState<string | null>("local.crop.file", null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewSize, setPreviewSize] = useState<{ width: number; height: number } | null>(
     null,
   );
-  const [aspect, setAspect] = useState<number | null>(null);
-  const [rotation, setRotation] = useState(0); // 0 | 90 | 180 | 270
-  const [flipH, setFlipH] = useState(false);
-  const [flipV, setFlipV] = useState(false);
-  const [format, setFormat] = useState<FormatChoice>("same");
-  const [quality, setQuality] = useState(92);
-  const [preserveExif, setPreserveExif] = useState(false);
-  const [output, setOutput] = useState<OutputConfig>({
+  const [renderedTransform, setRenderedTransform] = useState<string | null>(null);
+  const [aspect, setAspect] = usePersistedState<number | null>("local.crop.aspect", null);
+  const [rotation, setRotation] = usePersistedState("local.crop.rotation", 0); // 0 | 90 | 180 | 270
+  const [flipH, setFlipH] = usePersistedState("local.crop.flipH", false);
+  const [flipV, setFlipV] = usePersistedState("local.crop.flipV", false);
+  const [format, setFormat] = usePersistedState<FormatChoice>("local.crop.format", "same");
+  const [quality, setQuality] = usePersistedState("local.crop.quality", 92);
+  const [preserveExif, setPreserveExif] = usePersistedState("local.crop.preserveExif", false);
+  const [output, setOutput] = usePersistedState<OutputConfig>("local.crop.output", {
     dir: null,
     suffix: "-crop",
     collision: "rename",
   });
   const cropRef = useRef<CropCanvasHandle>(null);
   const previewUrlRef = useRef<string | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const previewRequest = useRef(0);
+  const [loadError, setLoadError] = usePersistedState<string | null>("local.crop.loadError", null);
 
   useEffect(() => {
+    if (output.dir) return;
     loadDefaultOutputDir().then((dir) => {
       if (dir) setOutput((prev) => ({ ...prev, dir }));
     });
   }, []);
 
+  const transformKey = `${file}:${rotation}:${flipH}:${flipV}`;
+  const previewReady = renderedTransform === transformKey;
+
   const loadFile = (paths: string[]) => {
     const path = paths[0];
     if (!path) return;
+    clearPersistedByPrefix("local.crop.rect.");
     setFile(path);
     setLoadError(null);
     setRotation(0);
@@ -80,9 +88,11 @@ export default function CropRotate({ onBack }: Props) {
    *  so what you see (and crop) is exactly what gets saved. The image is read
    *  as a data: URL — asset-protocol images would taint the canvas. */
   const refreshPreview = useCallback(async () => {
+    const request = ++previewRequest.current;
     if (!file) return;
     try {
       const original = await loadImage(await readAssetDataUrl(file));
+      if (request !== previewRequest.current) return;
       const swap = rotation === 90 || rotation === 270;
       const width = swap ? original.naturalHeight : original.naturalWidth;
       const height = swap ? original.naturalWidth : original.naturalHeight;
@@ -92,25 +102,29 @@ export default function CropRotate({ onBack }: Props) {
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
       ctx.translate(width / 2, height / 2);
-      ctx.rotate((rotation * Math.PI) / 180);
       ctx.scale(flipH ? -1 : 1, flipV ? -1 : 1);
+      ctx.rotate((rotation * Math.PI) / 180);
       ctx.drawImage(original, -original.naturalWidth / 2, -original.naturalHeight / 2);
       const blob = await new Promise<Blob | null>((resolve) =>
         canvas.toBlob(resolve, "image/png"),
       );
-      if (!blob) return;
+      if (!blob || request !== previewRequest.current) return;
       const url = URL.createObjectURL(blob);
       if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
       previewUrlRef.current = url;
       setPreviewUrl(url);
       setPreviewSize({ width, height });
-    } catch {
+      setRenderedTransform(`${file}:${rotation}:${flipH}:${flipV}`);
+    } catch (e) {
+      if (request !== previewRequest.current) return;
+      setLoadError(String(e));
       setPreviewUrl(null);
     }
   }, [file, rotation, flipH, flipV]);
 
   useEffect(() => {
     refreshPreview();
+    return () => { previewRequest.current++; };
   }, [refreshPreview]);
 
   useEffect(
@@ -188,7 +202,7 @@ export default function CropRotate({ onBack }: Props) {
                   className={`radio-chip${aspect === a.value ? " active" : ""}`}
                   onClick={() => setAspect(a.value)}
                 >
-                  {a.label}
+                  {a.value === null ? t("crop.free") : a.label}
                 </button>
               ))}
               <span className="spacer" />
@@ -211,10 +225,10 @@ export default function CropRotate({ onBack }: Props) {
                 {t("crop.flipV")}
               </button>
             </div>
-            {previewUrl && previewSize ? (
-              <CropCanvas ref={cropRef} src={previewUrl} naturalSize={previewSize} aspect={aspect} />
+            {previewReady && previewUrl && previewSize ? (
+              <CropCanvas persistKey={`local.crop.rect.${file}:${rotation}:${flipH}:${flipV}:${aspect}`} ref={cropRef} src={previewUrl} naturalSize={previewSize} aspect={aspect} />
             ) : (
-              <p className="status-note">Rendering preview…</p>
+              <p className="status-note">{t("errors.rendering")}</p>
             )}
             <p className="status-note mt-2">
               {previewSize ? `${previewSize.width}×${previewSize.height}px` : ""}
@@ -236,12 +250,8 @@ export default function CropRotate({ onBack }: Props) {
             </div>
             {file && (
               <BatchRunner
-                files={[file]}
-                runLabel={
-                  transformed || buildSteps().some((s) => s.kind === "crop")
-                    ? "Save edited image"
-                    : "Save copy"
-                }
+                files={previewReady ? [file] : []}
+                runLabel={t("common.saveImage")}
                 buildJob={(files) => ({
                   files,
                   steps: buildSteps(),

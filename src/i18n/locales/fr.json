@@ -36,7 +36,11 @@
     "presetBalanced": "Équilibré",
     "presetBest": "Meilleur",
     "allTools": "← Tous les outils",
-    "canvasTapHint": "touchez pour parcourir — JPEG · PNG · WebP · BMP"
+    "canvasTapHint": "touchez pour parcourir — JPEG · PNG · WebP · BMP",
+    "exactPreview": "Créer un aperçu exact",
+    "manualPreviewHint": "AVIF nécessite un encodage complet. Après réglage, lancez un aperçu exact.",
+    "compare": "Comparer l’original et le résultat",
+    "savedTo": "Enregistré dans {{path}}"
   },
   "home": {
     "heroTitle": "Vos images, la vitesse en local — l'IA quand il le faut.",
@@ -237,7 +241,7 @@
     "apply": "Appliquer",
     "applying": "Application…",
     "noExif": "Aucune métadonnée EXIF trouvée dans ce fichier.",
-    "dropHint": "L'EXIF se trouve dans les fichiers JPEG et TIFF.",
+    "dropHint": "JPEG · PNG · TIFF",
     "dateTime": "Date/heure de prise de vue",
     "dateTimePh": "YYYY-MM-DD HH:MM:SS",
     "cameraMake": "Marque de l'appareil",
@@ -254,7 +258,9 @@
     "artistPh": "nom du photographe",
     "copyright": "Droits d'auteur",
     "copyrightPh": "© 2026 …",
-    "stripGpsHint": "Retire les balises GPS, conserve le reste. JPEG et PNG."
+    "stripGpsHint": "Retire les balises GPS, conserve le reste. JPEG et PNG.",
+    "readOnlyTiff": "Les métadonnées TIFF sont en lecture seule. La modification est disponible pour JPEG et PNG.",
+    "stripHint": "Supprime EXIF, XMP, IPTC et commentaires sans réencoder les pixels JPEG ou PNG."
   },
   "rounded": {
     "title": "Coins arrondis",
@@ -362,7 +368,10 @@
     "refImages": "Images de référence (facultatif)",
     "refHint": "Ajoutez 1–3 images de référence (ex. une personne à insérer). Multi-images uniquement avec les modèles gpt-image ; sans ajout, comportement identique à une seule image.",
     "refDrop": "Déposez des images de référence",
-    "refMax": "Jusqu'à 3 images de référence."
+    "refMax": "Jusqu'à 3 images de référence.",
+    "cancelHint": "Annuler coupe la connexion. Le travail déjà accepté par le serveur peut rester facturé.",
+    "editSizeHint": "La retouche accepte les trois tailles proposées. Les tailles 2K/4K et personnalisées sont disponibles pour la génération.",
+    "imageEdits": "Retouche d’images"
   },
   "settings": {
     "title": "Réglages",
@@ -433,7 +442,9 @@
     "updateAvailable": "Version {{version}} disponible",
     "updateNotes": "Notes de version",
     "openReleasePage": "Télécharger sur GitHub",
-    "updateCheckFailed": "Échec de la vérification — le dépôt doit être public."
+    "updateCheckFailed": "Échec de la vérification — le dépôt doit être public.",
+    "gatewayHint": "Saisissez l’URL de base de l’API (se terminant par /v1, par exemple). Les chemins sont ajoutés automatiquement.",
+    "modelListHint": "Testez la connexion pour afficher les modèles disponibles et choisir le modèle par défaut."
   },
   "cmdk": {
     "placeholder": "Rechercher des outils…",

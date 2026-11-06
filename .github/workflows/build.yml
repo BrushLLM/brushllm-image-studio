@@ -88,7 +88,7 @@ jobs:
         include:
           # macOS — Apple Silicon (app + dmg; thin LTO keeps the 7GB runner
           # from OOM-killing the link step)
-          - os: macos-14
+          - os: macos-15
             target: aarch64-apple-darwin
           # Windows 11 — x64
           - os: windows-latest

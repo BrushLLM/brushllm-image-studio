@@ -199,9 +199,11 @@ jobs:
 
           ## Changes
 
-          - **Full descriptions in every language** — tool cards clamp at three lines, so German and Portuguese descriptions keep their payoff sentences instead of cutting mid-word
-          - **Aligned home grid across locales** — the hero reserves a fixed height, so Chinese (one-line subtitle) renders the grid at exactly the same position as English and German
-          - **Português (BR) label** — the language option fits its picker cell without clipping
+          - **Reliable image output** — preview and export share rendering settings; JPEG EXIF orientation is applied consistently and normalized on export. Failed output replacement preserves the existing file.
+          - **Smoother editing** — tool sessions survive navigation, previews are queued and cached, AVIF previews run on demand, and color replacement runs in a background worker.
+          - **Bounded image memory** — image dimensions and stitching limits are checked before large allocations.
+          - **Responsive AI and settings** — AI requests can be cancelled locally, and macOS keychain status checks no longer block the interface. Provider charges may still apply after cancellation.
+          - **Clearer controls** — improved file queues, translated labels, keyboard comparison controls, and a read-only notice for TIFF metadata.
 
           ## Installation
 

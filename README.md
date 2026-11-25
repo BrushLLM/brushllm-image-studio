@@ -36,7 +36,7 @@ Generate images, remove backgrounds or objects, cut out subjects, or edit with a
 
 ## Development
 
-Use Node.js 22, stable Rust and the Tauri prerequisites for your desktop platform. The desktop shell and controls use React and TypeScript. The Rust engine handles batch processing, codecs, EXIF and safe output.
+Use Node.js 24 LTS, stable Rust and the Tauri prerequisites for your desktop platform. If you use nvm, run `nvm install` to select the version from `.nvmrc`. The desktop shell and controls use React and TypeScript. The Rust engine handles batch processing, codecs, EXIF and safe output.
 
 ```bash
 npm ci

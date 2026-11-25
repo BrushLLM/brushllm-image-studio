@@ -62,14 +62,14 @@ jobs:
             exit 1
           fi
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ env.BUILD_SHA }}
           fetch-depth: ${{ inputs.target == 'release' && '0' || '1' }}
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
 
       # Check versions before installing any build dependencies.
@@ -171,13 +171,13 @@ jobs:
         target: ${{ fromJSON(github.event_name == 'workflow_dispatch' && inputs.target != 'release' && format('["{0}"]', inputs.target) || '["aarch64-apple-darwin","x86_64-pc-windows-msvc","aarch64-pc-windows-msvc"]') }}
     runs-on: ${{ matrix.target == 'aarch64-apple-darwin' && 'macos-15' || matrix.target == 'x86_64-pc-windows-msvc' && 'windows-latest' || 'windows-11-arm' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ env.BUILD_SHA }}
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
 
       - uses: dtolnay/rust-toolchain@stable
@@ -239,7 +239,7 @@ jobs:
           cp "${installers[0]}" "installers/BrushLLM.Image.Studio-$VERSION-$ARCH.exe"
 
       - name: Upload bundles
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: BrushLLM-Studio-${{ matrix.target }}
           if-no-files-found: error
@@ -253,11 +253,11 @@ jobs:
       actions: read
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ env.BUILD_SHA }}
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           pattern: BrushLLM-Studio-*
           path: artifacts
@@ -288,7 +288,7 @@ jobs:
           gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
             --raw-field "ref=refs/tags/v$VERSION" --raw-field "sha=$GITHUB_SHA" --silent
 
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           tag_name: v${{ needs.quality.outputs.version }}
           name: "BrushLLM Image Studio v${{ needs.quality.outputs.version }}"

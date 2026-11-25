@@ -13,21 +13,16 @@ import { useTranslation } from "react-i18next";
 export interface MaskCanvasHandle {
   /** PNG data URL (natural resolution) or null when nothing is masked. */
   getMaskDataUrl: () => string | null;
-  hasMask: () => boolean;
-  /** Clear all strokes (called when the source image changes). */
-  clear: () => void;
 }
 
 interface Props {
   src: string;
   naturalSize: { width: number; height: number };
-  /** Per-tool persistence slot for the strokes (each AI tool keeps its
-   *  own mask). Defaults to a shared slot. */
-  persistKey?: string;
+  persistKey: string;
 }
 
 const MaskCanvas = forwardRef<MaskCanvasHandle, Props>(function MaskCanvas(
-  { src, naturalSize, persistKey = "mask.strokes" },
+  { src, naturalSize, persistKey },
   ref,
 ) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -40,8 +35,6 @@ const MaskCanvas = forwardRef<MaskCanvasHandle, Props>(function MaskCanvas(
   const activeStroke = useRef<MaskStroke | null>(null);
 
   useImperativeHandle(ref, () => ({
-    hasMask: () => strokes.length > 0,
-    clear: () => setStrokes([]),
     getMaskDataUrl: () => {
       if (strokes.length === 0) return null;
       // OpenAI edits semantics: TRANSPARENT pixels mark the region to

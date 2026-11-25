@@ -12,12 +12,6 @@ pub fn decode_file(path: &Path) -> Result<image::DynamicImage> {
     decode_bytes(&bytes)
 }
 
-/// Decode from bytes that were ALREADY read (e.g. for format sniffing) —
-/// avoids reading the same file twice per command.
-pub fn decode_from_buffer(bytes: &[u8]) -> Result<image::DynamicImage> {
-    decode_bytes(bytes)
-}
-
 pub fn decode_bytes(bytes: &[u8]) -> Result<image::DynamicImage> {
     let img = if is_svg(bytes) {
         decode_svg(bytes)?

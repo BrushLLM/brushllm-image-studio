@@ -280,7 +280,7 @@ fn process_one(file: &str, job: &BatchJob, protected: &[std::path::PathBuf]) -> 
 
     // The bytes are already in memory — decode from the buffer instead of
     // hitting the disk a second time.
-    let img = match decode::decode_from_buffer(&bytes) {
+    let img = match decode::decode_bytes(&bytes) {
         Ok(img) => img,
         Err(e) => return fail(e.to_string(), in_bytes),
     };

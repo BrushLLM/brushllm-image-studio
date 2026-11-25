@@ -39,20 +39,6 @@ pub struct ExifEdits {
     pub copyright: Option<String>,
 }
 
-impl ExifEdits {
-    #[allow(dead_code)]
-    pub fn is_empty(&self) -> bool {
-        nonempty(&self.date_time).is_none()
-            && nonempty(&self.make).is_none()
-            && nonempty(&self.model).is_none()
-            && nonempty(&self.gps_lat).is_none()
-            && nonempty(&self.gps_lon).is_none()
-            && nonempty(&self.description).is_none()
-            && nonempty(&self.artist).is_none()
-            && nonempty(&self.copyright).is_none()
-    }
-}
-
 fn nonempty(value: &Option<String>) -> Option<&str> {
     value
         .as_deref()

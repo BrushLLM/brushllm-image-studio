@@ -26,15 +26,10 @@ export function setAppearance(appearance: Appearance) {
   apply(appearance);
 }
 
-/** Wire listeners once at startup; returns the current preference. */
-export function initTheme(): Appearance {
+/** Wire the system appearance listener once at startup. */
+export function initTheme() {
   media?.addEventListener("change", () => {
     if (current === "system") apply("system");
   });
   apply(current);
-  return current;
-}
-
-export function currentAppearance(): Appearance {
-  return current;
 }

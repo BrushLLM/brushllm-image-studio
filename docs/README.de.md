@@ -1,22 +1,39 @@
+<img src="../src/assets/image-studio.svg" width="88" height="88" alt="">
+
 # BrushLLM Image Studio
 
-[English](../README.md) | [Deutsch](README.de.md) | [Español](README.es.md) | [Français](README.fr.md) | [Português (Brasil)](README.pt-BR.md) | [日本語](README.ja.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [한국어](README.ko.md)
+Bearbeite Bilder unter macOS und Windows. Die lokalen Werkzeuge laufen kostenlos auf deinem Gerät und benötigen kein Konto.
 
-Ein lokal-first Desktop-Werkzeugkasten für Bilder — 15 lokale Werkzeuge laufen kostenlos auf deinem Gerät; 7 KI-Bearbeitungen nutzen das BrushLLM-Gateway.
+**[Neueste Version herunterladen](https://github.com/BrushLLM/brushllm-image-studio/releases/latest)** · [Produktseite](https://brushllm.com/de/studio/)
 
-<p align="center">
-  <img src="../.github/assets/screenshot.png" width="800" alt="BrushLLM Image Studio">
-</p>
+[English](../README.md) · [Deutsch](../docs/README.de.md) · [Español](../docs/README.es.md) · [Français](../docs/README.fr.md) · [Português (Brasil)](../docs/README.pt-BR.md) · [日本語](../docs/README.ja.md) · [한국어](../docs/README.ko.md) · [简体中文](../docs/README.zh-CN.md) · [繁體中文](../docs/README.zh-TW.md)
 
----
+![Image Studio mit Vergleich zwischen Original und komprimiertem WebP sowie dem Ergebnis des Stapelexports](../.github/assets/workspace.svg)
 
-**Funktionen:** Format konvertieren (8 rein / 8 raus) · Komprimieren mit Qualitätsvorgaben · Redimensionieren (Lanczos) · Rogneren & Drehen · Spiegeln (A \| A) · Anpassen · Bilder verbinden · Wasserzeichen · EXIF · Abgerundete Ecken · Farbpipette · Beschriften · Mosaik · Schatten · Farbwechsel (bis 6 Paare).
+Beispielfoto vom [Olympic National Park](https://www.flickr.com/photos/131856925@N02/22938296331).
 
-**KI-Werkzeuge (Cloud, pro Bild abgerechnet):** Bild generieren · Hintergrund entfernen · Freistellen · Wasserzeichen entfernen · Objekt entfernen · Generatives Füllen (mit Referenzbildern) · Stil ändern.
+## Download
 
-**Highlights:** UI in 9 Sprachen · Dunkelmodus · ⌘K-Befehlspalette · Stapelverarbeitung · manuelle Update-Prüfung · keine Telemetrie.
+| System | Installationsdatei |
+| --- | --- |
+| macOS mit Apple Silicon | `*-arm64.dmg` |
+| Windows x64 (Intel oder AMD) | `*-x64.exe` |
+| Windows ARM64 | `*-arm64.exe` |
 
-**📥 Herunterladen:** aktuelle Installationspakete auf [Releases](https://github.com/BrushLLm/brushllm-image-studio/releases) — macOS `.dmg` (Apple Silicon), Windows `.exe` (x64 / ARM64). Unsignierte Apps: macOS beim ersten Start rechtsklicken und „Öffnen“ wählen; Windows „Ausführen“ bei SmartScreen.
+Öffne unter macOS das Disk-Image und ziehe die App in den Ordner „Programme“. Starte unter Windows das Installationsprogramm für deine Architektur. Die Installationsdateien sind nicht signiert.
 
-Entwicklung und Architektur: siehe Abschnitt [English](../README.md).
+## Lokale Bildbearbeitung
 
+1. Öffne Bilder oder ziehe sie in den Arbeitsbereich. Wähle in der Seitenleiste ein Werkzeug.
+2. Konvertiere, komprimiere oder skaliere mehrere Bilder. Schneide einzelne Bilder zu, drehe sie, passe Farben an oder füge Wasserzeichen und Anmerkungen hinzu.
+3. Prüfe das Ergebnis in der Vorschau. Wähle beim Export den Zielordner und den Umgang mit vorhandenen Dateinamen.
+
+Der Stapelimport unterstützt JPEG, PNG, WebP, GIF (erstes Bild), BMP, TIFF, ICO und SVG. Der Export unterstützt unter anderem JPEG, PNG, WebP, AVIF, TIFF, BMP, ICO und SVG mit eingebetteten Rasterdaten.
+
+## Online-KI
+
+Erzeuge Bilder, entferne Hintergründe und Objekte, stelle Motive frei oder bearbeite ein Bild per Anweisung und Maske. Hinterlege deinen API-Schlüssel in den Einstellungen. Der konfigurierte Dienst erhält die Anweisung und beigefügte Bilder oder Masken. Die Abrechnung richtet sich nach der Nutzung.
+
+## Entwicklung
+
+[Build- und Testbefehle](../README.md#development)

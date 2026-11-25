@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Images, WandSparkles, Wrench } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import brushLogo from "../assets/brush.svg";
+import studioIcon from "../assets/image-studio.svg";
 import { AI_TOOLS, LOCAL_TOOL_GROUPS, SETTINGS_TOOL, isAiTool, type Page, type Tool } from "../lib/tools";
 
 const GROUPS = [
@@ -53,7 +53,7 @@ export default function Sidebar({ page, expanded, onExpand, onNavigate }: Props)
   return (
     <nav id="studio-navigation" className="sidebar" aria-label={t("navigation.label")}>
       <div className="sidebar-brand" title="BrushLLM Image Studio">
-        <span className="sidebar-mark"><img src={brushLogo} alt="" draggable={false} /></span>
+        <span className="sidebar-mark"><img src={studioIcon} alt="" draggable={false} /></span>
         <span className="nav-label"><strong>BrushLLM</strong><span>Image Studio</span></span>
       </div>
       <div className="sidebar-scroll">

@@ -138,11 +138,11 @@ pub async fn apply_overlay(job: OverlayJob) -> Result<String, String> {
             .map_err(|e| e.to_string())?;
         let bytes =
             decode::read_bytes(std::path::Path::new(&job.image_path)).map_err(|e| e.to_string())?;
-        let base = decode::decode_from_buffer(&bytes).map_err(|e| e.to_string())?;
+        let base = decode::decode_bytes(&bytes).map_err(|e| e.to_string())?;
         let overlay_raw = base64::engine::general_purpose::STANDARD
             .decode(&job.overlay_b64)
             .map_err(|e| format!("invalid overlay data: {e}"))?;
-        let overlay = decode::decode_from_buffer(&overlay_raw)
+        let overlay = decode::decode_bytes(&overlay_raw)
             .map_err(|e| format!("invalid overlay PNG: {e}"))?
             .to_rgba8();
         if overlay.dimensions() != base.dimensions() {
@@ -592,9 +592,7 @@ fn to_edit_result(resp: api::client::EditResponse) -> EditResult {
 
 /// Text-to-image generation — no source image needed.
 #[tauri::command]
-#[allow(clippy::too_many_arguments)]
 pub async fn ai_generate(
-    app: AppHandle,
     state: State<'_, AppState>,
     request_id: String,
     model: String,
@@ -604,7 +602,7 @@ pub async fn ai_generate(
     n: Option<u8>,
 ) -> Result<EditResult, String> {
     let settings = state.settings.lock().unwrap().clone();
-    let api_key = api_key::load(app.clone()).await?;
+    let api_key = api_key::load().await?;
 
     let resp = state
         .ai_requests
@@ -629,7 +627,6 @@ pub async fn ai_generate(
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
 pub async fn ai_edit(
-    app: AppHandle,
     state: State<'_, AppState>,
     request_id: String,
     model: String,
@@ -642,7 +639,7 @@ pub async fn ai_edit(
 ) -> Result<EditResult, String> {
     let settings = state.settings.lock().unwrap().clone();
     use base64::Engine;
-    let api_key = api_key::load(app.clone()).await?;
+    let api_key = api_key::load().await?;
 
     if image_paths.is_empty() {
         return Err("no image provided".into());
@@ -724,7 +721,6 @@ pub struct TestResult {
 
 #[tauri::command]
 pub async fn api_test(
-    app: AppHandle,
     state: State<'_, AppState>,
     base_url: Option<String>,
     base_url_t2i: Option<String>,
@@ -737,7 +733,7 @@ pub async fn api_test(
     // fall back to the stored one.
     let key = match api_key.filter(|key| !key.trim().is_empty()) {
         Some(key) => key.trim().to_string(),
-        None => api_key::load(app.clone()).await?,
+        None => api_key::load().await?,
     };
     // Both gateways must answer — each AI tool depends on one of them.
     let edits = api::client::test_key(&base, &key)
@@ -753,26 +749,26 @@ pub async fn api_test(
 }
 
 #[tauri::command]
-pub async fn api_key_status(app: AppHandle) -> bool {
-    tauri::async_runtime::spawn_blocking(move || api_key::exists(&app))
+pub async fn api_key_status() -> bool {
+    tauri::async_runtime::spawn_blocking(api_key::exists)
         .await
         .unwrap_or(false)
 }
 
 #[tauri::command]
-pub async fn api_key_set(app: AppHandle, key: String) -> Result<(), String> {
+pub async fn api_key_set(key: String) -> Result<(), String> {
     let key = key.trim().to_string();
     if key.len() < 8 {
         return Err("this does not look like a valid API key".into());
     }
-    tauri::async_runtime::spawn_blocking(move || api_key::set(&app, &key))
+    tauri::async_runtime::spawn_blocking(move || api_key::set(&key))
         .await
         .map_err(|e| format!("keychain task failed: {e}"))?
 }
 
 #[tauri::command]
-pub async fn api_key_clear(app: AppHandle) -> Result<(), String> {
-    tauri::async_runtime::spawn_blocking(move || api_key::clear(&app))
+pub async fn api_key_clear() -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(api_key::clear)
         .await
         .map_err(|e| format!("keychain task failed: {e}"))?
 }

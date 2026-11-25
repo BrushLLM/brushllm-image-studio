@@ -5,17 +5,28 @@ on:
     # Only release tags build — main pushes never spend Actions minutes.
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      target:
+        description: Job to validate
+        type: choice
+        default: quality
+        options:
+          - quality
+          - aarch64-apple-darwin
+          - x86_64-pc-windows-msvc
+          - aarch64-pc-windows-msvc
 
 # One build at a time; a newer tag cancels the stale run instead of burning
 # minutes in parallel. The group is tag-independent: per-ref groups would let
 # two different tags run concurrently (the expensive macOS job bills at 10x).
 concurrency:
-  group: release-build
+  group: ${{ github.event_name == 'workflow_dispatch' && format('validate-{0}', inputs.target) || 'release-build' }}
   cancel-in-progress: true
 
 jobs:
   quality:
     name: quality gates
+    if: github.event_name == 'push' || inputs.target == 'quality'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -64,6 +75,9 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Generate desktop icons
+        run: npm run icons
+
       - name: Frontend tests
         run: npm run test:run
 
@@ -81,22 +95,13 @@ jobs:
 
   build:
     needs: quality
+    if: ${{ !cancelled() && ((github.event_name == 'push' && needs.quality.result == 'success') || (github.event_name == 'workflow_dispatch' && inputs.target != 'quality')) }}
     name: ${{ matrix.target }}
     strategy:
       fail-fast: false
       matrix:
-        include:
-          # macOS — Apple Silicon (app + dmg; thin LTO keeps the 7GB runner
-          # from OOM-killing the link step)
-          - os: macos-15
-            target: aarch64-apple-darwin
-          # Windows 11 — x64
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-          # Windows 11 — ARM64 (native hosted runner)
-          - os: windows-11-arm
-            target: aarch64-pc-windows-msvc
-    runs-on: ${{ matrix.os }}
+        target: ${{ fromJSON(github.event_name == 'workflow_dispatch' && format('["{0}"]', inputs.target) || '["aarch64-apple-darwin","x86_64-pc-windows-msvc","aarch64-pc-windows-msvc"]') }}
+    runs-on: ${{ matrix.target == 'aarch64-apple-darwin' && 'macos-15' || matrix.target == 'x86_64-pc-windows-msvc' && 'windows-latest' || 'windows-11-arm' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -132,49 +137,43 @@ jobs:
         if: matrix.target == 'aarch64-apple-darwin'
         run: |
           set -e
-          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION=$(node -p "require('./package.json').version")
           BUNDLE="src-tauri/target/aarch64-apple-darwin/release/bundle"
           APP="$BUNDLE/macos/BrushLLM Image Studio.app"
-          DMG="$BUNDLE/dmg/BrushLLM.Image.Studio-$VERSION-arm64.dmg"
+          DMG="installers/BrushLLM.Image.Studio-$VERSION-arm64.dmg"
           STAGING=$(mktemp -d)
+          trap 'rm -rf "$STAGING"' EXIT
           cp -R "$APP" "$STAGING/"
           ln -s /Applications "$STAGING/Applications"
-          mkdir -p "$BUNDLE/dmg"
+          mkdir -p installers
           hdiutil create -volname "BrushLLM Image Studio" -srcfolder "$STAGING" -ov -format UDZO "$DMG"
           ls -lh "$DMG"
 
       - name: Build app (Windows)
         if: matrix.target != 'aarch64-apple-darwin'
         # NSIS only — the msi flavor is dropped from the release line.
-        run: npm run tauri build -- --bundles nsis
+        run: npm run tauri build -- --target ${{ matrix.target }} --bundles nsis
 
-      # Release asset naming follows the video-studio convention:
-      # BrushLLM.Image.Studio-<version>-<arch>.<ext>
-      - name: Normalize installer names
+      - name: Stage Windows installer
         if: runner.os == 'Windows'
         shell: bash
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          find src-tauri/target -path "*bundle/nsis/*-setup.exe" | while read -r f; do
-            case "$f" in
-              *x64*) mv "$f" "$(dirname "$f")/BrushLLM.Image.Studio-$VERSION-x64.exe" ;;
-              *arm64*) mv "$f" "$(dirname "$f")/BrushLLM.Image.Studio-$VERSION-arm64.exe" ;;
-            esac
-          done
-          find src-tauri/target -path "*bundle/nsis/*.exe" -exec ls -lh {} \;
+          VERSION=$(node -p "require('./package.json').version")
+          installers=(src-tauri/target/${{ matrix.target }}/release/bundle/nsis/*-setup.exe)
+          if [ "${#installers[@]}" -ne 1 ] || [ ! -s "${installers[0]}" ]; then
+            echo "::error::Expected one NSIS installer for ${{ matrix.target }}"
+            exit 1
+          fi
+          mkdir -p installers
+          ARCH="${{ matrix.target == 'x86_64-pc-windows-msvc' && 'x64' || 'arm64' }}"
+          cp "${installers[0]}" "installers/BrushLLM.Image.Studio-$VERSION-$ARCH.exe"
 
       - name: Upload bundles
         uses: actions/upload-artifact@v4
         with:
           name: BrushLLM-Studio-${{ matrix.target }}
           if-no-files-found: error
-          path: |
-            src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
-            src-tauri/target/${{ matrix.target }}/release/bundle/macos/*.app
-            src-tauri/target/${{ matrix.target }}/release/bundle/nsis/*.exe
-            src-tauri/target/release/bundle/dmg/*.dmg
-            src-tauri/target/release/bundle/macos/*.app
-            src-tauri/target/release/bundle/nsis/*.exe
+          path: installers/BrushLLM.Image.Studio-*
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
@@ -185,48 +184,31 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
           merge-multiple: true
 
-      # Per-platform install instructions (English only).
-      - name: Compose release notes
+      - name: Verify release assets and select notes
+        id: release_files
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          cat > /tmp/release-notes.md << EOF
-          A local-first desktop image toolbox — 15 local tools + 7 AI tools. Local tools run 100% on your machine; AI tools use your own API key. Free and private.
-
-          ## Changes
-
-          - **Reliable image output** — preview and export share rendering settings; JPEG EXIF orientation is applied consistently and normalized on export. Failed output replacement preserves the existing file.
-          - **Smoother editing** — tool sessions survive navigation, previews are queued and cached, AVIF previews run on demand, and color replacement runs in a background worker.
-          - **Bounded image memory** — image dimensions and stitching limits are checked before large allocations.
-          - **Responsive AI and settings** — AI requests can be cancelled locally, and macOS keychain status checks no longer block the interface. Provider charges may still apply after cancellation.
-          - **Clearer controls** — improved file queues, translated labels, keyboard comparison controls, and a read-only notice for TIFF metadata.
-
-          ## Installation
-
-          | File | System |
-          |---|---|
-          | \`BrushLLM.Image.Studio-${VERSION}-arm64.dmg\` | **macOS** — Apple Silicon (M-series) |
-          | \`BrushLLM.Image.Studio-${VERSION}-x64.exe\` | **Windows 10/11** — x64 (Intel/AMD) |
-          | \`BrushLLM.Image.Studio-${VERSION}-arm64.exe\` | **Windows 10/11** — ARM64 (Snapdragon) |
-
-          - **macOS**: Open the \`.dmg\` and drag **BrushLLM Image Studio** into *Applications*. The app is unsigned — on first launch, right-click the app and choose **Open**.
-          - **Windows**: Run the \`.exe\` matching your CPU. The installer opens with a **language selector** (9 languages). SmartScreen may warn about an unknown publisher — choose *Run anyway*.
-
-          ## Notes
-
-          - Apps are unsigned — macOS Gatekeeper / Windows SmartScreen show a first-run warning.
-          - AI tools need your own API key — set it in Settings → Connection.
-          EOF
-          echo "notes written: $(wc -c < /tmp/release-notes.md) bytes"
+          for platform in arm64.dmg x64.exe arm64.exe; do
+            test -s "artifacts/BrushLLM.Image.Studio-$VERSION-$platform"
+          done
+          NOTES="docs/releases/$GITHUB_REF_NAME.md"
+          if [ -s "$NOTES" ]; then
+            echo "notes=$NOTES" >> "$GITHUB_OUTPUT"
+          fi
 
       - uses: softprops/action-gh-release@v2
         with:
           name: "BrushLLM Image Studio ${{ github.ref_name }}"
-          body_path: /tmp/release-notes.md
+          body_path: ${{ steps.release_files.outputs.notes }}
+          generate_release_notes: ${{ steps.release_files.outputs.notes == '' }}
+          fail_on_unmatched_files: true
           files: |
-            artifacts/**/*.dmg
-            artifacts/**/*.exe
+            artifacts/BrushLLM.Image.Studio-*.dmg
+            artifacts/BrushLLM.Image.Studio-*.exe

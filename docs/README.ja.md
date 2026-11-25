@@ -1,22 +1,39 @@
+<img src="../src/assets/image-studio.svg" width="88" height="88" alt="">
+
 # BrushLLM Image Studio
 
-[English](../README.md) | [Deutsch](README.de.md) | [Español](README.es.md) | [Français](README.fr.md) | [Português (Brasil)](README.pt-BR.md) | [日本語](README.ja.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [한국어](README.ko.md)
+macOS と Windows で画像を編集できます。ローカルツールは端末内で無料で動作し、アカウントは不要です。
 
-ローカルファーストのデスクトップ画像ツールボックス — 15 のローカルツールが 100% 端末上で無料で動作し、7 つの AI 編集は BrushLLM ゲートウェイを利用します。
+**[最新版をダウンロード](https://github.com/BrushLLM/brushllm-image-studio/releases/latest)** · [製品ページ](https://brushllm.com/ja/studio/)
 
-<p align="center">
-  <img src="../.github/assets/screenshot.png" width="800" alt="BrushLLM Image Studio">
-</p>
+[English](../README.md) · [Deutsch](../docs/README.de.md) · [Español](../docs/README.es.md) · [Français](../docs/README.fr.md) · [Português (Brasil)](../docs/README.pt-BR.md) · [日本語](../docs/README.ja.md) · [한국어](../docs/README.ko.md) · [简体中文](../docs/README.zh-CN.md) · [繁體中文](../docs/README.zh-TW.md)
 
----
+![元の写真と圧縮した WebP を比較し、一括書き出しの結果を表示する Image Studio](../.github/assets/workspace.svg)
 
-**機能：** フォーマット変換（8 入力 / 8 出力）· 圧縮（品質プリセット）· リサイズ（Lanczos）· 切り抜きと回転 · ミラー（A \| A）· 調整 · 画像連結 · ウォーターマーク · EXIF · 角丸 · カラーピッカー · 注釈 · モザイク · 影付け · 色置換（最大 6 ペア）。
+サンプル写真は [Olympic National Park](https://www.flickr.com/photos/131856925@N02/22938296331) によるものです。
 
-**AI ツール（クラウド、1 枚ごとに課金）：** 画像生成 · 背景除去 · 切り抜き · ウォーターマーク除去 · オブジェクト除去 · 生成フィル（参照画像対応）· スタイル変換。
+## ダウンロード
 
-**ハイライト：** 9 言語 UI · ダークモード · ⌘K コマンドパレット · 一括処理 · 手動アップデート確認 · テレメトリなし。
+| システム | インストーラー |
+| --- | --- |
+| macOS（Apple Silicon） | `*-arm64.dmg` |
+| Windows x64（Intel または AMD） | `*-x64.exe` |
+| Windows ARM64 | `*-arm64.exe` |
 
-**📥 ダウンロード：** 最新のインストーラーは [Releases](https://github.com/BrushLLm/brushllm-image-studio/releases) — macOS `.dmg`（Apple Silicon）、Windows `.exe`（x64 / ARM64）。未署名アプリ：macOS は初回起動時に右クリックで「開く」を選択、Windows は SmartScreen の警告で「実行」を選んでください。
+macOS ではディスクイメージを開き、アプリを「アプリケーション」にドラッグします。Windows では対応するアーキテクチャのインストーラーを実行します。配布ファイルは未署名です。
 
-開発とアーキテクチャの詳細は [English](../README.md) を参照。
+## ローカルでの作業手順
 
+1. 画像を開くか、作業領域にドラッグします。サイドバーでツールを選択します。
+2. 複数の画像を一括変換、圧縮、リサイズできます。個別の画像は切り抜き、回転、色調整、透かしや注釈の追加ができます。
+3. プレビューで結果を確認します。出力先と同名ファイルの扱いを選択して書き出します。
+
+一括読み込みは JPEG、PNG、WebP、GIF（最初のフレーム）、BMP、TIFF、ICO、SVG に対応しています。JPEG、PNG、WebP、AVIF、TIFF、BMP、ICO、ラスターデータを埋め込んだ SVG に書き出せます。
+
+## オンライン AI
+
+画像生成、背景やオブジェクトの除去、被写体の切り抜き、プロンプトとマスクでの編集ができます。設定で API キーを登録します。プロンプトと添付画像またはマスクは設定したサービスに送信され、料金は利用量に応じて発生します。
+
+## 開発
+
+[ビルドとテストの手順](../README.md#development)

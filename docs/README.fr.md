@@ -1,22 +1,39 @@
+<img src="../src/assets/image-studio.svg" width="88" height="88" alt="">
+
 # BrushLLM Image Studio
 
-[English](../README.md) | [Deutsch](README.de.md) | [Español](README.es.md) | [Français](README.fr.md) | [Português (Brasil)](README.pt-BR.md) | [日本語](README.ja.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [한국어](README.ko.md)
+Retouchez vos images sur macOS et Windows. Les outils locaux fonctionnent gratuitement sur votre appareil et sont accessibles sans compte.
 
-Une boîte à outils d'images local-first — 15 outils locaux tournent gratuitement sur votre machine ; 7 retouches IA passent par la passerelle BrushLLM.
+**[Télécharger la dernière version](https://github.com/BrushLLM/brushllm-image-studio/releases/latest)** · [Page du produit](https://brushllm.com/fr/studio/)
 
-<p align="center">
-  <img src="../.github/assets/screenshot.png" width="800" alt="BrushLLM Image Studio">
-</p>
+[English](../README.md) · [Deutsch](../docs/README.de.md) · [Español](../docs/README.es.md) · [Français](../docs/README.fr.md) · [Português (Brasil)](../docs/README.pt-BR.md) · [日本語](../docs/README.ja.md) · [한국어](../docs/README.ko.md) · [简体中文](../docs/README.zh-CN.md) · [繁體中文](../docs/README.zh-TW.md)
 
----
+![Image Studio compare une photo originale et un WebP compressé, puis affiche le résultat de l’export par lot](../.github/assets/workspace.svg)
 
-**Fonctions :** convertir le format (8 entrées / 8 sorties) · compresser avec préréglages qualité · redimensionner (Lanczos) · rogner et pivoter · miroir (A \| A) · régler · assembler · filigrane · EXIF · coins arrondis · pipette · annoter · mosaïque · ombre · remplacer couleur (jusqu'à 6 paires).
+Photo d’exemple du [parc national Olympique](https://www.flickr.com/photos/131856925@N02/22938296331).
 
-**Outils IA (cloud, facturés à l'image) :** générer une image · supprimer l'arrière-plan · détourage · supprimer le filigrane · supprimer un objet · remplissage génératif (avec images de référence) · changer le style.
+## Téléchargement
 
-**Points forts :** interface en 9 langues · mode sombre · palette de commandes ⌘K · traitement par lots · vérification manuelle des mises à jour · zéro télémétrie.
+| Système | Programme d’installation |
+| --- | --- |
+| macOS avec Apple Silicon | `*-arm64.dmg` |
+| Windows x64 (Intel ou AMD) | `*-x64.exe` |
+| Windows ARM64 | `*-arm64.exe` |
 
-**📥 Téléchargement :** installateurs sur [Releases](https://github.com/BrushLLm/brushllm-image-studio/releases) — macOS `.dmg` (Apple Silicon), Windows `.exe` (x64 / ARM64). Apps non signées : au premier lancement, macOS exige clic droit puis *Ouvrir* ; Windows affiche SmartScreen → *Exécuter quand même*.
+Sur macOS, ouvrez l’image disque et glissez l’application dans Applications. Sur Windows, lancez le programme adapté à votre architecture. Les fichiers d’installation sont distribués sans signature.
 
-Développement et architecture : voir la section [English](../README.md).
+## Retouche locale
 
+1. Ouvrez vos images ou déposez-les dans l’espace de travail. Choisissez un outil dans la barre latérale.
+2. Convertissez, compressez ou redimensionnez un lot. Recadrez et pivotez une image, ajustez les couleurs ou ajoutez un filigrane et des annotations.
+3. Contrôlez le résultat dans l’aperçu. Choisissez le dossier de sortie et le traitement des noms existants, puis exportez.
+
+L’import par lot accepte les formats JPEG, PNG, WebP, GIF (première image), BMP, TIFF, ICO et SVG. L’export propose les formats JPEG, PNG, WebP, AVIF, TIFF, BMP, ICO et SVG avec données matricielles intégrées.
+
+## IA en ligne
+
+Générez des images, supprimez un arrière-plan ou un objet, détourez un sujet ou retouchez une image avec une instruction et un masque. Configurez votre clé d’API dans les paramètres. Le service configuré reçoit votre instruction et les images ou masques joints. La facturation dépend de l’usage.
+
+## Développement
+
+[Compilation et tests](../README.md#development)

@@ -1,22 +1,39 @@
+<img src="../src/assets/image-studio.svg" width="88" height="88" alt="">
+
 # BrushLLM Image Studio
 
-[English](../README.md) | [Deutsch](README.de.md) | [Español](README.es.md) | [Français](README.fr.md) | [Português (Brasil)](README.pt-BR.md) | [日本語](README.ja.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [한국어](README.ko.md)
+在 macOS 和 Windows 上編輯圖片。本機工具在裝置上免費執行，無須註冊帳號。
 
-本機優先的桌面影像工具箱——15 個本機工具 100% 在本機免費執行；7 項 AI 編輯呼叫 BrushLLM 閘道。
+**[下載最新版本](https://github.com/BrushLLM/brushllm-image-studio/releases/latest)** · [產品頁](https://brushllm.com/zh-TW/studio/)
 
-<p align="center">
-  <img src="../.github/assets/screenshot.png" width="800" alt="BrushLLM Image Studio">
-</p>
+[English](../README.md) · [Deutsch](../docs/README.de.md) · [Español](../docs/README.es.md) · [Français](../docs/README.fr.md) · [Português (Brasil)](../docs/README.pt-BR.md) · [日本語](../docs/README.ja.md) · [한국어](../docs/README.ko.md) · [简体中文](../docs/README.zh-CN.md) · [繁體中文](../docs/README.zh-TW.md)
 
----
+![Image Studio 比較原圖和壓縮後的 WebP，並顯示批次匯出結果](../.github/assets/workspace.svg)
 
-**功能：** 格式轉換（8 進 / 8 出）· 壓縮（品質檔位）· 調整大小（Lanczos）· 裁切與旋轉 · 鏡像（A \| A）· 調節 · 拼接長圖 · 浮水印 · EXIF · 圓角 · 取色器 · 標註 · 馬賽克 · 陰影 · 顏色替換（最多 6 組）。
+範例照片由 [奧林匹克國家公園](https://www.flickr.com/photos/131856925@N02/22938296331) 提供。
 
-**AI 工具（雲端，按張計費）：** 產生圖片 · 去除背景 · 去背 · 去浮水印 · 去除物件 · 生成填充（支援參考圖）· 風格變換。
+## 下載
 
-**亮點：** 九語言介面 · 深色模式 · ⌘K 命令面板 · 批次處理 · 手動檢查更新 · 零遙測。
+| 系統 | 安裝程式 |
+| --- | --- |
+| macOS Apple Silicon | `*-arm64.dmg` |
+| Windows x64（Intel 或 AMD） | `*-x64.exe` |
+| Windows ARM64 | `*-arm64.exe` |
 
-**📥 下載：** 最新安裝包見 [Releases](https://github.com/BrushLLm/brushllm-image-studio/releases)——macOS `.dmg`（Apple Silicon）、Windows `.exe`（x64 / ARM64）。應用程式未簽署：macOS 首次執行右鍵點擊→「開啟」；Windows 在 SmartScreen 提示時選擇「仍要執行」。
+macOS 請開啟磁碟映像，將 App 拖入「應用程式」。Windows 請執行符合裝置架構的安裝程式。安裝檔未簽署。
 
-開發與架構說明見 [English](../README.md) 章節。
+## 本機圖片工作流程
 
+1. 在工作區開啟或拖入圖片，從側邊欄選擇工具。
+2. 批次轉換、壓縮或調整大小。單張圖片也可以裁切、旋轉、調色、加浮水印或標註。
+3. 預覽並比較結果。選取輸出資料夾及同名檔案的處理方式，再匯出。
+
+批次匯入支援 JPEG、PNG、WebP、GIF（首個影格）、BMP、TIFF、ICO 和 SVG。可匯出 JPEG、PNG、WebP、AVIF、TIFF、BMP、ICO 和內嵌點陣圖的 SVG。
+
+## 線上 AI
+
+可以生成圖片、移除背景或物件、去背，也可使用提示詞及遮罩編輯。請在設定中配置 API 金鑰。提示詞和附帶圖片或遮罩會傳送至設定的服務，費用依用量計算。
+
+## 開發
+
+[建置及測試](../README.md#development)

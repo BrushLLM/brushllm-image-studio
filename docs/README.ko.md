@@ -1,21 +1,39 @@
+<img src="../src/assets/image-studio.svg" width="88" height="88" alt="">
+
 # BrushLLM Image Studio
 
-[English](../README.md) | [Deutsch](README.de.md) | [Español](README.es.md) | [Français](README.fr.md) | [Português (Brasil)](README.pt-BR.md) | [日本語](README.ja.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [한국어](README.ko.md)
+macOS와 Windows에서 이미지를 편집하세요. 로컬 도구는 기기에서 무료로 실행되며 계정 없이 사용할 수 있습니다.
 
-로컬 우선 데스크톱 이미지 도구함 — 15 개의 로컬 도구가 100% 기기에서 무료로 실행되고, 7 가지 AI 편집은 BrushLLM 게이트웨이를 사용합니다.
+**[최신 버전 다운로드](https://github.com/BrushLLM/brushllm-image-studio/releases/latest)** · [제품 페이지](https://brushllm.com/ko/studio/)
 
-<p align="center">
-  <img src="../.github/assets/screenshot.png" width="800" alt="BrushLLM Image Studio">
-</p>
+[English](../README.md) · [Deutsch](../docs/README.de.md) · [Español](../docs/README.es.md) · [Français](../docs/README.fr.md) · [Português (Brasil)](../docs/README.pt-BR.md) · [日本語](../docs/README.ja.md) · [한국어](../docs/README.ko.md) · [简体中文](../docs/README.zh-CN.md) · [繁體中文](../docs/README.zh-TW.md)
 
----
+![원본 사진과 압축된 WebP를 비교하고 일괄 내보내기 결과를 보여 주는 Image Studio](../.github/assets/workspace.svg)
 
-**기능:** 포맷 변환(8 입력 / 8 출력) · 품질 프리셋 압축 · 크기 조정(Lanczos) · 자르기와 회전 · 미러(A \| A) · 조정 · 이미지 이어붙이기 · 워터마크 · EXIF · 모서리 둥글게 · 컬러 피커 · 주석 · 모자이크 · 그림자 · 색상 교체(최대 6 쌍).
+예제 사진 제공 [Olympic National Park](https://www.flickr.com/photos/131856925@N02/22938296331).
 
-**AI 도구(클라우드, 장당 과금):** 이미지 생성 · 배경 제거 · 누끼 · 워터마크 제거 · 사물 제거 · 생성 채우기(참조 이미지 지원) · 스타일 변환.
+## 다운로드
 
-**하이라이트:** 9개 언어 UI · 다크 모드 · ⌘K 커맨드 팔레트 · 일괄 처리 · 수동 업데이트 확인 · 텔레메트리 없음.
+| 시스템 | 설치 파일 |
+| --- | --- |
+| macOS Apple Silicon | `*-arm64.dmg` |
+| Windows x64 (Intel 또는 AMD) | `*-x64.exe` |
+| Windows ARM64 | `*-arm64.exe` |
 
-**📥 다운로드:** 최신 설치 파일은 [Releases](https://github.com/BrushLLm/brushllm-image-studio/releases) — macOS `.dmg`(Apple Silicon), Windows `.exe`(x64 / ARM64). 미서명 앱: macOS는 첫 실행 시 마우스 오른쪽 클릭으로 *열기*를, Windows는 SmartScreen 경고에서 *실행*을 선택하세요.
+macOS에서는 디스크 이미지를 열고 앱을 응용 프로그램 폴더로 드래그합니다. Windows에서는 아키텍처에 맞는 설치 파일을 실행합니다. 설치 파일에는 서명이 없습니다.
 
-개발 및 아키텍처 세부 사항은 [English](../README.md) 섹션을 참고하세요.
+## 로컬 작업 흐름
+
+1. 이미지를 열거나 작업 공간으로 끌어 놓습니다. 왼쪽에서 도구를 선택합니다.
+2. 여러 이미지를 한 번에 변환하거나 압축하고 크기를 조정할 수 있습니다. 개별 이미지는 자르기, 회전, 색상 보정, 워터마크 및 주석 추가가 가능합니다.
+3. 미리 보기에서 결과를 확인합니다. 출력 폴더와 같은 이름의 파일을 처리하는 방법을 정한 뒤 내보냅니다.
+
+일괄 가져오기는 JPEG, PNG, WebP, GIF(첫 프레임), BMP, TIFF, ICO 및 SVG를 지원합니다. JPEG, PNG, WebP, AVIF, TIFF, BMP, ICO 및 래스터가 포함된 SVG로 내보낼 수 있습니다.
+
+## 온라인 AI
+
+이미지를 생성하거나 배경과 물체를 제거하고, 피사체를 오려 내거나 프롬프트와 마스크로 편집할 수 있습니다. 설정에 API 키를 등록하세요. 지정된 서비스에 지시와 첨부 이미지 또는 마스크가 전송되며 사용량에 따라 요금이 부과됩니다.
+
+## 개발
+
+[빌드 및 테스트 방법](../README.md#development)

@@ -29,15 +29,6 @@ impl OutFormat {
             OutFormat::Ico => "ico",
         }
     }
-
-    /// Lossless formats ignore the quality setting entirely.
-    #[allow(dead_code)]
-    pub fn uses_quality(self) -> bool {
-        matches!(
-            self,
-            OutFormat::Jpeg | OutFormat::Png | OutFormat::Webp | OutFormat::Avif
-        )
-    }
 }
 
 #[derive(Debug, Clone, Deserialize)]

@@ -1,22 +1,39 @@
+<img src="../src/assets/image-studio.svg" width="88" height="88" alt="">
+
 # BrushLLM Image Studio
 
-[English](../README.md) | [Deutsch](README.de.md) | [Español](README.es.md) | [Français](README.fr.md) | [Português (Brasil)](README.pt-BR.md) | [日本語](README.ja.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [한국어](README.ko.md)
+Edita imágenes en macOS y Windows. Las herramientas locales funcionan gratis en tu dispositivo y se pueden usar sin cuenta.
 
-Una caja de herramientas de imágenes local-first — 15 herramientas locales se ejecutan gratis en tu equipo; 7 ediciones con IA usan la pasarela de BrushLLM.
+**[Descargar la última versión](https://github.com/BrushLLM/brushllm-image-studio/releases/latest)** · [Página del producto](https://brushllm.com/es/studio/)
 
-<p align="center">
-  <img src="../.github/assets/screenshot.png" width="800" alt="BrushLLM Image Studio">
-</p>
+[English](../README.md) · [Deutsch](../docs/README.de.md) · [Español](../docs/README.es.md) · [Français](../docs/README.fr.md) · [Português (Brasil)](../docs/README.pt-BR.md) · [日本語](../docs/README.ja.md) · [한국어](../docs/README.ko.md) · [简体中文](../docs/README.zh-CN.md) · [繁體中文](../docs/README.zh-TW.md)
 
----
+![Image Studio compara una foto original con un WebP comprimido y muestra el resultado de la exportación por lotes](../.github/assets/workspace.svg)
 
-**Funciones:** convertir formato (8 de entrada / 8 de salida) · comprimir con presets de calidad · redimensionar (Lanczos) · recortar y rotar · espejo (A \| A) · ajustar · unir imágenes · marca de agua · EXIF · esquinas redondeadas · cuentagotas · anotar · mosaico · sombra · reemplazar color (hasta 6 pares).
+Foto de muestra del [Parque Nacional Olympic](https://www.flickr.com/photos/131856925@N02/22938296331).
 
-**Herramientas de IA (nube, por imagen):** generar imagen · quitar fondo · recorte de sujeto · quitar marca de agua · quitar objeto · relleno generativo (con imágenes de referencia) · cambiar estilo.
+## Descarga
 
-**Lo destacado:** interfaz en 9 idiomas · modo oscuro · paleta de comandos ⌘K · proceso por lotes · comprobación manual de actualizaciones · sin telemetría.
+| Sistema | Instalador |
+| --- | --- |
+| macOS con Apple Silicon | `*-arm64.dmg` |
+| Windows x64 (Intel o AMD) | `*-x64.exe` |
+| Windows ARM64 | `*-arm64.exe` |
 
-**📥 Descargar:** instaladores en [Releases](https://github.com/BrushLLm/brushllm-image-studio/releases) — macOS `.dmg` (Apple Silicon), Windows `.exe` (x64 / ARM64). Apps sin firmar: en el primer inicio, macOS exige clic derecho → *Abrir*; Windows muestra SmartScreen → *Ejecutar de todas formas*.
+En macOS, abre la imagen de disco y arrastra la aplicación a Aplicaciones. En Windows, ejecuta el instalador de tu arquitectura. Los instaladores se distribuyen sin firma.
 
-Desarrollo y arquitectura: ver la sección [English](../README.md).
+## Edición local
 
+1. Abre o arrastra imágenes al espacio de trabajo. Elige una herramienta en la barra lateral.
+2. Convierte, comprime o cambia el tamaño de un lote. Recorta y gira imágenes individuales, ajusta el color o añade marcas de agua y anotaciones.
+3. Comprueba el resultado en la vista previa. Elige una carpeta de destino y cómo tratar los nombres de archivo existentes antes de exportar.
+
+La importación por lotes admite JPEG, PNG, WebP, GIF (primer fotograma), BMP, TIFF, ICO y SVG. Puedes exportar en JPEG, PNG, WebP, AVIF, TIFF, BMP, ICO y SVG con datos rasterizados incrustados.
+
+## IA en línea
+
+Genera imágenes, elimina fondos u objetos, aísla un sujeto o edita con instrucciones y una máscara. Configura tu clave de API en Ajustes. El servicio configurado recibe las instrucciones y las imágenes o máscaras que adjuntes. El cobro depende del uso.
+
+## Desarrollo
+
+[Compilación y pruebas](../README.md#development)

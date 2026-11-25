@@ -1,6 +1,6 @@
 [package]
 name = "image-studio"
-version = "0.0.8"
+version = "0.0.9"
 description = "BrushLLM Image Studio — local-first AI image toolbox"
 authors = ["BrushLLM"]
 edition = "2021"
@@ -20,9 +20,7 @@ tauri-plugin-clipboard-manager = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
-# Local image engine — all permissive-licensed, pure Rust (no C deps to ship).
-# Only formats the embedded WebView can also render are accepted, so every
-# queued thumbnail stays visible.
+# Local image codecs. The WebView displays a placeholder for unsupported thumbnails.
 tiff = { version = "0.11", features = ["deflate"] }
 image = { version = "0.25", default-features = false, features = [
     "jpeg",
@@ -46,8 +44,7 @@ libwebp-sys = "0.9"
 kamadak-exif = "0.5"
 crc32fast = "1"
 
-# Cloud API client — rustls is pure Rust, so the same client builds for
-# desktop, Android and iOS without any system TLS library.
+# Cloud API client with rustls.
 reqwest = { version = "0.12", default-features = false, features = [
     "json",
     "multipart",
@@ -61,11 +58,7 @@ base64 = "0.22"
 # Secrets + errors
 thiserror = "2"
 
-# keyring is desktop-only (no Android/iOS backend); mobile falls back to a
-# file in the app's private config dir — see src/api_key.rs.
-# (cargo target-cfg cannot use tauri's custom `desktop` flag, so this keys
-# off the mobile target OSes instead.)
-[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+# Desktop credential storage.
 keyring = { version = "3", features = ["apple-native", "windows-native"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]

@@ -8,9 +8,6 @@ import { readAssetDataUrl } from "../lib/ipc";
 import { CANVAS_FORMATS, unsupportedImageError } from "../lib/types";
 import { useTranslation } from "react-i18next";
 
-interface Props {
-  onBack: () => void;
-}
 
 interface Rgb {
   r: number;
@@ -31,7 +28,7 @@ function contrastText({ r, g, b }: Rgb): string {
   return (r * 299 + g * 587 + b * 114) / 1000 > 150 ? "#1c1917" : "#ffffff";
 }
 
-export default function ColorPicker({ onBack }: Props) {
+export default function ColorPicker() {
   const { t } = useTranslation();
   const [file, setFile] = usePersistedState<string | null>("local.picker.file", null);
   const [dataUrl, setDataUrl] = usePersistedState<string | null>("local.picker.dataUrl", null);
@@ -110,13 +107,11 @@ export default function ColorPicker({ onBack }: Props) {
     <PageShell
       title={t("picker.title")}
       subtitle={t("picker.subtitle")}
-      onBack={onBack}
-      badge={<span className="badge badge-mint">{t("common.localBadge")}</span>}
     >
       {!file && error && <div className="banner banner-error">{error}</div>}
       {!file && (
         <DropZone
-          workbench
+          presentation="canvas"
           onFiles={loadFile}
           label={t("picker.dropLabel")}
           multiple={false}
@@ -130,7 +125,7 @@ export default function ColorPicker({ onBack }: Props) {
 
       {file && dataUrl && (
         <div className="split">
-          <div>
+          <div className="canvas-panel">
             <div className="picker-view cursor-cross">
               <img
                 src={dataUrl}
@@ -213,7 +208,7 @@ export default function ColorPicker({ onBack }: Props) {
               )}
             </div>
             <button
-              className="btn btn-block btn-lemon"
+              className="btn btn-block"
               onClick={() => {
                 setFile(null);
                 setDataUrl(null);

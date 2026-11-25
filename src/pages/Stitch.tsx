@@ -1,22 +1,20 @@
+import { ArrowDown, ArrowUp, X } from "lucide-react";
 import { usePersistedState } from "../lib/persistedState";
-import { useEffect, type CSSProperties } from "react";
+import { useMemo, type CSSProperties } from "react";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import DropZone from "../components/DropZone";
 import FormatQuality, { type FormatChoice } from "../components/FormatQuality";
-import OutputPanel, { type OutputConfig } from "../components/OutputPanel";
+import OutputPanel from "../components/OutputPanel";
+import { useOutputConfig } from "../lib/useOutputConfig";
 import PageShell from "../components/PageShell";
 import PreviewCard from "../components/PreviewCard";
-import { loadDefaultOutputDir, previewStitch, runStitch } from "../lib/ipc";
-import { blockedInputError, type OutFormat, type StitchOpts } from "../lib/types";
+import { previewStitch, runStitch } from "../lib/ipc";
+import { blockedInputError, type StitchOpts } from "../lib/types";
 import { useImageFiles } from "../lib/useImageFiles";
 import { usePreview } from "../lib/usePreview";
 import { useTranslation } from "react-i18next";
 
-interface Props {
-  onBack: () => void;
-}
-
-export default function Stitch({ onBack }: Props) {
+export default function Stitch() {
   const { t } = useTranslation();
   const { files, add, remove, clear, replace } = useImageFiles("stitch");
   const [direction, setDirection] = usePersistedState<StitchOpts["direction"]>("local.stitch.direction", "vertical");
@@ -28,28 +26,20 @@ export default function Stitch({ onBack }: Props) {
   const [format, setFormat] = usePersistedState<FormatChoice>("local.stitch.format", "jpeg");
   const [quality, setQuality] = usePersistedState("local.stitch.quality", 90);
   const [preserveExif, setPreserveExif] = usePersistedState("local.stitch.preserveExif", false);
-  const [output, setOutput] = usePersistedState<OutputConfig>("local.stitch.output", {
-    dir: null,
-    suffix: "-stitched",
-    collision: "rename",
-  });
+  const [output, setOutput] = useOutputConfig("stitch", "-stitched");
   const [busy, setBusy] = usePersistedState("local.stitch.busy", false);
   const [resultPath, setResultPath] = usePersistedState<string | null>("local.stitch.resultPath", null);
   const [error, setError] = usePersistedState<string | null>("local.stitch.error", null);
 
-  useEffect(() => {
-    if (output.dir) return;
-    loadDefaultOutputDir().then((dir) => {
-      if (dir) setOutput((prev) => ({ ...prev, dir }));
-    });
-  }, []);
-
-  const optsJson = JSON.stringify({ direction, spacing, align, background, normalize });
-  const filesKey = files.join("\n");
-  const preview = usePreview(
-    () => (files.length >= 2 ? previewStitch(files, JSON.parse(optsJson)) : null),
-    [filesKey, optsJson, files.length],
+  const opts = useMemo<StitchOpts>(
+    () => ({ direction, spacing, align, background, normalize }),
+    [direction, spacing, align, background, normalize],
   );
+  const buildPreview = useMemo(
+    () => files.length >= 2 ? () => previewStitch(files, opts) : null,
+    [files, opts],
+  );
+  const preview = usePreview(buildPreview);
 
   const move = (index: number, delta: number) => {
     const next = [...files];
@@ -67,10 +57,10 @@ export default function Stitch({ onBack }: Props) {
     try {
       const path = await runStitch({
         files,
-        opts: { direction, spacing, align, background, normalize },
-        format: (format === "same" ? "jpeg" : format) as OutFormat,
+        opts,
+        format: format === "same" ? "jpeg" : format,
         quality,
-        output: { dir: output.dir, suffix: output.suffix, collision: output.collision },
+        output,
       });
       setResultPath(path);
     } catch (e) {
@@ -84,8 +74,6 @@ export default function Stitch({ onBack }: Props) {
     <PageShell
       title={t("stitch.title")}
       subtitle={t("stitch.subtitle")}
-      onBack={onBack}
-      badge={<span className="badge badge-mint">{t("common.localBadge")}</span>}
     >
       {inputError && (
         <div className="banner banner-error">
@@ -93,7 +81,20 @@ export default function Stitch({ onBack }: Props) {
         </div>
       )}
       <div className="split">
-        <div>
+        <div className="workbench-main">
+          {files.length >= 2 && (
+            <PreviewCard
+              beforeUrl=""
+              result={preview.result}
+              loading={preview.loading}
+              error={preview.error}
+              note={
+                files.length > 10
+                  ? t("stitch.firstTen")
+                  : t("stitch.exactPreview")
+              }
+            />
+          )}
           {files.length > 0 && (
             <div className="card">
               <div className="row row-center mb-3">
@@ -109,29 +110,30 @@ export default function Stitch({ onBack }: Props) {
                 {files.map((file, index) => (
                   <div key={`${file}-${index}`} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                     <div className="queue-item" style={{ width: "auto" }}>
-                      <button className="q-remove" onClick={() => remove(index)} title="Remove">
-                        ✕
+                      <button className="q-remove" onClick={() => remove(index)} title={t("common.remove")} aria-label={t("common.remove")}>
+                        <X aria-hidden="true" />
                       </button>
                       <span
                         style={{
                           fontSize: 11,
                           fontWeight: 700,
-                          color: "var(--violet)",
+                          color: "var(--accent-text)",
                         }}
                       >
                         #{index + 1}
                       </span>
                     </div>
                     <div style={{ display: "flex", gap: 4 }}>
-                      <button className="btn btn-sm" onClick={() => move(index, -1)} disabled={index === 0}>
-                        ↑
+                      <button className="btn btn-sm" aria-label={t("stitch.moveEarlier")} onClick={() => move(index, -1)} disabled={index === 0}>
+                        <ArrowUp aria-hidden="true" />
                       </button>
                       <button
                         className="btn btn-sm"
+                        aria-label={t("stitch.moveLater")}
                         onClick={() => move(index, 1)}
                         disabled={index === files.length - 1}
                       >
-                        ↓
+                        <ArrowDown aria-hidden="true" />
                       </button>
                     </div>
                     <div className="q-name" style={{ width: 86 }} title={file}>
@@ -145,24 +147,9 @@ export default function Stitch({ onBack }: Props) {
           <DropZone
             onFiles={(paths) => { setInputError(null); add(paths); }}
             label={t("stitch.dropLabel")}
-            hero={files.length === 0}
+            presentation={files.length === 0 ? "canvas" : "compact"}
             onBlockedInput={(files) => setInputError(blockedInputError(files))}
           />
-          {files.length >= 2 && (
-            <div className="mt-4">
-              <PreviewCard
-                beforeUrl=""
-                result={preview.result}
-                loading={preview.loading}
-                error={preview.error}
-                note={
-                  files.length > 10
-                    ? t("stitch.firstTen")
-                    : t("stitch.exactPreview")
-                }
-              />
-            </div>
-          )}
         </div>
         <div className="side-col">
           <div className="card">

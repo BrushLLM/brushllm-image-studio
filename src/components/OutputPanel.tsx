@@ -1,19 +1,13 @@
-import { useId } from "react";
+import { useId, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { FolderOpen } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { loadDefaultOutputDir } from "../lib/ipc";
-import type { Collision } from "../lib/types";
-
-export interface OutputConfig {
-  dir: string | null;
-  suffix: string;
-  collision: Collision;
-}
+import type { BatchJob, Collision } from "../lib/types";
 
 interface Props {
-  value: OutputConfig;
-  onChange: (value: OutputConfig) => void;
+  value: BatchJob["output"];
+  onChange: Dispatch<SetStateAction<BatchJob["output"]>>;
   defaultSuffix?: string;
 }
 
@@ -21,37 +15,41 @@ export default function OutputPanel({ value, onChange, defaultSuffix = "" }: Pro
   const { t } = useTranslation();
   const suffixId = useId();
   const collisionId = useId();
+  const directoryRequest = useRef(0);
+  const [directoryError, setDirectoryError] = useState<string | null>(null);
 
-  const pickDir = async () => {
-    const dir = await open({ directory: true, multiple: false });
-    if (typeof dir === "string") {
-      onChange({ ...value, dir });
+  const changeDirectory = async (source: "choose" | "default") => {
+    const request = ++directoryRequest.current;
+    setDirectoryError(null);
+    try {
+      const dir = source === "choose"
+        ? await open({ directory: true, multiple: false })
+        : await loadDefaultOutputDir();
+      if (request === directoryRequest.current && typeof dir === "string") {
+        onChange((current) => ({ ...current, dir }));
+      }
+    } catch (error) {
+      if (request === directoryRequest.current) setDirectoryError(String(error));
     }
-  };
-
-  // Reset goes back to the app-wide default folder (Settings), not to a
-  // "next to the source image" mode — that mode no longer exists.
-  const resetDir = async () => {
-    const dir = await loadDefaultOutputDir();
-    if (dir) onChange({ ...value, dir });
   };
 
   return (
     <>
       <div className="field">
         <label>{t("convert.outputFolder")}</label>
-        <div className="path-row">
+        <div className="path-row output-path-row">
           <div className="path-display" title={value.dir ?? ""}>
-            <FolderOpen />
+            <FolderOpen aria-hidden="true" />
             <span>{value.dir ?? "—"}</span>
           </div>
-          <button className="btn btn-sm" onClick={pickDir}>
+          <button type="button" className="btn btn-sm" onClick={() => changeDirectory("choose")}>
             {t("settings.changeFolder")}
           </button>
-          <button className="btn btn-sm" onClick={resetDir}>
+          <button type="button" className="btn btn-sm" onClick={() => changeDirectory("default")}>
             {t("settings.resetToDefault")}
           </button>
         </div>
+        {directoryError && <p className="status-note text-danger" role="alert">{directoryError}</p>}
       </div>
       <div className="field">
         <label htmlFor={suffixId}>{t("convert.suffix")}</label>
@@ -60,7 +58,10 @@ export default function OutputPanel({ value, onChange, defaultSuffix = "" }: Pro
           type="text"
           value={value.suffix}
           placeholder={defaultSuffix || "e.g. -converted"}
-          onChange={(e) => onChange({ ...value, suffix: e.target.value })}
+          onChange={(e) => {
+            const suffix = e.target.value;
+            onChange((current) => ({ ...current, suffix }));
+          }}
         />
       </div>
       <div className="field">
@@ -68,9 +69,10 @@ export default function OutputPanel({ value, onChange, defaultSuffix = "" }: Pro
         <select
           id={collisionId}
           value={value.collision}
-          onChange={(e) =>
-            onChange({ ...value, collision: e.target.value as Collision })
-          }
+          onChange={(e) => {
+            const collision = e.target.value as Collision;
+            onChange((current) => ({ ...current, collision }));
+          }}
         >
           <option value="rename">{t("convert.collisionRename")}</option>
           <option value="skip">{t("convert.collisionSkip")}</option>

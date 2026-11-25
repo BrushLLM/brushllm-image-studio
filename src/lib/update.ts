@@ -1,7 +1,8 @@
 import { checkUpdate } from "./ipc";
-import { readPersisted, writePersisted } from "./persistedState";
+import { usePersistedState, writePersisted } from "./persistedState";
 
 const LATEST_KEY = "update.latest";
+const DISMISSED_KEY = "update.dismissed";
 
 export interface UpdateBannerState {
   latest: string;
@@ -10,9 +11,8 @@ export interface UpdateBannerState {
 
 /**
  * Startup check: silent, never throws. A successful "update available"
- * result is persisted so the Home banner survives reloads; "up to date"
- * and dismissed banners are cleared. The dismissed-version key lets the
- * user silence one specific release.
+ * result is stored for the current app session. A user can dismiss a
+ * specific release without hiding a later one.
  */
 export async function silentUpdateCheck(): Promise<void> {
   try {
@@ -30,15 +30,11 @@ export async function silentUpdateCheck(): Promise<void> {
   }
 }
 
-export function readUpdateBanner(): UpdateBannerState | null {
-  const state = readPersisted<UpdateBannerState | null>(LATEST_KEY);
-  return state ?? null;
-}
-
-export function dismissUpdateBanner(latest: string): void {
-  writePersisted("update.dismissed", latest);
-}
-
-export function isUpdateDismissed(latest: string): boolean {
-  return readPersisted<string>("update.dismissed") === latest;
+export function useUpdateBanner() {
+  const [latest] = usePersistedState<UpdateBannerState | null>(LATEST_KEY, null);
+  const [dismissed, setDismissed] = usePersistedState<string | null>(DISMISSED_KEY, null);
+  return {
+    update: latest && latest.latest !== dismissed ? latest : null,
+    dismiss: () => { if (latest) setDismissed(latest.latest); },
+  };
 }

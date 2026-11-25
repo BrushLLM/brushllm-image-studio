@@ -1,80 +1,16 @@
-import { canvasDataUrl } from "../lib/canvas";
+import { saveCanvasImage } from "../lib/canvas";
+import { drawMask, type MaskPoint, type MaskStroke } from "../lib/mask";
 import { useEffect, useRef, type PointerEvent as ReactPointerEvent } from "react";
 import { Circle, Eraser, Square } from "lucide-react";
 import DropZone from "../components/DropZone";
 import PageShell from "../components/PageShell";
 import { useTranslation } from "react-i18next";
-import { loadDefaultOutputDir, readAssetDataUrl, saveBytes } from "../lib/ipc";
+import { readAssetDataUrl } from "../lib/ipc";
 import { CANVAS_FORMATS, unsupportedImageError } from "../lib/types";
 import { clearPersisted, usePersistedState, usePersistedRef } from "../lib/persistedState";
 
-interface Props {
-  onBack: () => void;
-}
 
-interface Point {
-  x: number;
-  y: number;
-}
-
-interface Stroke {
-  tool: "brush" | "rect" | "erase";
-  points: Point[];
-  size: number;
-}
-
-/** Draw one stroke onto a context in natural coordinates. */
-function drawStroke(ctx: CanvasRenderingContext2D, stroke: Stroke, color: string) {
-  ctx.save();
-  if (stroke.tool === "erase") {
-    ctx.globalCompositeOperation = "destination-out";
-    ctx.strokeStyle = "#000";
-    ctx.fillStyle = "#000";
-  } else {
-    ctx.fillStyle = color;
-    ctx.strokeStyle = color;
-  }
-  if (stroke.tool === "rect") {
-    const start = stroke.points[0];
-    const end = stroke.points[stroke.points.length - 1];
-    if (start && end) {
-      ctx.fillRect(
-        Math.min(start.x, end.x),
-        Math.min(start.y, end.y),
-        Math.abs(end.x - start.x),
-        Math.abs(end.y - start.y),
-      );
-    }
-  } else {
-    ctx.lineWidth = stroke.size;
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    for (let i = 1; i < stroke.points.length; i++) {
-      const a = stroke.points[i - 1];
-      const b = stroke.points[i];
-      ctx.beginPath();
-      ctx.moveTo(a.x, a.y);
-      ctx.lineTo(b.x, b.y);
-      ctx.stroke();
-    }
-    const first = stroke.points[0];
-    if (stroke.points.length === 1 && first) {
-      ctx.beginPath();
-      ctx.arc(first.x, first.y, stroke.size / 2, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }
-  ctx.restore();
-}
-
-function drawAll(canvas: HTMLCanvasElement, strokes: Stroke[], color: string) {
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  for (const stroke of strokes) drawStroke(ctx, stroke, color);
-}
-
-export default function Mosaic({ onBack }: Props) {
+export default function Mosaic() {
   const { t } = useTranslation();
   const [file, setFile] = usePersistedState<string | null>("local.mosaic.file", null);
   const [dataUrl, setDataUrl] = usePersistedState<string | null>("local.mosaic.dataUrl", null);
@@ -85,10 +21,10 @@ export default function Mosaic({ onBack }: Props) {
   const [error, setError] = usePersistedState<string | null>("local.mosaic.error", null);
   const [busy, setBusy] = usePersistedState("local.mosaic.busy", false);
   const [savedTo, setSavedTo] = usePersistedState<string | null>("local.mosaic.savedTo", null);
-  const [strokes, setStrokes] = usePersistedState<Stroke[]>("mosaic.strokes", []);
+  const [strokes, setStrokes] = usePersistedState<MaskStroke[]>("mosaic.strokes", []);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imgElRef = usePersistedRef<HTMLImageElement | null>("local.mosaic.imgElRef", null);
-  const activeRef = useRef<Stroke | null>(null);
+  const activeRef = useRef<MaskStroke | null>(null);
   /** natural px per displayed px — export uses it to keep preview-sized
    *  blocks proportional at full resolution. */
   const previewScaleRef = useRef(1);
@@ -145,13 +81,14 @@ export default function Mosaic({ onBack }: Props) {
     const mask = document.createElement("canvas");
     mask.width = naturalSize.width;
     mask.height = naturalSize.height;
-    drawAll(mask, strokes, "#ffffff");
+    drawMask(mask, strokes, "#ffffff");
     ctx.globalCompositeOperation = "destination-in";
     ctx.drawImage(mask, 0, 0);
     ctx.globalCompositeOperation = "source-over";
     // Visible border around each rectangle selection.
     ctx.save();
-    ctx.strokeStyle = "rgba(124, 58, 237, 0.9)";
+    ctx.strokeStyle = getComputedStyle(canvas).getPropertyValue("--focus-ring").trim();
+    ctx.globalAlpha = 0.9;
     ctx.lineWidth = Math.max(1.5, 2 * previewScaleRef.current);
     for (const stroke of strokes) {
       if (stroke.tool !== "rect") continue;
@@ -169,7 +106,7 @@ export default function Mosaic({ onBack }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dataUrl, naturalSize, strokes, blockSize]);
 
-  const toNatural = (event: ReactPointerEvent<HTMLCanvasElement>): Point => {
+  const toNatural = (event: ReactPointerEvent<HTMLCanvasElement>): MaskPoint => {
     const canvas = event.currentTarget;
     const rect = canvas.getBoundingClientRect();
     return {
@@ -234,16 +171,11 @@ export default function Mosaic({ onBack }: Props) {
       const mask = document.createElement("canvas");
       mask.width = naturalSize.width;
       mask.height = naturalSize.height;
-      drawAll(mask, strokes, "#ffffff");
+      drawMask(mask, strokes, "#ffffff");
       mctx.globalCompositeOperation = "destination-in";
       mctx.drawImage(mask, 0, 0);
       ctx.drawImage(mosaic, 0, 0);
-      const out = await canvasDataUrl(canvas);
-      const dir = await loadDefaultOutputDir();
-      if (!dir) return;
-      const path = `${dir.replace(/\/+$/, "")}/mosaic-${Date.now()}.png`;
-      await saveBytes(path, out.slice(out.indexOf(",") + 1));
-      setSavedTo(path);
+      setSavedTo(await saveCanvasImage(canvas, "mosaic"));
     } catch (e) {
       setError(String(e));
     } finally {
@@ -255,13 +187,11 @@ export default function Mosaic({ onBack }: Props) {
     <PageShell
       title={t("mosaic.title")}
       subtitle={t("mosaic.subtitle")}
-      onBack={onBack}
-      badge={<span className="badge badge-mint">{t("common.localBadge")}</span>}
     >
       {!file && error && <div className="banner banner-error">{error}</div>}
       {!file && (
         <DropZone
-          workbench
+          presentation="canvas"
           onFiles={loadFile}
           label={t("mosaic.dropLabel")}
           multiple={false}
@@ -275,7 +205,7 @@ export default function Mosaic({ onBack }: Props) {
 
       {file && dataUrl && naturalSize && (
         <div className="split">
-          <div>
+          <div className="canvas-panel">
             <div className="toolbar">
               <button
                 className={`radio-chip${tool === "brush" ? " active" : ""}`}
@@ -392,7 +322,7 @@ export default function Mosaic({ onBack }: Props) {
               )}
             </div>
             <button
-              className="btn btn-block btn-lemon"
+              className="btn btn-block"
               onClick={() => {
                 setFile(null);
                 setDataUrl(null);

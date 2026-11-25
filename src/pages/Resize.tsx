@@ -1,21 +1,16 @@
 import { usePersistedState } from "../lib/persistedState";
-import { useEffect, type CSSProperties } from "react";
+import { useMemo, type CSSProperties } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import BatchRunner from "../components/BatchRunner";
-import DropZone from "../components/DropZone";
-import FileQueue from "../components/FileQueue";
-import OutputPanel, { type OutputConfig } from "../components/OutputPanel";
+import BatchInput from "../components/BatchInput";
+import OutputPanel from "../components/OutputPanel";
+import { useOutputConfig } from "../lib/useOutputConfig";
 import PageShell from "../components/PageShell";
 import PreviewCard from "../components/PreviewCard";
-import { loadDefaultOutputDir, previewBatch } from "../lib/ipc";
-import { blockedInputError, type FitMode, type Step } from "../lib/types";
+import { blockedInputError, type FitMode, type RenderSettings, type Step } from "../lib/types";
 import { useImageFiles } from "../lib/useImageFiles";
-import { usePreview } from "../lib/usePreview";
+import { useBatchPreview } from "../lib/usePreview";
 import { useTranslation } from "react-i18next";
-
-interface Props {
-  onBack: () => void;
-}
 
 type Mode = "pixels" | "percent" | "preset";
 
@@ -26,9 +21,9 @@ const PRESETS: { label: string; width: number; height: number }[] = [
   { label: "Full HD square", width: 1080, height: 1080 },
 ];
 
-export default function Resize({ onBack }: Props) {
+export default function Resize() {
   const { t } = useTranslation();
-  const { files, add, remove, clear } = useImageFiles("resize");
+  const { files, add, remove, clear, previewFile, selectPreview } = useImageFiles("resize");
   const [inputError, setInputError] = usePersistedState<string | null>("local.resize.inputError", null);
   const [mode, setMode] = usePersistedState<Mode>("local.resize.mode", "percent");
   const [width, setWidth] = usePersistedState<string>("local.resize.width", "1920");
@@ -38,20 +33,9 @@ export default function Resize({ onBack }: Props) {
   const [noEnlarge, setNoEnlarge] = usePersistedState("local.resize.noEnlarge", true);
   const [percent, setPercent] = usePersistedState("local.resize.percent", 50);
   const [preset, setPreset] = usePersistedState("local.resize.preset", 0);
-  const [output, setOutput] = usePersistedState<OutputConfig>("local.resize.output", {
-    dir: null,
-    suffix: "",
-    collision: "rename",
-  });
+  const [output, setOutput] = useOutputConfig("resize", "");
 
-  useEffect(() => {
-    if (output.dir) return;
-    loadDefaultOutputDir().then((dir) => {
-      if (dir) setOutput((prev) => ({ ...prev, dir }));
-    });
-  }, []);
-
-  const buildSteps = (): Step[] => {
+  const steps = useMemo<Step[]>(() => {
     if (mode === "percent") {
       return [
         {
@@ -89,30 +73,19 @@ export default function Resize({ onBack }: Props) {
         no_enlarge: noEnlarge,
       },
     ];
-  };
-
-  const firstFile = files[0] ?? null;
-  const stepsJson = JSON.stringify(buildSteps());
-  const preview = usePreview(
-    () =>
-      firstFile
-        ? previewBatch({
-            preserveExif: false,
-            file: firstFile,
-            steps: JSON.parse(stepsJson) as Step[],
-            format: null,
-            quality: 92,
-          })
-        : null,
-    [firstFile, stepsJson],
-  );
+  }, [mode, width, height, fitMode, noEnlarge, percent, preset]);
+  const settings = useMemo<RenderSettings>(() => ({
+    steps,
+    format: null,
+    quality: 92,
+    preserve_exif: false,
+  }), [steps]);
+  const preview = useBatchPreview(previewFile, settings);
 
   return (
     <PageShell
       title={t("resize.title")}
       subtitle={t("resize.subtitle")}
-      onBack={onBack}
-      badge={<span className="badge badge-mint">{t("common.localBadge")}</span>}
     >
       {inputError && (
         <div className="banner banner-error">
@@ -120,27 +93,27 @@ export default function Resize({ onBack }: Props) {
         </div>
       )}
       <div className="split">
-        <div>
-          <FileQueue files={files} onRemove={remove} onClear={clear} />
-          <DropZone
-            onFiles={(paths) => { setInputError(null); add(paths); }}
-            label={t("resize.dropLabel")}
-            hero={files.length === 0}
-            onBlockedInput={(files) => setInputError(blockedInputError(files))}
-          />
-          {firstFile && (
-            <div className="mt-4">
-              <PreviewCard
-                beforeUrl={convertFileSrc(firstFile)}
-                result={preview.result}
-                loading={preview.loading}
-                error={preview.error}
-                afterTitle="Resized"
-                note={files.length > 1 ? t("resize.firstOfMany", { count: files.length }) : undefined}
-              />
-            </div>
+        <BatchInput
+          tool="resize"
+          files={files}
+          onAdd={(paths) => { setInputError(null); add(paths); }}
+          onRemove={remove}
+          onClear={clear}
+          previewFile={previewFile}
+          onSelectPreview={selectPreview}
+          label={t("resize.dropLabel")}
+          onBlockedInput={(files) => setInputError(blockedInputError(files))}
+        >
+          {previewFile && (
+            <PreviewCard
+              beforeUrl={convertFileSrc(previewFile)}
+              result={preview.result}
+              loading={preview.loading}
+              error={preview.error}
+              note={files.length > 1 ? t("common.batchPreviewNote") : undefined}
+            />
           )}
-        </div>
+        </BatchInput>
         <div className="side-col">
           <div className="card">
             <h2 className="card-title">{t("common.settingsCard")}</h2>
@@ -284,20 +257,10 @@ export default function Resize({ onBack }: Props) {
             <OutputPanel value={output} onChange={setOutput} defaultSuffix="-resized" />
           </div>
           <BatchRunner
+            tool="resize"
             files={files}
             runLabel={t("resize.runButton", { count: files.length })}
-            buildJob={(selected) => ({
-              files: selected,
-              steps: buildSteps(),
-              format: null,
-              quality: 92,
-              preserve_exif: false,
-              output: {
-                dir: output.dir,
-                suffix: output.suffix,
-                collision: output.collision,
-              },
-            })}
+            buildJob={(selected) => ({ files: selected, ...settings, output })}
           />
         </div>
       </div>

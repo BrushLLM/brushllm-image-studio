@@ -1,5 +1,8 @@
 {
   "common": {
+    "previewImage": "Vorschau für {{name}}",
+    "batchPreviewNote": "Wähle ein Vorschaubild zum Vergleichen. Deine Einstellungen gelten für alle Dateien.",
+    "addImages": "Bilder hinzufügen",
     "tools": "Tools",
     "settings": "Einstellungen",
     "save": "Speichern",
@@ -42,7 +45,22 @@
     "compare": "Original und Ergebnis vergleichen",
     "savedTo": "Gespeichert unter {{path}}"
   },
+  "navigation": {
+    "fileTools": "Dateien und Größe",
+    "editTools": "Bilder bearbeiten",
+    "markTools": "Markierung und Farbe",
+    "label": "Werkzeugnavigation",
+    "allTools": "Alle Tools",
+    "onlineAi": "Online-KI",
+    "collapse": "Seitenleiste einklappen",
+    "expand": "Seitenleiste ausklappen",
+    "skip": "Zum Arbeitsbereich springen",
+    "search": "Tools suchen",
+    "customEditDescription": "Bearbeite ein Bild mit einer eigenen Anweisung und einer optionalen Maske."
+  },
   "home": {
+    "workspaceIntro": "Wähle ein Tool oder öffne Bilder, um sie zu konvertieren.",
+    "importLabel": "Bilder zum Konvertieren ablegen",
     "heroTitle": "Deine Bilder, lokales Tempo — KI, wenn du sie brauchst.",
     "heroSub": "Alltagswerkzeuge laufen kostenlos auf diesem Gerät. Schwierige Probleme — Generierung, Freistellen, Wasserzeichen — gehen an die BrushLLM-KI-Toolbox.",
     "localSection": "Lokal · Kostenlos · Auf dem Gerät",
@@ -72,7 +90,7 @@
     "generateName": "Bild generieren",
     "generateDesc": "Ein neues Bild aus einer Textbeschreibung erstellen.",
     "removeBgName": "Hintergrund entfernen",
-    "removeBgDesc": "Sauberer Hintergrund-Entzug durch KI-Regenerierung.",
+    "removeBgDesc": "Ersetzt den Hintergrund durch reines Weiß.",
     "cutoutName": "Freistellen",
     "cutoutDesc": "Motiv auf transparentem Hintergrund isolieren.",
     "removeWmName": "Wasserzeichen entfernen",
@@ -119,7 +137,7 @@
     "firstOfMany": "Die Vorschau zeigt das erste von {{count}} Bildern.",
     "hintJpeg": "Höher = bessere Qualität, größere Dateien.",
     "hintPng": "Höher = stärkere Kompression (immer verlustfrei).",
-    "hintWebp": "WebP-Ausgabe ist verlustfrei (Qualität wirkt nicht).",
+    "hintWebp": "WebP nutzt verlustbehaftete Kompression. Die Qualität bestimmt die Dateigröße.",
     "hintAvif": "Höher = bessere Qualität, größere Dateien. 50–70 meist am besten für Fotos.",
     "hintTiff": "TIFF ist immer verlustfrei.",
     "hintBmp": "BMP ist immer verlustfrei (große Dateien).",
@@ -162,15 +180,20 @@
     "firstOfMany": "Die Vorschau zeigt das erste von {{count}} Bildern."
   },
   "crop": {
+    "rotateLeft": "90° nach links drehen",
+    "rotateRight": "90° nach rechts drehen",
+    "rotation": "Um {{angle}}° gedreht",
     "title": "Zuschneiden & Drehen",
     "subtitle": "Zuschnitt-Rahmen ziehen, Seitenverhältnis wählen, drehen oder spiegeln — die Vorschau entspricht immer der Ausgabe. Läuft lokal — kostenlos und privat.",
     "dropLabel": "Bild zum Zuschneiden ablegen",
     "free": "Frei",
     "output": "Ausgabe",
-    "flipH": "⇋ Horizontal spiegeln",
-    "flipV": "⇅ Vertikal spiegeln"
+    "flipH": "Horizontal spiegeln",
+    "flipV": "Vertikal spiegeln"
   },
   "stitch": {
+    "moveEarlier": "Nach vorne verschieben",
+    "moveLater": "Nach hinten verschieben",
     "title": "Bilder verbinden",
     "subtitle": "Mehrere Bilder zu einem langen Bild verbinden — senkrecht oder waagerecht, mit Abstand und Ausrichtung. Läuft lokal — kostenlos und privat.",
     "dropLabel": "Bilder zum Verbinden ablegen (in Reihenfolge)",
@@ -305,6 +328,10 @@
     "savePng": "Beschriftetes PNG speichern"
   },
   "ai": {
+    "billingShort": "Internet erforderlich. Nutzungsabhängige Abrechnung.",
+    "checkingKey": "API-Schlüssel wird geprüft…",
+    "requestDisclosure": "Internet erforderlich. Der konfigurierte Bilddienst erhält deine Anweisung und die verwendeten Bilder oder Masken. Die Kosten richten sich nach der Nutzung.",
+    "resultEmpty": "Generierte Bilder erscheinen hier.",
     "title": "KI-Toolbox",
     "subtitle": "Neue Bilder generieren oder den Problembereich übermalen und die Bildmodelle von BrushLLM neu generieren lassen. Cloud-basiert, pro Bild abgerechnet.",
     "noKey": "Kein API-Schlüssel konfiguriert.",
@@ -498,6 +525,7 @@
     "apiDocs": "API-Dokumentation"
   },
   "batch": {
+    "processingIn": "Verarbeitung in {{tool}}",
     "done": "{{count}} fertig",
     "failed": "{{count}} fehlgeschlagen",
     "skipped": "{{count}} übersprungen",
@@ -522,7 +550,7 @@
     "dropLabel": "Bild zum Pixelieren ablegen",
     "blockSize": "Blockgröße",
     "blockHint": "Größere Blöcke verbergen mehr; kleinere halten mehr Details.",
-    "hint": "Male die zu pixelierenden Bereiche — das violette Overlay zeigt die Auswahl.",
+    "hint": "Male über die Bereiche, die du verpixeln möchtest.",
     "saveButton": "Mosaik-PNG speichern"
   },
   "shadow": {

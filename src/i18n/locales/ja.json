@@ -1,5 +1,8 @@
 {
   "common": {
+    "previewImage": "{{name}} をプレビュー",
+    "batchPreviewNote": "サムネイルを選んで比較できます。設定はすべてのファイルに適用されます。",
+    "addImages": "画像を追加",
     "tools": "ツール",
     "settings": "設定",
     "save": "保存",
@@ -42,7 +45,22 @@
     "compare": "元画像と結果を比較",
     "savedTo": "保存先：{{path}}"
   },
+  "navigation": {
+    "fileTools": "ファイルとサイズ",
+    "editTools": "画像編集",
+    "markTools": "注釈と色",
+    "label": "ツールナビゲーション",
+    "allTools": "すべてのツール",
+    "onlineAi": "オンライン AI",
+    "collapse": "サイドバーを折りたたむ",
+    "expand": "サイドバーを展開",
+    "skip": "作業領域に移動",
+    "search": "ツールを検索",
+    "customEditDescription": "任意の指示と必要に応じてマスクを使って画像を編集します。"
+  },
   "home": {
+    "workspaceIntro": "ツールを選ぶか、変換する画像を開いてください。",
+    "importLabel": "変換する画像をドロップ",
     "heroTitle": "画像処理はローカル高速 — 必要な時だけ AI。",
     "heroSub": "日常のツールはこの端末で無料で動作。生成・切り抜き・透かし削除などの難しい処理は BrushLLM AI ツールボックスへ。",
     "localSection": "ローカル · 無料 · 端末内処理",
@@ -72,7 +90,7 @@
     "generateName": "画像生成",
     "generateDesc": "テキストプロンプトから新しい画像を作成。",
     "removeBgName": "背景除去",
-    "removeBgDesc": "AI 再生成によるきれいな背景除去。",
+    "removeBgDesc": "背景を真っ白に置き換えます。",
     "cutoutName": "切り抜き",
     "cutoutDesc": "被写体を透明背景に分離。",
     "removeWmName": "ウォーターマーク除去",
@@ -119,7 +137,7 @@
     "firstOfMany": "プレビューは {{count}} 枚のうち最初の 1 枚です。",
     "hintJpeg": "高いほど高画質・大容量。",
     "hintPng": "高いほど高圧縮（常にロスレス）。",
-    "hintWebp": "WebP 出力はロスレス（品質は無効）。",
+    "hintWebp": "WebP は非可逆圧縮を使います。品質を下げるとファイルサイズが小さくなります。",
     "hintAvif": "高いほど高画質・大容量。50–70 が写真に最適。",
     "hintTiff": "TIFF は常にロスレス。",
     "hintBmp": "BMP は常にロスレス（大容量）。",
@@ -162,15 +180,20 @@
     "firstOfMany": "プレビューは {{count}} 枚のうち最初の 1 枚です。"
   },
   "crop": {
+    "rotateLeft": "左に 90° 回転",
+    "rotateRight": "右に 90° 回転",
+    "rotation": "{{angle}}° 回転",
     "title": "切り抜きと回転",
     "subtitle": "切り抜き枠をドラッグ、アスペクト比を選択、回転・反転 — プレビューが常に出力と一致。ローカル実行 — 無料・プライベート。",
     "dropLabel": "切り抜く画像をドロップ",
     "free": "自由",
     "output": "出力",
-    "flipH": "⇋ 左右反転",
-    "flipV": "⇅ 上下反転"
+    "flipH": "左右反転",
+    "flipV": "上下反転"
   },
   "stitch": {
+    "moveEarlier": "前へ移動",
+    "moveLater": "後ろへ移動",
     "title": "画像連結",
     "subtitle": "複数画像を縦または横の長い 1 枚に結合 — 間隔と位置揃えを指定。ローカル実行 — 無料・プライベート。",
     "dropLabel": "連結する画像を順番にドロップ",
@@ -305,6 +328,10 @@
     "savePng": "注釈付き PNG を保存"
   },
   "ai": {
+    "billingShort": "インターネット接続が必要です。従量課金です。",
+    "checkingKey": "API キーを確認中…",
+    "requestDisclosure": "インターネット接続が必要です。指示と添付の画像やマスクは、設定した画像サービスに送信されます。料金は利用量に応じて発生します。",
+    "resultEmpty": "生成した画像はここに表示されます。",
     "title": "AI ツールボックス",
     "subtitle": "新しい画像を生成、または問題部分を塗って BrushLLM の画像モデルに再生成させます。クラウド処理、1 枚ごとに課金。",
     "noKey": "API キーが設定されていません。",
@@ -498,6 +525,7 @@
     "apiDocs": "API ドキュメント"
   },
   "batch": {
+    "processingIn": "{{tool}} で処理中",
     "done": "{{count}} 件完了",
     "failed": "{{count}} 件失敗",
     "skipped": "{{count}} 件スキップ",
@@ -522,7 +550,7 @@
     "dropLabel": "モザイクをかける画像をドロップ",
     "blockSize": "ブロックサイズ",
     "blockHint": "大きいほど隠せます、小さいほど詳細が残ります。",
-    "hint": "ピクセル化する範囲を塗ってください — 紫のオーバーレイが選択範囲です。",
+    "hint": "ピクセル化する範囲を塗ってください。",
     "saveButton": "モザイク PNG を保存"
   },
   "shadow": {

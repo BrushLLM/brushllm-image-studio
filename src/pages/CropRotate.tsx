@@ -1,24 +1,22 @@
 import { clearPersistedByPrefix, usePersistedState } from "../lib/persistedState";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { FlipHorizontal, FlipVertical, RotateCcw, RotateCw } from "lucide-react";
+import { useMemo, useRef } from "react";
 import BatchRunner from "../components/BatchRunner";
 import CropCanvas, { type CropCanvasHandle } from "../components/CropCanvas";
 import DropZone from "../components/DropZone";
 import FormatQuality, { type FormatChoice } from "../components/FormatQuality";
-import OutputPanel, { type OutputConfig } from "../components/OutputPanel";
+import OutputPanel from "../components/OutputPanel";
+import { useOutputConfig } from "../lib/useOutputConfig";
 import PageShell from "../components/PageShell";
-import { loadDefaultOutputDir, readAssetDataUrl } from "../lib/ipc";
+import { previewCrop } from "../lib/ipc";
 import {
   blockedInputError,
   CANVAS_FORMATS,
   unsupportedImageError,
-  type OutFormat,
   type Step,
 } from "../lib/types";
+import { usePreview } from "../lib/usePreview";
 import { useTranslation } from "react-i18next";
-
-interface Props {
-  onBack: () => void;
-}
 
 const ASPECTS: { label: string; value: number | null }[] = [
   { label: "Free", value: null },
@@ -29,23 +27,9 @@ const ASPECTS: { label: string; value: number | null }[] = [
   { label: "9:16", value: 9 / 16 },
 ];
 
-function loadImage(url: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error("cannot load image"));
-    image.src = url;
-  });
-}
-
-export default function CropRotate({ onBack }: Props) {
+export default function CropRotate() {
   const { t } = useTranslation();
   const [file, setFile] = usePersistedState<string | null>("local.crop.file", null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [previewSize, setPreviewSize] = useState<{ width: number; height: number } | null>(
-    null,
-  );
-  const [renderedTransform, setRenderedTransform] = useState<string | null>(null);
   const [aspect, setAspect] = usePersistedState<number | null>("local.crop.aspect", null);
   const [rotation, setRotation] = usePersistedState("local.crop.rotation", 0); // 0 | 90 | 180 | 270
   const [flipH, setFlipH] = usePersistedState("local.crop.flipH", false);
@@ -53,25 +37,24 @@ export default function CropRotate({ onBack }: Props) {
   const [format, setFormat] = usePersistedState<FormatChoice>("local.crop.format", "same");
   const [quality, setQuality] = usePersistedState("local.crop.quality", 92);
   const [preserveExif, setPreserveExif] = usePersistedState("local.crop.preserveExif", false);
-  const [output, setOutput] = usePersistedState<OutputConfig>("local.crop.output", {
-    dir: null,
-    suffix: "-crop",
-    collision: "rename",
-  });
+  const [output, setOutput] = useOutputConfig("crop", "-crop");
   const cropRef = useRef<CropCanvasHandle>(null);
-  const previewUrlRef = useRef<string | null>(null);
-  const previewRequest = useRef(0);
   const [loadError, setLoadError] = usePersistedState<string | null>("local.crop.loadError", null);
 
-  useEffect(() => {
-    if (output.dir) return;
-    loadDefaultOutputDir().then((dir) => {
-      if (dir) setOutput((prev) => ({ ...prev, dir }));
-    });
-  }, []);
-
-  const transformKey = `${file}:${rotation}:${flipH}:${flipV}`;
-  const previewReady = renderedTransform === transformKey;
+  const transform = useMemo<Step[]>(() => {
+    const steps: Step[] = [];
+    if (rotation === 90) steps.push({ kind: "rotate90" });
+    if (rotation === 180) steps.push({ kind: "rotate180" });
+    if (rotation === 270) steps.push({ kind: "rotate270" });
+    if (flipH) steps.push({ kind: "flip_h" });
+    if (flipV) steps.push({ kind: "flip_v" });
+    return steps;
+  }, [rotation, flipH, flipV]);
+  const buildPreview = useMemo(
+    () => file ? () => previewCrop(file, transform) : null,
+    [file, transform],
+  );
+  const { result: preview, loading, error } = usePreview(buildPreview, false, 0);
 
   const loadFile = (paths: string[]) => {
     const path = paths[0];
@@ -84,100 +67,30 @@ export default function CropRotate({ onBack }: Props) {
     setFlipV(false);
   };
 
-  /** Re-render the preview with the cumulative rotate/flip transform applied,
-   *  so what you see (and crop) is exactly what gets saved. The image is read
-   *  as a data: URL — asset-protocol images would taint the canvas. */
-  const refreshPreview = useCallback(async () => {
-    const request = ++previewRequest.current;
-    if (!file) return;
-    try {
-      const original = await loadImage(await readAssetDataUrl(file));
-      if (request !== previewRequest.current) return;
-      const swap = rotation === 90 || rotation === 270;
-      const width = swap ? original.naturalHeight : original.naturalWidth;
-      const height = swap ? original.naturalWidth : original.naturalHeight;
-      const canvas = document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-      ctx.translate(width / 2, height / 2);
-      ctx.scale(flipH ? -1 : 1, flipV ? -1 : 1);
-      ctx.rotate((rotation * Math.PI) / 180);
-      ctx.drawImage(original, -original.naturalWidth / 2, -original.naturalHeight / 2);
-      const blob = await new Promise<Blob | null>((resolve) =>
-        canvas.toBlob(resolve, "image/png"),
-      );
-      if (!blob || request !== previewRequest.current) return;
-      const url = URL.createObjectURL(blob);
-      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
-      previewUrlRef.current = url;
-      setPreviewUrl(url);
-      setPreviewSize({ width, height });
-      setRenderedTransform(`${file}:${rotation}:${flipH}:${flipV}`);
-    } catch (e) {
-      if (request !== previewRequest.current) return;
-      setLoadError(String(e));
-      setPreviewUrl(null);
-    }
-  }, [file, rotation, flipH, flipV]);
-
-  useEffect(() => {
-    refreshPreview();
-    return () => { previewRequest.current++; };
-  }, [refreshPreview]);
-
-  useEffect(
-    () => () => {
-      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
-    },
-    [],
-  );
-
   const buildSteps = (): Step[] => {
-    // Order matters: rotate/flip first, then crop in the (transformed) preview
-    // coordinates — matching what the user sees.
-    const steps: Step[] = [];
-    if (rotation === 90) steps.push({ kind: "rotate90" });
-    if (rotation === 180) steps.push({ kind: "rotate180" });
-    if (rotation === 270) steps.push({ kind: "rotate270" });
-    if (flipH) steps.push({ kind: "flip_h" });
-    if (flipV) steps.push({ kind: "flip_v" });
     const rect = cropRef.current?.getRect();
-    if (
-      rect &&
-      previewSize &&
-      (rect.width < previewSize.width - 1 || rect.height < previewSize.height - 1)
-    ) {
-      steps.push({
-        kind: "crop",
-        x: Math.round(rect.x),
-        y: Math.round(rect.y),
-        width: Math.round(rect.width),
-        height: Math.round(rect.height),
-      });
-    }
-    return steps;
+    return rect ? [...transform, { kind: "crop", ...rect }] : transform;
   };
 
   const rotateBy = (delta: number) =>
     setRotation((prev) => (((prev + delta) % 360) + 360) % 360);
 
-  const transformed =
-    rotation !== 0 || flipH || flipV
-      ? ` · rotate ${rotation}°${flipH ? " · flip ⇋" : ""}${flipV ? " · flip ⇅" : ""}`
-      : "";
+  const previewSummary = [
+    preview && `${preview.width} × ${preview.height} px`,
+    rotation !== 0 && t("crop.rotation", { angle: rotation }),
+    flipH && t("crop.flipH"),
+    flipV && t("crop.flipV"),
+  ].filter(Boolean).join(" · ");
 
   return (
     <PageShell
       title={t("crop.title")}
       subtitle={t("crop.subtitle")}
-      onBack={onBack}
-      badge={<span className="badge badge-mint">{t("common.localBadge")}</span>}
     >
-      {loadError && <div className="banner banner-error">{loadError}</div>}
+      {(loadError || error) && <div className="banner banner-error" role="alert">{loadError || error}</div>}
       {!file && (
         <DropZone
+          presentation="canvas"
           onFiles={loadFile}
           label={t("crop.dropLabel")}
           multiple={false}
@@ -194,46 +107,53 @@ export default function CropRotate({ onBack }: Props) {
 
       {file && (
         <div className="split">
-          <div>
+          <div className="canvas-panel">
             <div className="toolbar">
               {ASPECTS.map((a) => (
                 <button
                   key={a.label}
                   className={`radio-chip${aspect === a.value ? " active" : ""}`}
+                  aria-pressed={aspect === a.value}
                   onClick={() => setAspect(a.value)}
                 >
                   {a.value === null ? t("crop.free") : a.label}
                 </button>
               ))}
               <span className="spacer" />
-              <button className="btn btn-sm" onClick={() => rotateBy(-90)} title="Rotate left">
-                ↺ 90°
+              <button className="btn btn-sm" onClick={() => rotateBy(-90)}
+                aria-label={t("crop.rotateLeft")} title={t("crop.rotateLeft")}>
+                <RotateCcw aria-hidden="true" /> 90°
               </button>
-              <button className="btn btn-sm" onClick={() => rotateBy(90)} title="Rotate right">
-                ↻ 90°
+              <button className="btn btn-sm" onClick={() => rotateBy(90)}
+                aria-label={t("crop.rotateRight")} title={t("crop.rotateRight")}>
+                <RotateCw aria-hidden="true" /> 90°
               </button>
               <button
                 className={`btn btn-sm${flipH ? " btn-primary" : ""}`}
+                aria-pressed={flipH}
                 onClick={() => setFlipH((v) => !v)}
               >
-                {t("crop.flipH")}
+                <FlipHorizontal aria-hidden="true" /> {t("crop.flipH")}
               </button>
               <button
                 className={`btn btn-sm${flipV ? " btn-primary" : ""}`}
+                aria-pressed={flipV}
                 onClick={() => setFlipV((v) => !v)}
               >
-                {t("crop.flipV")}
+                <FlipVertical aria-hidden="true" /> {t("crop.flipV")}
               </button>
             </div>
-            {previewReady && previewUrl && previewSize ? (
-              <CropCanvas persistKey={`local.crop.rect.${file}:${rotation}:${flipH}:${flipV}:${aspect}`} ref={cropRef} src={previewUrl} naturalSize={previewSize} aspect={aspect} />
-            ) : (
-              <p className="status-note">{t("errors.rendering")}</p>
+            {preview && (
+              <CropCanvas
+                persistKey={`local.crop.rect.${file}:${rotation}:${flipH}:${flipV}:${aspect}`}
+                ref={cropRef}
+                src={preview.data_url}
+                naturalSize={preview}
+                aspect={aspect}
+              />
             )}
-            <p className="status-note mt-2">
-              {previewSize ? `${previewSize.width}×${previewSize.height}px` : ""}
-              {transformed}
-            </p>
+            {loading && <p className="status-note" role="status">{t("errors.rendering")}</p>}
+            {preview && <p className="status-note mt-2">{previewSummary}</p>}
           </div>
           <div className="side-col">
             <div className="card">
@@ -250,29 +170,22 @@ export default function CropRotate({ onBack }: Props) {
             </div>
             {file && (
               <BatchRunner
-                files={previewReady ? [file] : []}
+                tool="crop"
+                files={preview ? [file] : []}
                 runLabel={t("common.saveImage")}
                 buildJob={(files) => ({
                   files,
                   steps: buildSteps(),
-                  format: format === "same" ? null : (format as OutFormat),
+                  format: format === "same" ? null : format,
                   quality,
                   preserve_exif: preserveExif,
-                  output: {
-                    dir: output.dir,
-                    suffix: output.suffix,
-                    collision: output.collision,
-                  },
+                  output,
                 })}
               />
             )}
             <button
               className="btn btn-block mt-3"
-              onClick={() => {
-                setFile(null);
-                setPreviewUrl(null);
-                setPreviewSize(null);
-              }}
+              onClick={() => setFile(null)}
             >
               {t("common.chooseDifferentImage")}
             </button>

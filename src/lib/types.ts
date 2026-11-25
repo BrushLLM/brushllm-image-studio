@@ -32,12 +32,15 @@ export type Step =
   | { kind: "flip_h" }
   | { kind: "flip_v" };
 
-export interface BatchJob {
-  files: string[];
+export interface RenderSettings {
   steps: Step[];
   format: OutFormat | null;
   quality: number;
   preserve_exif: boolean;
+}
+
+export interface BatchJob extends RenderSettings {
+  files: string[];
   output: {
     dir: string | null;
     suffix: string;
@@ -72,7 +75,7 @@ export interface BatchProgress {
   index: number;
   total: number;
   file: string;
-  status: string;
+  status: FileOutcome["status"] | "";
   error: string | null;
 }
 
@@ -167,12 +170,18 @@ export const EXIF_FORMATS = ["jpg", "jpeg", "png", "tif", "tiff"];
 /** Image formats this app cannot read (decoding needs external/C libraries). */
 export const KNOWN_UNSUPPORTED_EXTENSIONS = ["avif", "heic", "heif", "jxl"];
 
+export function imageExtension(path: string): string {
+  const dot = path.lastIndexOf(".");
+  const separator = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
+  return dot > separator ? path.slice(dot + 1).toLowerCase() : "";
+}
+
 /** Copy shown when a dropped file is an image format the app can't decode. */
 export function blockedInputError(paths: string[]): string {
   const i18n = i18next;
   const exts = [
     ...new Set(
-      paths.map((p) => p.split(".").pop()?.toLowerCase() ?? "").filter(Boolean),
+      paths.map(imageExtension).filter(Boolean),
     ),
   ];
   const list = exts.map((e) => e.toUpperCase()).join(" / ");

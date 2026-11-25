@@ -1,5 +1,8 @@
 {
   "common": {
+    "previewImage": "Prévia de {{name}}",
+    "batchPreviewNote": "Selecione uma miniatura para comparar. As configurações se aplicam ao lote inteiro.",
+    "addImages": "Adicionar imagens",
     "tools": "Ferramentas",
     "settings": "Configurações",
     "save": "Salvar",
@@ -42,7 +45,22 @@
     "compare": "Comparar original e resultado",
     "savedTo": "Salvo em {{path}}"
   },
+  "navigation": {
+    "fileTools": "Arquivos e tamanho",
+    "editTools": "Editar imagens",
+    "markTools": "Anotações e cor",
+    "label": "Navegação de ferramentas",
+    "allTools": "Todas as ferramentas",
+    "onlineAi": "IA online",
+    "collapse": "Recolher barra lateral",
+    "expand": "Expandir barra lateral",
+    "skip": "Ir para a área de trabalho",
+    "search": "Buscar ferramentas",
+    "customEditDescription": "Edite uma imagem com suas próprias instruções e uma máscara opcional."
+  },
   "home": {
+    "workspaceIntro": "Escolha uma ferramenta ou abra imagens para convertê-las.",
+    "importLabel": "Solte imagens para converter",
     "heroTitle": "Suas imagens, velocidade local — IA quando você precisar.",
     "heroSub": "As ferramentas do dia a dia rodam grátis neste dispositivo. Problemas difíceis — geração, recortes, marcas d'água — vão para a caixa de IA da BrushLLM.",
     "localSection": "Local · Grátis · No dispositivo",
@@ -72,7 +90,7 @@
     "generateName": "Gerar imagem",
     "generateDesc": "Crie uma imagem nova a partir de um texto.",
     "removeBgName": "Remover fundo",
-    "removeBgDesc": "Remoção limpa do fundo via regeneração por IA.",
+    "removeBgDesc": "Substitua o fundo por branco puro.",
     "cutoutName": "Recortar sujeito",
     "cutoutDesc": "Isole o sujeito em fundo transparente.",
     "removeWmName": "Remover marca d'água",
@@ -119,7 +137,7 @@
     "firstOfMany": "A pré-visualização mostra a primeira de {{count}} imagens.",
     "hintJpeg": "Maior = melhor qualidade, arquivos maiores.",
     "hintPng": "Maior = compressão mais forte (sempre sem perdas).",
-    "hintWebp": "A saída WebP é sem perdas (a qualidade não se aplica).",
+    "hintWebp": "WebP usa compressão com perdas. Uma qualidade menor reduz o tamanho do arquivo.",
     "hintAvif": "Maior = melhor qualidade, arquivos maiores. 50–70 geralmente é o melhor para fotos.",
     "hintTiff": "TIFF é sempre sem perdas.",
     "hintBmp": "BMP é sempre sem perdas (arquivos grandes).",
@@ -162,15 +180,20 @@
     "firstOfMany": "A pré-visualização mostra a primeira de {{count}} imagens."
   },
   "crop": {
+    "rotateLeft": "Girar 90° à esquerda",
+    "rotateRight": "Girar 90° à direita",
+    "rotation": "Rotação de {{angle}}°",
     "title": "Cortar e girar",
     "subtitle": "Arraste o quadro de corte, escolha uma proporção, gire ou espelhe — a pré-visualização sempre corresponde à saída. Roda localmente — grátis e privado.",
     "dropLabel": "Solte uma imagem para cortar",
     "free": "Livre",
     "output": "Saída",
-    "flipH": "⇋ Espelhar horizontal",
-    "flipV": "⇅ Espelhar vertical"
+    "flipH": "Espelhar horizontal",
+    "flipV": "Espelhar vertical"
   },
   "stitch": {
+    "moveEarlier": "Mover para antes",
+    "moveLater": "Mover para depois",
     "title": "Juntar imagens",
     "subtitle": "Combine várias imagens em uma só longa — vertical ou horizontal, com espaçamento e alinhamento. Roda localmente — grátis e privado.",
     "dropLabel": "Solte as imagens para juntar (em ordem)",
@@ -305,6 +328,10 @@
     "savePng": "Salvar PNG anotado"
   },
   "ai": {
+    "billingShort": "Requer internet. Cobrança conforme o uso.",
+    "checkingKey": "Verificando a chave de API…",
+    "requestDisclosure": "Requer internet. O serviço de imagem configurado recebe suas instruções e as imagens ou máscaras incluídas. A cobrança depende do uso.",
+    "resultEmpty": "As imagens geradas aparecem aqui.",
     "title": "Caixa de IA",
     "subtitle": "Gere imagens novas, ou pinte sobre a área problemática e deixe os modelos de imagem da BrushLLM regenerá-la. Na nuvem, cobrada por imagem.",
     "noKey": "Nenhuma chave de API configurada.",
@@ -494,6 +521,7 @@
     "clipboard": "não é possível acessar a área de transferência"
   },
   "batch": {
+    "processingIn": "Processando em {{tool}}",
     "done": "{{count}} concluídas",
     "failed": "{{count}} falharam",
     "skipped": "{{count}} puladas",
@@ -522,7 +550,7 @@
     "dropLabel": "Solte uma imagem para pixelar",
     "blockSize": "Tamanho do bloco",
     "blockHint": "Blocos maiores escondem mais; menores mantêm detalhe.",
-    "hint": "Pinte as áreas a pixelar — a sobreposição roxa marca a seleção.",
+    "hint": "Pinte as áreas que você quer pixelizar.",
     "saveButton": "Salvar PNG com mosaico"
   },
   "shadow": {

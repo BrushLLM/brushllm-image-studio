@@ -1,5 +1,8 @@
 {
   "common": {
+    "previewImage": "预览 {{name}}",
+    "batchPreviewNote": "选择缩略图进行对比。当前参数将应用于整批图片。",
+    "addImages": "添加图片",
     "tools": "工具",
     "settings": "设置",
     "save": "保存",
@@ -42,7 +45,22 @@
     "compare": "对比原图与结果",
     "savedTo": "已保存到 {{path}}"
   },
+  "navigation": {
+    "fileTools": "文件与尺寸",
+    "editTools": "图片编辑",
+    "markTools": "标注与取色",
+    "label": "工具导航",
+    "allTools": "全部工具",
+    "onlineAi": "在线 AI",
+    "collapse": "收起侧栏",
+    "expand": "展开侧栏",
+    "skip": "跳到工作区",
+    "search": "搜索工具",
+    "customEditDescription": "使用自定义提示词和可选蒙版编辑图片。"
+  },
   "home": {
+    "workspaceIntro": "选择一个工具，或打开图片进行格式转换。",
+    "importLabel": "拖入要转换的图片",
     "heroTitle": "图片处理，本地速度 — 需要时再用 AI。",
     "heroSub": "日常工具在本机免费运行。难题——生成、抠图、去水印——交给 BrushLLM AI 工具箱。",
     "localSection": "本地 · 免费 · 设备内处理",
@@ -72,7 +90,7 @@
     "generateName": "生成图片",
     "generateDesc": "用文字描述创建全新图片。",
     "removeBgName": "去除背景",
-    "removeBgDesc": "AI 重生成，干净去除背景。",
+    "removeBgDesc": "将背景替换为纯白色。",
     "cutoutName": "抠图",
     "cutoutDesc": "将主体分离到透明背景。",
     "removeWmName": "去水印",
@@ -119,7 +137,7 @@
     "firstOfMany": "预览显示 {{count}} 张中的第一张。",
     "hintJpeg": "越高画质越好、文件越大。",
     "hintPng": "越高压缩越强（始终无损）。",
-    "hintWebp": "WebP 输出为无损（质量不适用）。",
+    "hintWebp": "WebP 使用有损压缩。降低质量可缩小文件体积。",
     "hintAvif": "越高画质越好、文件越大。照片通常 50–70 最佳。",
     "hintTiff": "TIFF 始终无损。",
     "hintBmp": "BMP 始终无损（文件较大）。",
@@ -162,15 +180,20 @@
     "firstOfMany": "预览显示 {{count}} 张中的第一张。"
   },
   "crop": {
+    "rotateLeft": "向左旋转 90°",
+    "rotateRight": "向右旋转 90°",
+    "rotation": "已旋转 {{angle}}°",
     "title": "裁剪与旋转",
     "subtitle": "拖动裁剪框、选择比例、旋转或翻转 — 预览始终与输出一致。本地运行 — 免费且私密。",
     "dropLabel": "拖入要裁剪的图片",
     "free": "自由",
     "output": "输出",
-    "flipH": "⇋ 左右翻转",
-    "flipV": "⇅ 上下翻转"
+    "flipH": "左右翻转",
+    "flipV": "上下翻转"
   },
   "stitch": {
+    "moveEarlier": "前移",
+    "moveLater": "后移",
     "title": "拼接长图",
     "subtitle": "多张图片拼成一张长图 — 纵向或横向，可设间距和对齐。本地运行 — 免费且私密。",
     "dropLabel": "按顺序拖入要拼接的图片",
@@ -305,6 +328,10 @@
     "savePng": "保存标注 PNG"
   },
   "ai": {
+    "billingShort": "需要联网，按用量计费。",
+    "checkingKey": "正在检查 API 密钥…",
+    "requestDisclosure": "需要联网。提示词及随附的图片或蒙版将发送至已配置的图像服务，服务商按用量计费。",
+    "resultEmpty": "生成的图片会显示在这里。",
     "title": "AI 工具箱",
     "subtitle": "生成全新图片，或涂抹问题区域让 BrushLLM 图像模型重新生成。云端处理，按张计费。",
     "noKey": "未配置 API 密钥。",
@@ -498,6 +525,7 @@
     "apiDocs": "API 文档"
   },
   "batch": {
+    "processingIn": "{{tool}}正在处理",
     "done": "{{count}} 个完成",
     "failed": "{{count}} 个失败",
     "skipped": "{{count}} 个跳过",
@@ -522,7 +550,7 @@
     "dropLabel": "拖入要打码的图片",
     "blockSize": "块大小",
     "blockHint": "块越大遮挡越强，越小细节保留越多。",
-    "hint": "涂抹要打码的区域 — 紫色覆盖层为选区。",
+    "hint": "涂抹要打码的区域。",
     "saveButton": "保存马赛克 PNG"
   },
   "shadow": {

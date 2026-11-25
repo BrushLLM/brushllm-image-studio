@@ -1,55 +1,66 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import type { PreviewOutcome } from "./ipc";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { previewBatch } from "./ipc";
 import { enqueuePreview } from "./previewQueue";
+import type { RenderSettings } from "./types";
 
-/**
- * Debounced engine preview. `build` returns the request promise or null to
- * clear; the effect re-runs whenever `deps` change (spread into useEffect).
- */
-export function usePreview(
-  build: () => Promise<PreviewOutcome> | null,
-  deps: unknown[],
+type PreviewRequest<T> = { build: () => Promise<T> };
+
+/** Pass a stable callback for each set of parameters, or null with no input. */
+export function usePreview<T>(
+  build: (() => Promise<T>) | null,
   manual = false,
-): { result: PreviewOutcome | null; loading: boolean; error: string | null; refresh: () => void } {
-  const [result, setResult] = useState<PreviewOutcome | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [revision, setRevision] = useState(0);
-  const lastRevision = useRef(0);
-  const refresh = useCallback(() => setRevision((v) => v + 1), []);
+  delay = 350,
+) {
+  const [manualRequest, setManualRequest] = useState<PreviewRequest<T> | null>(null);
+  const [settled, setSettled] = useState<{
+    request: PreviewRequest<T>;
+    result: T | null;
+    error: string | null;
+  } | null>(null);
+  const refresh = useCallback(() => {
+    if (build) setManualRequest({ build });
+  }, [build]);
+  const request = useMemo(
+    () => build && (!manual || manualRequest?.build === build) ? { build } : null,
+    [build, manual, manualRequest],
+  );
 
   useEffect(() => {
-    // Request token: only the LATEST request may publish results — a slow
-    // earlier request resolving late can never show stale output.
+    setSettled(null);
+    if (!request) return;
     let current = true;
     let cancel = () => {};
-    const requested = lastRevision.current !== revision;
-    lastRevision.current = revision;
-    setResult(null);
-    setError(null);
-    setLoading(false);
-    if (manual && !requested) return;
-    setLoading(true);
     const timer = setTimeout(() => {
       cancel = enqueuePreview(async () => {
         if (!current) return;
         try {
-          const result = await build();
-          if (current) setResult(result);
+          const result = await request.build();
+          if (current) setSettled({ request, result, error: null });
         } catch (e) {
-          if (current) setError(String(e));
-        } finally {
-          if (current) setLoading(false);
+          if (current) setSettled({ request, result: null, error: String(e) });
         }
       });
-    }, 350);
+    }, delay);
     return () => {
       current = false;
       clearTimeout(timer);
       cancel();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [...deps, manual, revision]);
+  }, [request, delay]);
 
-  return { result, loading, error, refresh };
+  const current = settled?.request === request ? settled : null;
+  return {
+    result: current?.result ?? null,
+    error: current?.error ?? null,
+    loading: request !== null && current === null,
+    refresh,
+  };
+}
+
+export function useBatchPreview(file: string | null, settings: RenderSettings) {
+  const build = useMemo(
+    () => file ? () => previewBatch(file, settings) : null,
+    [file, settings],
+  );
+  return usePreview(build, settings.format === "avif");
 }

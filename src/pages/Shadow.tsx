@@ -1,21 +1,16 @@
-import { canvasDataUrl } from "../lib/canvas";
-import { usePersistedState, usePersistedRef } from "../lib/persistedState";
+import { saveCanvasImage } from "../lib/canvas";
+import { usePersistedState } from "../lib/persistedState";
 import { useEffect, useRef, type CSSProperties } from "react";
 import DropZone from "../components/DropZone";
 import PageShell from "../components/PageShell";
 import { useTranslation } from "react-i18next";
-import { loadDefaultOutputDir, readAssetDataUrl, saveBytes } from "../lib/ipc";
-import { CANVAS_FORMATS, unsupportedImageError } from "../lib/types";
+import { useCanvasSource } from "../lib/useCanvasSource";
+import { blockedInputError, CANVAS_FORMATS, unsupportedImageError } from "../lib/types";
 
-interface Props {
-  onBack: () => void;
-}
-
-export default function Shadow({ onBack }: Props) {
+export default function Shadow() {
   const { t } = useTranslation();
-  const [file, setFile] = usePersistedState<string | null>("local.shadow.file", null);
-  const [dataUrl, setDataUrl] = usePersistedState<string | null>("local.shadow.dataUrl", null);
-  const [naturalSize, setNaturalSize] = usePersistedState<{ width: number; height: number } | null>("local.shadow.naturalSize", null);
+  const source = useCanvasSource("shadow");
+  const { image } = source;
   const [offsetX, setOffsetX] = usePersistedState("local.shadow.offsetX", 18);
   const [offsetY, setOffsetY] = usePersistedState("local.shadow.offsetY", 24);
   const [blur, setBlur] = usePersistedState("local.shadow.blur", 28);
@@ -25,32 +20,22 @@ export default function Shadow({ onBack }: Props) {
   const [busy, setBusy] = usePersistedState("local.shadow.busy", false);
   const [savedTo, setSavedTo] = usePersistedState<string | null>("local.shadow.savedTo", null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const imgElRef = usePersistedRef<HTMLImageElement | null>("local.shadow.imgElRef", null);
 
   const loadFile = (paths: string[]) => {
     const path = paths[0];
     if (!path) return;
-    setFile(path);
     setError(null);
     setSavedTo(null);
-    readAssetDataUrl(path).then((url) => {
-      const image = new Image();
-      image.onload = () => {
-        imgElRef.current = image;
-        setNaturalSize({ width: image.naturalWidth, height: image.naturalHeight });
-        setDataUrl(url);
-      };
-      image.src = url;
-    });
+    void source.load(path);
   };
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    const image = imgElRef.current;
-    if (!canvas || !image || !naturalSize) return;
+    if (!canvas || !image) return;
+    const { naturalWidth, naturalHeight } = image;
     const margin = Math.ceil(blur + Math.max(Math.abs(offsetX), Math.abs(offsetY)) + 8);
-    canvas.width = naturalSize.width + margin * 2;
-    canvas.height = naturalSize.height + margin * 2;
+    canvas.width = naturalWidth + margin * 2;
+    canvas.height = naturalHeight + margin * 2;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -64,21 +49,18 @@ export default function Shadow({ onBack }: Props) {
     ctx.restore();
     // Draw the image once more without shadow so it sits crisply on top of
     // its own faint shadow-tinted copy.
-    ctx.clearRect(margin, margin, naturalSize.width, naturalSize.height);
+    ctx.clearRect(margin, margin, naturalWidth, naturalHeight);
     ctx.drawImage(image, margin, margin);
-  }, [dataUrl, naturalSize, offsetX, offsetY, blur, color, opacityPct]);
+  }, [image, offsetX, offsetY, blur, color, opacityPct]);
 
   const exportImage = async () => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas || busy) return;
     setBusy(true);
+    setError(null);
+    setSavedTo(null);
     try {
-      const out = await canvasDataUrl(canvas);
-      const dir = await loadDefaultOutputDir();
-      if (!dir) return;
-      const path = `${dir.replace(/\/+$/, "")}/shadow-${Date.now()}.png`;
-      await saveBytes(path, out.slice(out.indexOf(",") + 1));
-      setSavedTo(path);
+      setSavedTo(await saveCanvasImage(canvas, "shadow"));
     } catch (e) {
       setError(String(e));
     } finally {
@@ -115,26 +97,27 @@ export default function Shadow({ onBack }: Props) {
     <PageShell
       title={t("shadow.title")}
       subtitle={t("shadow.subtitle")}
-      onBack={onBack}
-      badge={<span className="badge badge-mint">{t("common.localBadge")}</span>}
     >
-      {!file && error && <div className="banner banner-error">{error}</div>}
-      {!file && (
+      {!image && (error || source.error) && <div className="banner banner-error" role="alert">{error || source.error}</div>}
+      {source.loading && <p className="status-note" role="status">{t("errors.rendering")}</p>}
+      {!image && !source.loading && (
         <DropZone
+          presentation="canvas"
           onFiles={loadFile}
           label={t("shadow.dropLabel")}
           multiple={false}
           accept={CANVAS_FORMATS}
           hint={t("common.canvasBrowseHint")}
           onUnsupported={(files) =>
-            setError(unsupportedImageError(files.length, "JPEG, PNG, WebP, GIF or BMP"))
+            setError(unsupportedImageError(files.length, "JPEG, PNG, WebP, BMP"))
           }
+          onBlockedInput={(files) => setError(blockedInputError(files))}
         />
       )}
 
-      {file && dataUrl && naturalSize && (
+      {image && (
         <div className="split">
-          <div>
+          <div className="canvas-panel">
             <div className="preview-frame">
               <canvas ref={canvasRef} />
             </div>
@@ -179,12 +162,9 @@ export default function Shadow({ onBack }: Props) {
               )}
             </div>
             <button
-              className="btn btn-block btn-lemon"
-              onClick={() => {
-                setFile(null);
-                setDataUrl(null);
-                setNaturalSize(null);
-              }}
+              className="btn btn-block"
+              onClick={() => { source.clear(); setError(null); }}
+              disabled={busy}
             >
               {t("common.chooseDifferentImage")}
             </button>

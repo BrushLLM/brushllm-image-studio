@@ -1,4 +1,5 @@
 import { act, cleanup, renderHook } from "@testing-library/react";
+import { useCallback } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { usePreview } from "./usePreview";
 import type { PreviewOutcome } from "./ipc";
@@ -9,15 +10,20 @@ afterEach(async () => { cleanup(); await act(async () => {}); vi.useRealTimers()
 const tick = () => act(async () => { await vi.advanceTimersByTimeAsync(350); });
 
 it("waits for an explicit AVIF preview and invalidates it when settings change", async () => {
-  const build = vi.fn(async () => outcome("exact"));
-  const hook = renderHook(({ quality }) => usePreview(build, [quality], true), { initialProps: { quality: 75 } });
+  const build = vi.fn(async (quality: number) => outcome(String(quality)));
+  const hook = renderHook(
+    ({ quality }) => usePreview(useCallback(() => build(quality), [quality]), true),
+    { initialProps: { quality: 75 } },
+  );
   await tick();
   expect(build).not.toHaveBeenCalled();
   act(() => hook.result.current.refresh());
   await tick();
   expect(build).toHaveBeenCalledTimes(1);
-  expect(hook.result.current.result?.data_url).toBe("exact");
+  expect(hook.result.current.result?.data_url).toBe("75");
   hook.rerender({ quality: 90 });
+  expect(hook.result.current.result).toBeNull();
+  expect(hook.result.current.loading).toBe(false);
   await tick();
   expect(build).toHaveBeenCalledTimes(1);
   expect(hook.result.current.result).toBeNull();
@@ -28,7 +34,10 @@ it("serializes previews and skips superseded settings while a codec is busy", as
   const build = vi.fn((quality: number) => quality === 1
     ? new Promise<PreviewOutcome>((resolve) => { finish = resolve; })
     : Promise.resolve(outcome(String(quality))));
-  const hook = renderHook(({ quality }) => usePreview(() => build(quality), [quality]), { initialProps: { quality: 1 } });
+  const hook = renderHook(
+    ({ quality }) => usePreview(useCallback(() => build(quality), [quality])),
+    { initialProps: { quality: 1 } },
+  );
   await tick();
   hook.rerender({ quality: 2 }); await tick();
   hook.rerender({ quality: 3 }); await tick();
@@ -40,12 +49,27 @@ it("serializes previews and skips superseded settings while a codec is busy", as
 
 it("removes queued work when navigating away", async () => {
   let finish!: (value: PreviewOutcome) => void;
-  const first = renderHook(() => usePreview(() => new Promise<PreviewOutcome>((resolve) => { finish = resolve; }), []));
+  const buildFirst = () => new Promise<PreviewOutcome>((resolve) => { finish = resolve; });
+  const first = renderHook(() => usePreview(buildFirst));
   await tick();
   const build = vi.fn(async () => outcome("unused"));
-  const second = renderHook(() => usePreview(build, []));
+  const second = renderHook(() => usePreview(build));
   await tick(); second.unmount();
   await act(async () => { finish(outcome("done")); });
   expect(build).not.toHaveBeenCalled();
   first.unmount();
+});
+
+it("clears a preview immediately when its input is removed", async () => {
+  const build = vi.fn(async () => outcome("image"));
+  const hook = renderHook(({ hasInput }) => usePreview(hasInput ? build : null), {
+    initialProps: { hasInput: true },
+  });
+  await tick();
+  expect(hook.result.current.result?.data_url).toBe("image");
+  hook.rerender({ hasInput: false });
+  expect(hook.result.current.result).toBeNull();
+  expect(hook.result.current.loading).toBe(false);
+  await tick();
+  expect(build).toHaveBeenCalledTimes(1);
 });

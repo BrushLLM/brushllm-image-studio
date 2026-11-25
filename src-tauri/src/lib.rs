@@ -34,6 +34,7 @@ pub fn run() {
             commands::file_meta,
             commands::pictures_dir,
             commands::preview_batch,
+            commands::preview_crop,
             commands::preview_stitch,
             commands::ai_edit,
             commands::ai_generate,

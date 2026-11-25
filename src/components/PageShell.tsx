@@ -1,26 +1,18 @@
 import type { ReactNode } from "react";
-import { useTranslation } from "react-i18next";
 
 interface Props {
   title: string;
-  subtitle: string;
-  onBack: () => void;
-  badge?: ReactNode;
+  subtitle?: string;
   children: ReactNode;
 }
 
-export default function PageShell({ title, subtitle, onBack, badge, children }: Props) {
-  const { t } = useTranslation();
+export default function PageShell({ title, subtitle, children }: Props) {
   return (
     <div className="page">
-      <button className="back-link" onClick={onBack}>
-        {t("common.allTools")}
-      </button>
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <header className="page-heading">
         <h1>{title}</h1>
-        {badge}
-      </div>
-      <p className="page-sub">{subtitle}</p>
+        {subtitle && <p className="page-sub">{subtitle}</p>}
+      </header>
       {children}
     </div>
   );

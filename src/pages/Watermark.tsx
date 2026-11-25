@@ -4,22 +4,19 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import DropZone from "../components/DropZone";
 import FormatQuality, { type FormatChoice } from "../components/FormatQuality";
-import OutputPanel, { type OutputConfig } from "../components/OutputPanel";
+import OutputPanel from "../components/OutputPanel";
+import { useOutputConfig } from "../lib/useOutputConfig";
 import PageShell from "../components/PageShell";
-import { applyOverlay, loadDefaultOutputDir, readAssetDataUrl } from "../lib/ipc";
+import { applyOverlay, readAssetDataUrl } from "../lib/ipc";
 import { blockedInputError, CANVAS_FORMATS, unsupportedImageError, type OutFormat } from "../lib/types";
 import { useTranslation } from "react-i18next";
-
-interface Props {
-  onBack: () => void;
-}
 
 type WatermarkType = "text" | "image";
 type Mode = "position" | "tiled";
 
 const FONT_STACK = `system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", "Noto Sans", sans-serif`;
 
-export default function Watermark({ onBack }: Props) {
+export default function Watermark() {
   const { t } = useTranslation();
   const [file, setFile] = usePersistedState<string | null>("local.watermark.file", null);
   const [baseImage, setBaseImage] = usePersistedState<HTMLImageElement | null>("local.watermark.baseImage", null);
@@ -38,22 +35,11 @@ export default function Watermark({ onBack }: Props) {
   const [format, setFormat] = usePersistedState<FormatChoice>("local.watermark.format", "same");
   const [quality, setQuality] = usePersistedState("local.watermark.quality", 90);
   const [preserveExif, setPreserveExif] = usePersistedState("local.watermark.preserveExif", false);
-  const [output, setOutput] = usePersistedState<OutputConfig>("local.watermark.output", {
-    dir: null,
-    suffix: "-watermarked",
-    collision: "rename",
-  });
+  const [output, setOutput] = useOutputConfig("watermark", "-watermarked");
   const [busy, setBusy] = usePersistedState("local.watermark.busy", false);
   const [error, setError] = usePersistedState<string | null>("local.watermark.error", null);
   const [resultPath, setResultPath] = usePersistedState<string | null>("local.watermark.resultPath", null);
   const previewRef = useRef<HTMLCanvasElement>(null);
-
-  useEffect(() => {
-    if (output.dir) return;
-    loadDefaultOutputDir().then((dir) => {
-      if (dir) setOutput((prev) => ({ ...prev, dir }));
-    });
-  }, []);
 
   const loadFile = (paths: string[]) => {
     const path = paths[0];
@@ -215,14 +201,13 @@ export default function Watermark({ onBack }: Props) {
     <PageShell
       title={t("watermark.title")}
       subtitle={t("watermark.subtitle")}
-      onBack={onBack}
-      badge={<span className="badge badge-mint">{t("common.localBadge")}</span>}
     >
       {!file && error && (
         <div className="banner banner-error">{error}</div>
       )}
       {!file && (
         <DropZone
+          presentation="canvas"
           onFiles={loadFile}
           label={t("watermark.dropLabel")}
           multiple={false}
@@ -237,7 +222,7 @@ export default function Watermark({ onBack }: Props) {
 
       {file && (
         <div className="split">
-          <div>
+          <div className="canvas-panel">
             <div className="preview-frame">
               <canvas ref={previewRef} />
             </div>

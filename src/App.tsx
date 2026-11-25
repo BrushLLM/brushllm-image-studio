@@ -1,174 +1,123 @@
-import { useEffect, useRef, useState } from "react";
-import { getCurrentWebview } from "@tauri-apps/api/webview";
-import { ChevronLeft, ChevronRight, Search, Settings as SettingsIcon } from "lucide-react";
-import brushLogo from "./assets/brush.svg";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState, type ComponentType } from "react";
+import { ChevronLeft, ChevronRight, PanelLeftClose, PanelLeftOpen, Search } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import CommandPalette from "./components/CommandPalette";
 import ErrorBoundary from "./components/ErrorBoundary";
-import Home, { type Page } from "./pages/Home";
-import { lazy, Suspense } from "react";
-
-// Tool pages load on demand — the first paint only ships Home + shell.
-const AiRepaint = lazy(() => import("./pages/AiRepaint"));
-const Compress = lazy(() => import("./pages/Compress"));
-const Convert = lazy(() => import("./pages/Convert"));
-const CropRotate = lazy(() => import("./pages/CropRotate"));
-const Exif = lazy(() => import("./pages/Exif"));
-const ImageAnnotate = lazy(() => import("./pages/ImageAnnotate"));
-const ColorPicker = lazy(() => import("./pages/ColorPicker"));
-const Adjust = lazy(() => import("./pages/Adjust"));
-const Mirror = lazy(() => import("./pages/Mirror"));
-const Mosaic = lazy(() => import("./pages/Mosaic"));
-const ShadowPage = lazy(() => import("./pages/Shadow"));
-const ColorReplace = lazy(() => import("./pages/ColorReplace"));
-const RoundedCorners = lazy(() => import("./pages/RoundedCorners"));
-const Resize = lazy(() => import("./pages/Resize"));
-const Settings = lazy(() => import("./pages/Settings"));
-const Stitch = lazy(() => import("./pages/Stitch"));
-const Watermark = lazy(() => import("./pages/Watermark"));
-import { readPersisted, writePersisted } from "./lib/persistedState";
+import Sidebar from "./components/Sidebar";
+import Home from "./pages/Home";
 import { getSettings } from "./lib/ipc";
+import { readPersisted, writePersisted } from "./lib/persistedState";
+import { setAppearance } from "./lib/theme";
+import { AI_TOOL_CATALOG, isAiTool, pageLabelKey, type LocalToolId, type Page } from "./lib/tools";
+import { blockedInputError } from "./lib/types";
+import { mergeImageFiles } from "./lib/useImageFiles";
 import { silentUpdateCheck } from "./lib/update";
-import {
-  ACCEPTED_EXTENSIONS,
-  blockedInputError,
-  KNOWN_UNSUPPORTED_EXTENSIONS,
-} from "./lib/types";
-import { setAppearance, type Appearance } from "./lib/theme";
-import { useTranslation } from "react-i18next";
 import "./styles.css";
+import "./studio.css";
 
-interface Location {
+const AiRepaint = lazy(() => import("./pages/AiRepaint"));
+const Settings = lazy(() => import("./pages/Settings"));
+const LOCAL_PAGES = {
+  adjust: lazy(() => import("./pages/Adjust")),
+  annotate: lazy(() => import("./pages/ImageAnnotate")),
+  colorreplace: lazy(() => import("./pages/ColorReplace")),
+  compress: lazy(() => import("./pages/Compress")),
+  convert: lazy(() => import("./pages/Convert")),
+  crop: lazy(() => import("./pages/CropRotate")),
+  exif: lazy(() => import("./pages/Exif")),
+  mirror: lazy(() => import("./pages/Mirror")),
+  mosaic: lazy(() => import("./pages/Mosaic")),
+  picker: lazy(() => import("./pages/ColorPicker")),
+  resize: lazy(() => import("./pages/Resize")),
+  rounded: lazy(() => import("./pages/RoundedCorners")),
+  shadow: lazy(() => import("./pages/Shadow")),
+  stitch: lazy(() => import("./pages/Stitch")),
+  watermark: lazy(() => import("./pages/Watermark")),
+} satisfies Record<LocalToolId, ComponentType>;
+
+const COMPACT_WINDOW = "(max-width: 960px)";
+
+interface History {
   page: Page;
-  tool: string | null;
-  /** Files dropped on the home grid, routed to the Convert tool. */
-  files: string[] | null;
-  /** Notice routed from the home grid (e.g. unsupported-format drop). */
-  notice: string | null;
+  back: Page[];
+  forward: Page[];
 }
-
-const PAGE_TITLE_KEYS: Record<Page, string> = {
-  home: "common.tools",
-  convert: "convert.title",
-  resize: "resize.title",
-  compress: "compress.title",
-  crop: "crop.title",
-  stitch: "stitch.title",
-  watermark: "watermark.title",
-  exif: "exif.title",
-  rounded: "rounded.title",
-  picker: "picker.title",
-  annotate: "annotate.title",
-  mirror: "mirror.title",
-  adjust: "adjust.title",
-  mosaic: "mosaic.title",
-  shadow: "shadow.title",
-  colorreplace: "recolor.title",
-  repaint: "ai.title",
-  settings: "settings.title",
-};
 
 export default function App() {
   const { t } = useTranslation();
-  const [location, setLocation] = useState<Location>({
+  const [{ page, back, forward }, setHistory] = useState<History>({
     page: "home",
-    tool: null,
-    files: null,
-    notice: null,
+    back: [],
+    forward: [],
   });
-  const backStack = useRef<Location[]>([]);
-  const forwardStack = useRef<Location[]>([]);
-  const isMac = typeof navigator !== "undefined" && /Mac/.test(navigator.userAgent);
+  const [expanded, setExpanded] = useState(() => !window.matchMedia(COMPACT_WINDOW).matches);
+  const [cmdkOpen, setCmdkOpen] = useState(false);
+  const workspace = useRef<HTMLElement>(null);
+  const sidebarToggle = useRef<HTMLButtonElement>(null);
+  const lastPage = useRef(page);
+  const isMac = /Mac/.test(navigator.userAgent);
 
-  // Apply the saved theme preference once IPC is available.
+  useEffect(() => {
+    const media = window.matchMedia(COMPACT_WINDOW);
+    const onResize = (event: MediaQueryListEvent) => {
+      if (event.matches && document.activeElement?.closest(".nav-group-tools")) {
+        sidebarToggle.current?.focus();
+      }
+      setExpanded(!event.matches);
+    };
+    media.addEventListener("change", onResize);
+    return () => media.removeEventListener("change", onResize);
+  }, []);
+
   useEffect(() => {
     getSettings()
-      .then((settings) => {
-        const appearance = settings.appearance as Appearance;
+      .then(({ appearance }) => {
         if (appearance === "light" || appearance === "dark" || appearance === "system") {
           setAppearance(appearance);
         }
       })
       .catch(() => {});
-    // Silent update probe — persists a banner state for Home when a newer
-    // release exists; failures (private repo, offline) stay invisible.
-    silentUpdateCheck();
+    void silentUpdateCheck();
   }, []);
 
-  const navigate = (next: Page, tool?: string, files?: string[], notice?: string) => {
-    if (next === "convert" && files?.length) {
-      const queued = readPersisted<string[]>("local.convert.files") ?? [];
-      writePersisted("local.convert.files", [...new Set([...queued, ...files])]);
-      writePersisted("local.convert.inputError", notice ?? null);
-    }
-    if (next === "convert" && notice) writePersisted("local.convert.inputError", notice);
-    backStack.current.push(location);
-    forwardStack.current = [];
-    setLocation({
-      page: next,
-      tool: next === "repaint" && tool ? tool : null,
-      files: next === "convert" ? (files ?? null) : null,
-      notice: next === "convert" ? (notice ?? null) : null,
-    });
-  };
-
-  // Drop images anywhere on the home grid → open them in Convert Format
-  // (the one tool that accepts every supported format). Unsupported image
-  // formats (AVIF/HEIC/JXL) route there too, with an explanatory notice.
   useEffect(() => {
-    if (location.page !== "home") return;
-    const webview = getCurrentWebview();
-    const unlisten = webview.onDragDropEvent((event) => {
-      const payload = event.payload;
-      if (payload.type !== "drop") return;
-      const ext = (p: string) => p.split(".").pop()?.toLowerCase() ?? "";
-      const paths = payload.paths.filter((p) =>
-        ACCEPTED_EXTENSIONS.includes(ext(p)),
-      );
-      const blocked = payload.paths.filter((p) =>
-        KNOWN_UNSUPPORTED_EXTENSIONS.includes(ext(p)),
-      );
-      if (paths.length > 0) {
-        navigate("convert", undefined, paths);
-      } else if (blocked.length > 0) {
-        navigate("convert", undefined, undefined, blockedInputError(blocked));
-      }
+    if (lastPage.current === page) return;
+    lastPage.current = page;
+    if (workspace.current) {
+      workspace.current.scrollTop = 0;
+      workspace.current.focus({ preventScroll: true });
+    }
+  }, [page]);
+
+  const navigate = useCallback((next: Page, from?: Page) => {
+    setHistory((history) => {
+      if (next === history.page || (from && history.page !== from)) return history;
+      let back = history.back;
+      if (next !== "home") back = [...back, history.page];
+      else if (back[back.length - 1] === "home") back = back.slice(0, -1);
+      return { page: next, back, forward: [] };
     });
-    return () => {
-      unlisten.then((fn) => fn());
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.page]);
+  }, []);
 
-  // Going "home" is a jump, not history — it must not push the current
-  // tool onto the back stack (back/forward stay real navigation).
-  const goHome = () => {
-    forwardStack.current = [];
-    setLocation({ page: "home", tool: null, files: null, notice: null });
-  };
+  const goBack = useCallback(() => {
+    setHistory((history) => {
+      const previous = history.back[history.back.length - 1];
+      if (!previous) return history;
+      return { page: previous, back: history.back.slice(0, -1), forward: [...history.forward, history.page] };
+    });
+  }, []);
 
-  const [cmdkOpen, setCmdkOpen] = useState(false);
-  const openCmdk = () => setCmdkOpen(true);
+  const goForward = useCallback(() => {
+    setHistory((history) => {
+      const next = history.forward[history.forward.length - 1];
+      if (!next) return history;
+      return { page: next, back: [...history.back, history.page], forward: history.forward.slice(0, -1) };
+    });
+  }, []);
 
-  const goBack = () => {
-    const previous = backStack.current.pop();
-    if (!previous) return;
-    forwardStack.current.push(location);
-    setLocation(previous);
-  };
-
-  const goForward = () => {
-    const next = forwardStack.current.pop();
-    if (!next) return;
-    backStack.current.push(location);
-    setLocation(next);
-  };
-
-  const canGoBack = backStack.current.length > 0;
-  const canGoForward = forwardStack.current.length > 0;
-
-  // Mouse side buttons (back/forward) and common keyboard shortcuts.
   useEffect(() => {
     const onMouseUp = (event: MouseEvent) => {
+      if (cmdkOpen) return;
       if (event.button === 3) {
         event.preventDefault();
         goBack();
@@ -178,33 +127,24 @@ export default function App() {
       }
     };
     const onKeyDown = (event: KeyboardEvent) => {
-      const isBack =
-        (event.altKey && event.key === "ArrowLeft") ||
-        (event.metaKey && event.key === "[");
-      const isForward =
-        (event.altKey && event.key === "ArrowRight") ||
-        (event.metaKey && event.key === "]");
-      if (isBack) {
-        event.preventDefault();
-        goBack();
-      } else if (isForward) {
-        event.preventDefault();
-        goForward();
-      } else if (event.key === "Escape") {
-        // Escape returns to the tool grid — unless the user is typing.
-        const target = event.target as HTMLElement | null;
-        const editing =
-          target !== null &&
-          (target.tagName === "INPUT" ||
-            target.tagName === "TEXTAREA" ||
-            target.isContentEditable);
-        if (!editing && location.page !== "home") {
-          event.preventDefault();
-          goHome();
-        }
-      } else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+      if (event.defaultPrevented || event.isComposing) return;
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
         setCmdkOpen((open) => !open);
+      } else if (!cmdkOpen) {
+        if ((event.altKey && event.key === "ArrowLeft") || (event.metaKey && event.key === "[")) {
+          event.preventDefault();
+          goBack();
+        } else if ((event.altKey && event.key === "ArrowRight") || (event.metaKey && event.key === "]")) {
+          event.preventDefault();
+          goForward();
+        } else if (event.key === "Escape" && page !== "home") {
+          const target = event.target;
+          if (target instanceof HTMLElement &&
+              (target.isContentEditable || target.matches("input, textarea, select"))) return;
+          event.preventDefault();
+          navigate("home");
+        }
       }
     };
     window.addEventListener("mouseup", onMouseUp);
@@ -213,104 +153,80 @@ export default function App() {
       window.removeEventListener("mouseup", onMouseUp);
       window.removeEventListener("keydown", onKeyDown);
     };
-    // Re-register each navigation so the handlers capture fresh state.
-  }, [location]);
+  }, [cmdkOpen, goBack, goForward, navigate, page]);
+
+  const openInConvert = (files: string[], notice: string | null = null) => {
+    if (files.length) {
+      const queued = readPersisted<string[]>("local.convert.files") ?? [];
+      writePersisted("local.convert.files", mergeImageFiles(queued, files));
+    }
+    writePersisted("local.convert.inputError", notice);
+    navigate("convert");
+  };
+
+  const pageContent = () => {
+    if (page === "home") {
+      return (
+        <Home
+          onNavigate={navigate}
+          onImport={openInConvert}
+          onBlocked={(files) => openInConvert([], blockedInputError(files))}
+        />
+      );
+    }
+    if (page === "settings") return <Settings />;
+    if (isAiTool(page)) {
+      return (
+        <AiRepaint
+          key={page}
+          tool={AI_TOOL_CATALOG[page]}
+          onSelectTool={(tool) => navigate(tool, page)}
+          onOpenSettings={() => navigate("settings")}
+        />
+      );
+    }
+    const LocalPage = LOCAL_PAGES[page];
+    return <LocalPage />;
+  };
+
+  const toggleLabel = t(expanded ? "navigation.collapse" : "navigation.expand");
+  const ToggleIcon = expanded ? PanelLeftClose : PanelLeftOpen;
 
   return (
-    <div className={`shell${isMac ? " mac" : ""}`}>
-      <header className="topbar" data-tauri-drag-region>
-        <div className="logo-mark">
-          <img src={brushLogo} alt="BrushLLM Image Studio" draggable={false} />
+    <div className={`studio-shell${isMac ? " mac" : ""}${expanded ? "" : " sidebar-collapsed"}`}>
+      <a className="skip-workspace" href="#workspace">{t("navigation.skip")}</a>
+      <header className="window-toolbar" data-tauri-drag-region>
+        <button type="button" className="window-button" ref={sidebarToggle} title={toggleLabel} aria-label={toggleLabel}
+          aria-controls="studio-navigation" aria-expanded={expanded} onClick={() => setExpanded((value) => !value)}>
+          <ToggleIcon aria-hidden="true" />
+        </button>
+        <div className="window-history">
+          <button type="button" className="window-button" title={t("common.back")} aria-label={t("common.back")}
+            onClick={goBack} disabled={!back.length}>
+            <ChevronLeft aria-hidden="true" />
+          </button>
+          <button type="button" className="window-button" title={t("common.forward")} aria-label={t("common.forward")}
+            onClick={goForward} disabled={!forward.length}>
+            <ChevronRight aria-hidden="true" />
+          </button>
         </div>
-        <div className="brand">
-          BrushLLM<span className="brand-sub">Image Studio</span>
-        </div>
-        {location.page !== "home" && (
-          <nav className="crumbs" aria-label="breadcrumb">
-            <button className="crumb-link" onClick={goHome}>
-              {t("common.tools")}
-            </button>
-            <span className="crumb-sep">/</span>
-            <span className="crumb-current">
-              {t(PAGE_TITLE_KEYS[location.page])}
-              {location.page === "repaint" && location.tool
-                ? ` · ${location.tool.replace(/-/g, " ")}`
-                : ""}
-            </span>
-          </nav>
-        )}
-        <div className="topbar-spacer" />
-        <button
-          className="btn btn-sm"
-          onClick={openCmdk}
-          title={t("common.searchTitle")}
-        >
-          <Search />
-        </button>
-        <button
-          className="btn btn-sm"
-          onClick={goBack}
-          disabled={!canGoBack}
-          title={t("common.back")}
-        >
-          <ChevronLeft />
-        </button>
-        <button
-          className="btn btn-sm"
-          onClick={goForward}
-          disabled={!canGoForward}
-          title={t("common.forward")}
-        >
-          <ChevronRight />
-        </button>
-        <button
-          className={`btn btn-sm${location.page === "settings" ? " btn-primary" : ""}`}
-          onClick={() => navigate("settings")}
-          title={t("common.settings")}
-        >
-          <SettingsIcon />
+        <div className="window-drag-space" data-tauri-drag-region />
+        <button type="button" className="window-button window-search" aria-label={t("navigation.search")}
+          aria-keyshortcuts={isMac ? "Meta+K" : "Control+K"} onClick={() => setCmdkOpen(true)}>
+          <Search aria-hidden="true" />
+          <span>{t("navigation.search")}</span>
+          <kbd aria-hidden="true">{isMac ? "⌘ K" : "Ctrl K"}</kbd>
         </button>
       </header>
-      <main className="content">
-        <Suspense fallback={<div className="page" style={{ paddingTop: 80, textAlign: "center", color: "#8a8580" }}>…</div>}>
-        <ErrorBoundary>
-          {location.page === "home" && <Home onNavigate={navigate} />}
-        {location.page === "convert" && (
-          <Convert
-            onBack={goHome}
-            initialFiles={location.files}
-            initialNotice={location.notice}
-          />
-        )}
-        {location.page === "resize" && <Resize onBack={goHome} />}
-        {location.page === "compress" && <Compress onBack={goHome} />}
-        {location.page === "crop" && <CropRotate onBack={goHome} />}
-        {location.page === "stitch" && <Stitch onBack={goHome} />}
-        {location.page === "watermark" && <Watermark onBack={goHome} />}
-        {location.page === "exif" && <Exif onBack={goHome} />}
-        {location.page === "rounded" && <RoundedCorners onBack={goHome} />}
-        {location.page === "picker" && <ColorPicker onBack={goHome} />}
-        {location.page === "annotate" && <ImageAnnotate onBack={goHome} />}
-        {location.page === "mirror" && <Mirror onBack={goHome} />}
-        {location.page === "adjust" && <Adjust onBack={goHome} />}
-        {location.page === "mosaic" && <Mosaic onBack={goHome} />}
-        {location.page === "shadow" && <ShadowPage onBack={goHome} />}
-        {location.page === "colorreplace" && <ColorReplace onBack={goHome} />}
-        {location.page === "repaint" && (
-          <AiRepaint
-            key={location.tool ?? "default"}
-            onBack={goHome}
-            onOpenSettings={() => navigate("settings")}
-            initialToolId={location.tool}
-          />
-        )}
-        {location.page === "settings" && <Settings onBack={goHome} />}
+      <Sidebar page={page} expanded={expanded} onExpand={() => setExpanded(true)} onNavigate={navigate} />
+      <main className="content" id="workspace" ref={workspace} tabIndex={-1} aria-label={t(pageLabelKey(page))}>
+        <ErrorBoundary key={page}>
+          <Suspense fallback={<p className="status-note" role="status">{t("common.processing")}</p>}>
+            {pageContent()}
+          </Suspense>
         </ErrorBoundary>
-        </Suspense>
       </main>
-      {cmdkOpen && (
-        <CommandPalette onNavigate={navigate} onClose={() => setCmdkOpen(false)} />
-      )}
+      {cmdkOpen && <CommandPalette onNavigate={navigate} onClose={() => setCmdkOpen(false)} />}
     </div>
   );
 }

@@ -1,293 +1,94 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { ArrowUpRight, ArrowRight, Globe, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import {
-  Bandage,
-  Combine,
-  Crop,
-  Eraser,
-  FlipHorizontal,
-  Frame,
-  Grid2x2,
-  Layers,
-  PaintBucket,
-  SlidersHorizontal,
-  ImageOff,
-  Maximize2,
-  Minimize2,
-  Palette,
-  PenTool,
-  Pipette,
-  Repeat,
-  Scissors,
-  Sparkles,
-  Stamp,
-  Tags,
-  Wand2,
-  X,
-  type LucideIcon,
-} from "lucide-react";
-import {
-  dismissUpdateBanner,
-  isUpdateDismissed,
-  readUpdateBanner,
-} from "../lib/update";
+import DropZone from "../components/DropZone";
+import PageShell from "../components/PageShell";
+import { AI_TOOLS, LOCAL_TOOL_GROUPS, type Page, type Tool } from "../lib/tools";
+import { useUpdateBanner } from "../lib/update";
 
-type Page =
-  | "home"
-  | "convert"
-  | "resize"
-  | "compress"
-  | "crop"
-  | "stitch"
-  | "watermark"
-  | "exif"
-  | "rounded"
-  | "picker"
-  | "annotate"
-  | "mirror"
-  | "adjust"
-  | "mosaic"
-  | "shadow"
-  | "colorreplace"
-  | "repaint"
-  | "settings";
-
-interface LocalTool {
-  page: Page;
-  icon: LucideIcon;
-  nameKey: string;
-  descKey: string;
-}
-
-interface CloudTool {
-  icon: LucideIcon;
-  nameKey: string;
-  descKey: string;
-  tool: string;
-}
-
-const LOCAL_TOOLS: LocalTool[] = [
-  {
-    page: "convert",
-    icon: Repeat,
-    nameKey: "home.convertName",
-    descKey: "home.convertDesc",
-  },
-  {
-    page: "compress",
-    icon: Minimize2,
-    nameKey: "home.compressName",
-    descKey: "home.compressDesc",
-  },
-  {
-    page: "resize",
-    icon: Maximize2,
-    nameKey: "home.resizeName",
-    descKey: "home.resizeDesc",
-  },
-  {
-    page: "crop",
-    icon: Crop,
-    nameKey: "home.cropName",
-    descKey: "home.cropDesc",
-  },
-  {
-    page: "watermark",
-    icon: Stamp,
-    nameKey: "home.watermarkName",
-    descKey: "home.watermarkDesc",
-  },
-  {
-    page: "exif",
-    icon: Tags,
-    nameKey: "home.exifName",
-    descKey: "home.exifDesc",
-  },
-  {
-    page: "stitch",
-    icon: Combine,
-    nameKey: "home.stitchName",
-    descKey: "home.stitchDesc",
-  },
-  {
-    page: "rounded",
-    icon: Frame,
-    nameKey: "home.roundedName",
-    descKey: "home.roundedDesc",
-  },
-  {
-    page: "picker",
-    icon: Pipette,
-    nameKey: "home.pickerName",
-    descKey: "home.pickerDesc",
-  },
-  {
-    page: "annotate",
-    icon: PenTool,
-    nameKey: "home.annotateName",
-    descKey: "home.annotateDesc",
-  },
-  {
-    page: "mirror",
-    icon: FlipHorizontal,
-    nameKey: "home.mirrorName",
-    descKey: "home.mirrorDesc",
-  },
-  {
-    page: "adjust",
-    icon: SlidersHorizontal,
-    nameKey: "home.adjustName",
-    descKey: "home.adjustDesc",
-  },
-  {
-    page: "mosaic",
-    icon: Grid2x2,
-    nameKey: "home.mosaicName",
-    descKey: "home.mosaicDesc",
-  },
-  {
-    page: "shadow",
-    icon: Layers,
-    nameKey: "home.shadowName",
-    descKey: "home.shadowDesc",
-  },
-  {
-    page: "colorreplace",
-    icon: PaintBucket,
-    nameKey: "home.recolorName",
-    descKey: "home.recolorDesc",
-  },
-];
-
-const CLOUD_TOOLS: CloudTool[] = [
-{
-    icon: Sparkles,
-    nameKey: "home.generateName",
-    descKey: "home.generateDesc",
-    tool: "generate-image",
-  },
-{
-    icon: ImageOff,
-    nameKey: "home.removeBgName",
-    descKey: "home.removeBgDesc",
-    tool: "remove-background",
-  },
-{
-    icon: Scissors,
-    nameKey: "home.cutoutName",
-    descKey: "home.cutoutDesc",
-    tool: "cutout",
-  },
-{
-    icon: Eraser,
-    nameKey: "home.removeWmName",
-    descKey: "home.removeWmDesc",
-    tool: "remove-watermark",
-  },
-{
-    icon: Bandage,
-    nameKey: "home.removeObjectName",
-    descKey: "home.removeObjDesc",
-    tool: "remove-object",
-  },
-{
-    icon: Wand2,
-    nameKey: "home.fillName",
-    descKey: "home.fillDesc",
-    tool: "generative-fill",
-  },
-{
-    icon: Palette,
-    nameKey: "home.restyleName",
-    descKey: "home.restyleDesc",
-    tool: "restyle",
-  },
-];
+const LINKS = [
+  { url: "https://brushllm.com/", label: "footer.website" },
+  { url: "https://brushllm.com/docs", label: "footer.apiDocs" },
+] as const;
 
 interface Props {
-  onNavigate: (page: Page, tool?: string) => void;
+  onNavigate: (page: Page) => void;
+  onImport: (files: string[]) => void;
+  onBlocked: (files: string[]) => void;
 }
 
-export default function Home({ onNavigate }: Props) {
+export default function Home({ onNavigate, onImport, onBlocked }: Props) {
   const { t } = useTranslation();
-  const update = readUpdateBanner();
-  const showUpdateBanner = update !== null && !isUpdateDismissed(update.latest);
+  const { update, dismiss } = useUpdateBanner();
+
+  const renderTools = (tools: readonly Tool[]) => (
+    <ul className="directory-list">
+      {tools.map((tool) => (
+        <li key={tool.id}>
+          <button type="button" className="directory-item" onClick={() => onNavigate(tool.id)}>
+            <tool.icon aria-hidden="true" />
+            <span className="directory-copy">
+              <strong>{t(tool.labelKey)}</strong>
+              <span>{t(tool.descriptionKey)}</span>
+            </span>
+            <ArrowRight className="directory-arrow" aria-hidden="true" />
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+
   return (
-    <div className="page">
-      {showUpdateBanner && update && (
+    <PageShell title={t("navigation.allTools")} subtitle={t("home.workspaceIntro")}>
+      {update && (
         <div className="banner banner-info">
-          <Sparkles size={14} style={{ strokeWidth: 1.8 }} />
           <span className="flex-1">
             {t("home.updateBanner", { version: update.latest })}{" "}
-            <span
-              className="banner-link"
-              onClick={() => onNavigate("settings")}
-            >
+            <button type="button" className="banner-link" onClick={() => onNavigate("settings")}>
               {t("home.updateGoSettings")}
-            </span>
+            </button>
           </span>
-          <button
-            className="banner-dismiss"
-            title={t("home.updateDismiss")}
-            onClick={() => dismissUpdateBanner(update.latest)}
-          >
-            <X size={14} />
+          <button type="button" className="banner-dismiss" aria-label={t("home.updateDismiss")} onClick={dismiss}>
+            <X aria-hidden="true" />
           </button>
         </div>
       )}
-      <div className="home-hero">
-        <h1>{t('home.heroTitle')}</h1>
-        <p>{t('home.heroSub')}</p>
+      <div className="home-import">
+        <DropZone
+          presentation="canvas"
+          label={t("home.importLabel")}
+          onFiles={onImport}
+          onBlockedInput={(blocked, accepted) => { if (!accepted.length) onBlocked(blocked); }}
+        />
       </div>
-
-      <div className="section-label">
-        <span className="dot" />
-        {t('home.localSection')}
-      </div>
-      <div className="tool-grid">
-        {LOCAL_TOOLS.map((tool) => (
-          <button
-            key={tool.page}
-            className="tool-card"
-            onClick={() => onNavigate(tool.page)}
-          >
-            <div className="tool-icon">
-              <tool.icon />
+      <div className="tool-directory">
+        <section className="directory-group">
+          <header className="directory-heading"><h2>{t("home.localSection")}</h2></header>
+          {LOCAL_TOOL_GROUPS.map(({ title, tools }) => (
+            <div key={title} className="directory-category">
+              <h3>{t(title)}</h3>
+              {renderTools(tools)}
             </div>
-            <div className="tool-name">{t(tool.nameKey)}</div>
-            <div className="tool-desc">{t(tool.descKey)}</div>
-            <div className="tool-price free">{t("home.freeForever")}</div>
-          </button>
+          ))}
+        </section>
+        <section className="directory-group">
+          <header className="directory-heading">
+            <h2>{t("navigation.onlineAi")}</h2>
+            <p className="badge billing-label"><Globe aria-hidden="true" /> {t("ai.billingShort")}</p>
+          </header>
+          {renderTools(AI_TOOLS)}
+        </section>
+      </div>
+      <footer className="home-footer">
+        {LINKS.map(({ url, label }) => (
+          <a key={url} href={url} onClick={(event) => {
+            event.preventDefault();
+            void openUrl(url);
+          }}>
+            {t(label)} <ArrowUpRight aria-hidden="true" />
+          </a>
         ))}
-      </div>
-
-      <div className="section-label cloud">
-        <span className="dot" />
-        {t('home.cloudSection')}
-      </div>
-      <div className="tool-grid">
-        {CLOUD_TOOLS.map((tool) => (
-          <button
-            key={tool.tool}
-            className="tool-card cloud"
-            onClick={() => onNavigate("repaint", tool.tool)}
-          >
-            <div className="tool-icon">
-              <tool.icon />
-            </div>
-            <div className="tool-name">{t(tool.nameKey)}</div>
-            <div className="tool-desc">{t(tool.descKey)}</div>
-            <div className="tool-price">{t("home.usesCredits")}</div>
-          </button>
-        ))}
-      </div>
-
-      <div className="home-footer">
-        <a onClick={() => openUrl("https://brushllm.com/")}>{t("footer.website")}</a>
-        <a onClick={() => openUrl("https://brushllm.com/docs")}>{t("footer.apiDocs")}</a>
-      </div>
-    </div>
+      </footer>
+    </PageShell>
   );
 }
-
-export type { Page };

@@ -1,5 +1,8 @@
 {
   "common": {
+    "previewImage": "預覽 {{name}}",
+    "batchPreviewNote": "選擇縮圖進行比較。目前設定會套用至整批圖片。",
+    "addImages": "新增圖片",
     "tools": "工具",
     "settings": "設定",
     "save": "儲存",
@@ -42,7 +45,22 @@
     "compare": "比較原圖與結果",
     "savedTo": "已儲存至 {{path}}"
   },
+  "navigation": {
+    "fileTools": "檔案與尺寸",
+    "editTools": "圖片編輯",
+    "markTools": "標註與取色",
+    "label": "工具導覽",
+    "allTools": "全部工具",
+    "onlineAi": "線上 AI",
+    "collapse": "收合側欄",
+    "expand": "展開側欄",
+    "skip": "跳至工作區",
+    "search": "搜尋工具",
+    "customEditDescription": "使用自訂提示詞和選用遮罩編輯圖片。"
+  },
   "home": {
+    "workspaceIntro": "選擇工具，或開啟圖片進行格式轉換。",
+    "importLabel": "拖入要轉換的圖片",
     "heroTitle": "圖片處理，本機速度 — 需要時再用 AI。",
     "heroSub": "日常工具在本機免費執行。難題——生成、去背、去浮水印——交給 BrushLLM AI 工具箱。",
     "localSection": "本機 · 免費 · 裝置內處理",
@@ -72,7 +90,7 @@
     "generateName": "產生圖片",
     "generateDesc": "用文字描述建立全新圖片。",
     "removeBgName": "去除背景",
-    "removeBgDesc": "AI 重生成，乾淨去除背景。",
+    "removeBgDesc": "將背景替換為純白色。",
     "cutoutName": "去背",
     "cutoutDesc": "將主體分離到透明背景。",
     "removeWmName": "去浮水印",
@@ -119,7 +137,7 @@
     "firstOfMany": "預覽顯示 {{count}} 張中的第一張。",
     "hintJpeg": "越高畫質越好、檔案越大。",
     "hintPng": "越高壓縮越強（始終無損）。",
-    "hintWebp": "WebP 輸出為無損（品質不適用）。",
+    "hintWebp": "WebP 使用有損壓縮。降低品質可縮小檔案。",
     "hintAvif": "越高畫質越好、檔案越大。照片通常 50–70 最佳。",
     "hintTiff": "TIFF 始終無損。",
     "hintBmp": "BMP 始終無損（檔案較大）。",
@@ -162,15 +180,20 @@
     "firstOfMany": "預覽顯示 {{count}} 張中的第一張。"
   },
   "crop": {
+    "rotateLeft": "向左旋轉 90°",
+    "rotateRight": "向右旋轉 90°",
+    "rotation": "已旋轉 {{angle}}°",
     "title": "裁切與旋轉",
     "subtitle": "拖動裁切框、選擇比例、旋轉或翻轉 — 預覽始終與輸出一致。本機執行 — 免費且私密。",
     "dropLabel": "拖入要裁切的圖片",
     "free": "自由",
     "output": "輸出",
-    "flipH": "⇋ 左右翻轉",
-    "flipV": "⇅ 上下翻轉"
+    "flipH": "左右翻轉",
+    "flipV": "上下翻轉"
   },
   "stitch": {
+    "moveEarlier": "往前移",
+    "moveLater": "往後移",
     "title": "拼接長圖",
     "subtitle": "多張圖片拼成一張長圖 — 直向或橫向，可設間距與對齊。本機執行 — 免費且私密。",
     "dropLabel": "依序拖入要拼接的圖片",
@@ -305,6 +328,10 @@
     "savePng": "儲存標註 PNG"
   },
   "ai": {
+    "billingShort": "需要網路連線，按用量計費。",
+    "checkingKey": "正在檢查 API 金鑰…",
+    "requestDisclosure": "需要網路連線。提示詞及隨附的圖片或遮罩將傳送至已設定的圖像服務，服務商按用量計費。",
+    "resultEmpty": "生成的圖片會顯示在此處。",
     "title": "AI 工具箱",
     "subtitle": "產生全新圖片，或塗抹問題區域讓 BrushLLM 影像模型重新生成。雲端處理，按張計費。",
     "noKey": "尚未設定 API 金鑰。",
@@ -498,6 +525,7 @@
     "apiDocs": "API 文件"
   },
   "batch": {
+    "processingIn": "{{tool}}正在處理",
     "done": "{{count}} 個完成",
     "failed": "{{count}} 個失敗",
     "skipped": "{{count}} 個略過",
@@ -522,7 +550,7 @@
     "dropLabel": "拖入要打碼的圖片",
     "blockSize": "區塊大小",
     "blockHint": "區塊越大遮蔽越強，越小細節保留越多。",
-    "hint": "塗抹要打碼的區域 — 紫色覆蓋層為選取範圍。",
+    "hint": "塗抹要打碼的區域。",
     "saveButton": "儲存馬賽克 PNG"
   },
   "shadow": {

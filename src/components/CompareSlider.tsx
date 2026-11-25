@@ -1,101 +1,84 @@
-import { useCallback, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useRef, useState, type PointerEvent } from "react";
 import { ChevronsLeftRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 interface Props {
   before: string;
   after: string;
-  /** Corner captions, e.g. "Original · 1.2 MB" / "AVIF q75 · 340 KB". */
   beforeTag?: string;
   afterTag?: string;
 }
 
-/**
- * Squoosh-style draggable before/after comparison. Drag anywhere on the
- * image; the divider follows the pointer horizontally.
- */
+/** Drag or use the arrow keys to reveal the original on the left and the result on the right. */
 export default function CompareSlider({ before, after, beforeTag, afterTag }: Props) {
   const { t } = useTranslation();
   const [value, setValue] = useState(50);
-  const ref = useRef<HTMLDivElement>(null);
+  const [sourceSize, setSourceSize] = useState<{ url: string; ratio: number }>();
   const dragging = useRef(false);
+  const ratio = sourceSize?.url === before ? sourceSize.ratio : undefined;
 
-  const updateFromEvent = useCallback((clientX: number) => {
-    const el = ref.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const pct = ((clientX - rect.left) / rect.width) * 100;
-    setValue(Math.min(100, Math.max(0, pct)));
-  }, []);
-
-  const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
-    dragging.current = true;
-    e.currentTarget.setPointerCapture?.(e.pointerId);
-    e.currentTarget.focus();
-    updateFromEvent(e.clientX);
-  };
-
-  const onPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
-    if (dragging.current) updateFromEvent(e.clientX);
-  };
-
-  const stop = () => {
-    dragging.current = false;
+  const updateFromPointer = (event: PointerEvent<HTMLDivElement>) => {
+    const { left, width } = event.currentTarget.getBoundingClientRect();
+    if (!width) return;
+    setValue(Math.min(100, Math.max(0, (event.clientX - left) * 100 / width)));
   };
 
   return (
-    <div
-      className="ba"
-      ref={ref}
-      role="slider"
-      tabIndex={0}
-      aria-label={t("common.compare")}
-      aria-valuemin={0}
-      aria-valuemax={100}
-      aria-valuenow={Math.round(value)}
-      onKeyDown={(e) => {
-        const step = e.shiftKey ? 10 : 1;
-        if (e.key === "Home") setValue(0);
-        else if (e.key === "End") setValue(100);
-        else if (e.key === "ArrowLeft" || e.key === "ArrowDown") setValue((v) => Math.max(0, v - step));
-        else if (e.key === "ArrowRight" || e.key === "ArrowUp") setValue((v) => Math.min(100, v + step));
-        else return;
-        e.preventDefault();
-      }}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={stop}
-      onPointerCancel={stop}
-      onPointerLeave={stop}
-    >
-      <img
-        src={before}
-        alt="before"
-        draggable={false}
-        className="img-fade"
-        onLoad={(e) => e.currentTarget.classList.add("loaded")}
-      />
-      <div className="ba-after" style={{ clipPath: `inset(0 ${100 - value}% 0 0)` }}>
+    <figure className="compare-figure">
+      <div
+        className="ba"
+        style={ratio ? { width: `min(100%, calc(var(--preview-max-height) * ${ratio}))` } : undefined}
+        role="slider"
+        tabIndex={0}
+        aria-label={t("common.compare")}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(value)}
+        onKeyDown={(event) => {
+          if (event.altKey || event.ctrlKey || event.metaKey) return;
+          const step = event.shiftKey ? 10 : 1;
+          if (event.key === "Home") setValue(0);
+          else if (event.key === "End") setValue(100);
+          else if (event.key === "ArrowLeft" || event.key === "ArrowDown") setValue((v) => Math.max(0, v - step));
+          else if (event.key === "ArrowRight" || event.key === "ArrowUp") setValue((v) => Math.min(100, v + step));
+          else return;
+          event.preventDefault();
+        }}
+        onPointerDown={(event) => {
+          if (event.button !== 0) return;
+          dragging.current = true;
+          event.currentTarget.setPointerCapture?.(event.pointerId);
+          event.currentTarget.focus();
+          updateFromPointer(event);
+        }}
+        onPointerMove={(event) => {
+          if (dragging.current) updateFromPointer(event);
+        }}
+        onPointerUp={() => { dragging.current = false; }}
+        onPointerCancel={() => { dragging.current = false; }}
+        onLostPointerCapture={() => { dragging.current = false; }}
+      >
         <img
-          src={after}
-          alt="after"
+          className="ba-source"
+          src={before}
+          alt=""
           draggable={false}
-          className="img-fade"
-          onLoad={(e) => e.currentTarget.classList.add("loaded")}
+          onLoad={({ currentTarget: { naturalWidth, naturalHeight } }) => {
+            if (naturalHeight) setSourceSize({ url: before, ratio: naturalWidth / naturalHeight });
+          }}
         />
+        <div className="ba-after" style={{ clipPath: `inset(0 0 0 ${value}%)` }}>
+          <img src={after} alt="" draggable={false} />
+        </div>
+        <div className="ba-divider" style={{ left: `calc(${value}% - 1px)` }} />
+        <div className="ba-handle" style={{ left: `${value}%` }}>
+          <ChevronsLeftRight aria-hidden="true" />
+        </div>
       </div>
-      <div className="ba-divider" style={{ left: `calc(${value}% - 1px)` }} />
-      <div className="ba-handle" style={{ left: `${value}%` }}>
-        <ChevronsLeftRight />
-      </div>
-      {beforeTag && (
-        <span className="ba-tag" style={{ left: 10 }}>
-          {beforeTag}
-        </span>
-      )}
-      <span className="ba-tag" style={{ right: 10 }}>
-        {afterTag ?? t("common.result")}
-      </span>
-    </div>
+      <figcaption className="compare-captions">
+        <span>{beforeTag ?? t("errors.original")}</span>
+        <span>{afterTag ?? t("common.result")}</span>
+      </figcaption>
+    </figure>
   );
 }

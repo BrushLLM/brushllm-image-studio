@@ -1,5 +1,8 @@
 {
   "common": {
+    "previewImage": "{{name}} 미리 보기",
+    "batchPreviewNote": "썸네일을 선택하여 비교하세요. 설정은 전체 파일에 적용됩니다.",
+    "addImages": "이미지 추가",
     "tools": "도구",
     "settings": "설정",
     "save": "저장",
@@ -42,7 +45,22 @@
     "compare": "원본과 결과 비교",
     "savedTo": "저장 위치: {{path}}"
   },
+  "navigation": {
+    "fileTools": "파일과 크기",
+    "editTools": "이미지 편집",
+    "markTools": "주석과 색상",
+    "label": "도구 탐색",
+    "allTools": "모든 도구",
+    "onlineAi": "온라인 AI",
+    "collapse": "사이드바 접기",
+    "expand": "사이드바 펼치기",
+    "skip": "작업 영역으로 이동",
+    "search": "도구 검색",
+    "customEditDescription": "직접 작성한 지시와 선택 사항인 마스크로 이미지를 편집하세요."
+  },
   "home": {
+    "workspaceIntro": "도구를 선택하거나 변환할 이미지를 여세요.",
+    "importLabel": "변환할 이미지를 놓으세요",
     "heroTitle": "이미지 작업은 로컬 속도로 — 필요할 때만 AI.",
     "heroSub": "일상 도구는 이 기기에서 무료로 실행됩니다. 생성·누끼·워터마크 제거 같은 어려운 작업은 BrushLLM AI 도구함으로.",
     "localSection": "로컬 · 무료 · 기기 내 처리",
@@ -72,7 +90,7 @@
     "generateName": "이미지 생성",
     "generateDesc": "텍스트 프롬프트로 새 이미지 생성.",
     "removeBgName": "배경 제거",
-    "removeBgDesc": "AI 재생성으로 깔끔한 배경 제거.",
+    "removeBgDesc": "배경을 순백색으로 바꿉니다.",
     "cutoutName": "누끼",
     "cutoutDesc": "피사체를 투명 배경에 분리.",
     "removeWmName": "워터마크 제거",
@@ -119,7 +137,7 @@
     "firstOfMany": "미리보기는 {{count}}장 중 첫 번째입니다.",
     "hintJpeg": "높을수록 고화질·대용량.",
     "hintPng": "높을수록 압축률 상승 (항상 무손실).",
-    "hintWebp": "WebP 출력은 무손실 (품질 무관).",
+    "hintWebp": "WebP는 손실 압축을 사용합니다. 품질을 낮추면 파일 크기가 줄어듭니다.",
     "hintAvif": "높을수록 고화질·대용량. 사진엔 50–70이 적합.",
     "hintTiff": "TIFF는 항상 무손실.",
     "hintBmp": "BMP는 항상 무손실 (대용량).",
@@ -162,15 +180,20 @@
     "firstOfMany": "미리보기는 {{count}}장 중 첫 번째입니다."
   },
   "crop": {
+    "rotateLeft": "왼쪽으로 90° 회전",
+    "rotateRight": "오른쪽으로 90° 회전",
+    "rotation": "{{angle}}° 회전",
     "title": "자르기 & 회전",
     "subtitle": "자르기 프레임을 끌고 비율을 고르고 회전·뒤집기 — 미리보기가 항상 결과와 일치. 로컬 실행 — 무료·프라이빗.",
     "dropLabel": "자를 이미지 드롭",
     "free": "자유",
     "output": "출력",
-    "flipH": "⇋ 좌우 반전",
-    "flipV": "⇅ 상하 반전"
+    "flipH": "좌우 반전",
+    "flipV": "상하 반전"
   },
   "stitch": {
+    "moveEarlier": "앞으로 이동",
+    "moveLater": "뒤로 이동",
     "title": "이미지 이어붙이기",
     "subtitle": "여러 이미지를 세로 또는 가로의 긴 하나로 연결 — 간격·정렬 지원. 로컬 실행 — 무료·프라이빗.",
     "dropLabel": "이어붙일 이미지를 순서대로 드롭",
@@ -305,6 +328,10 @@
     "savePng": "주석 PNG 저장"
   },
   "ai": {
+    "billingShort": "인터넷 연결이 필요하며 사용량에 따라 요금이 부과됩니다.",
+    "checkingKey": "API 키 확인 중…",
+    "requestDisclosure": "인터넷 연결이 필요합니다. 지시와 첨부한 이미지 또는 마스크가 설정된 이미지 서비스에 전송됩니다. 요금은 사용량에 따라 부과됩니다.",
+    "resultEmpty": "생성된 이미지가 여기에 표시됩니다.",
     "title": "AI 도구함",
     "subtitle": "새 이미지를 생성하거나 문제 영역을 칠해 BrushLLM 이미지 모델이 재생성합니다. 클라우드 기반, 장당 과금.",
     "noKey": "API 키가 설정되지 않았습니다.",
@@ -498,6 +525,7 @@
     "apiDocs": "API 문서"
   },
   "batch": {
+    "processingIn": "{{tool}}에서 처리 중",
     "done": "{{count}}개 완료",
     "failed": "{{count}}개 실패",
     "skipped": "{{count}}개 건너뜀",
@@ -522,7 +550,7 @@
     "dropLabel": "픽셀화할 이미지 드롭",
     "blockSize": "블록 크기",
     "blockHint": "클수록 많이 가려지고, 작을수록 디테일이 남습니다.",
-    "hint": "픽셀화할 영역을 칠하세요 — 보라색 오버레이가 선택 영역입니다.",
+    "hint": "픽셀화할 영역을 칠하세요.",
     "saveButton": "모자이크 PNG 저장"
   },
   "shadow": {

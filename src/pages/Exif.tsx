@@ -1,12 +1,12 @@
 import { usePersistedState } from "../lib/persistedState";
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import DropZone from "../components/DropZone";
-import OutputPanel, { type OutputConfig } from "../components/OutputPanel";
+import OutputPanel from "../components/OutputPanel";
+import { useOutputConfig } from "../lib/useOutputConfig";
 import PageShell from "../components/PageShell";
 import {
   applyExif,
-  loadDefaultOutputDir,
   readExif,
   type ExifAction,
   type ExifField,
@@ -14,13 +14,9 @@ import {
 import { blockedInputError, EXIF_FORMATS, unsupportedImageError } from "../lib/types";
 import { useTranslation } from "react-i18next";
 
-interface Props {
-  onBack: () => void;
-}
-
 type Mode = "edit" | "strip_gps" | "strip_all";
 
-export default function Exif({ onBack }: Props) {
+export default function Exif() {
   const { t } = useTranslation();
   const [file, setFile] = usePersistedState<string | null>("local.exif.file", null);
   const [fields, setFields] = usePersistedState<ExifField[] | null>("local.exif.fields", null);
@@ -33,23 +29,12 @@ export default function Exif({ onBack }: Props) {
   const [description, setDescription] = usePersistedState("local.exif.description", "");
   const [artist, setArtist] = usePersistedState("local.exif.artist", "");
   const [copyright, setCopyright] = usePersistedState("local.exif.copyright", "");
-  const [output, setOutput] = usePersistedState<OutputConfig>("local.exif.output", {
-    dir: null,
-    suffix: "-exif",
-    collision: "rename",
-  });
+  const [output, setOutput] = useOutputConfig("exif", "-exif");
   const [busy, setBusy] = usePersistedState("local.exif.busy", false);
   const [error, setError] = usePersistedState<string | null>("local.exif.error", null);
   const [resultPath, setResultPath] = usePersistedState<string | null>("local.exif.resultPath", null);
   /** Bumped on every loadFile; stale readExif results are discarded. */
   const loadTokenRef = useRef(0);
-
-  useEffect(() => {
-    if (output.dir) return;
-    loadDefaultOutputDir().then((dir) => {
-      if (dir) setOutput((prev) => ({ ...prev, dir }));
-    });
-  }, []);
 
   const loadFile = (paths: string[]) => {
     const path = paths[0];
@@ -133,12 +118,11 @@ export default function Exif({ onBack }: Props) {
     <PageShell
       title={t("exif.title")}
       subtitle={t("exif.subtitle")}
-      onBack={onBack}
-      badge={<span className="badge badge-mint">{t("common.localBadge")}</span>}
     >
       {!file && error && <div className="banner banner-error">{error}</div>}
       {!file && (
         <DropZone
+          presentation="canvas"
           onFiles={loadFile}
           label={t("exif.dropLabel")}
           multiple={false}

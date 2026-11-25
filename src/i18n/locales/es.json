@@ -1,5 +1,8 @@
 {
   "common": {
+    "previewImage": "Vista previa de {{name}}",
+    "batchPreviewNote": "Selecciona una miniatura para comparar. Los ajustes se aplican a todo el lote.",
+    "addImages": "Añadir imágenes",
     "tools": "Herramientas",
     "settings": "Ajustes",
     "save": "Guardar",
@@ -42,7 +45,22 @@
     "compare": "Comparar original y resultado",
     "savedTo": "Guardado en {{path}}"
   },
+  "navigation": {
+    "fileTools": "Archivos y tamaño",
+    "editTools": "Editar imágenes",
+    "markTools": "Anotaciones y color",
+    "label": "Navegación de herramientas",
+    "allTools": "Todas las herramientas",
+    "onlineAi": "IA en línea",
+    "collapse": "Contraer barra lateral",
+    "expand": "Expandir barra lateral",
+    "skip": "Ir al área de trabajo",
+    "search": "Buscar herramientas",
+    "customEditDescription": "Edita una imagen con tus propias instrucciones y una máscara opcional."
+  },
   "home": {
+    "workspaceIntro": "Elige una herramienta o abre imágenes para convertirlas.",
+    "importLabel": "Suelta imágenes para convertirlas",
     "heroTitle": "Tus imágenes, velocidad local — IA cuando la necesites.",
     "heroSub": "Las herramientas de uso diario funcionan gratis en este dispositivo. Los problemas difíciles — generación, recortes, marcas de agua — van a la caja de IA de BrushLLM.",
     "localSection": "Local · Gratis · En el dispositivo",
@@ -72,7 +90,7 @@
     "generateName": "Generar imagen",
     "generateDesc": "Crea una imagen nueva a partir de un texto.",
     "removeBgName": "Quitar fondo",
-    "removeBgDesc": "Eliminación limpia del fondo mediante regeneración con IA.",
+    "removeBgDesc": "Sustituye el fondo por blanco puro.",
     "cutoutName": "Recorte de sujeto",
     "cutoutDesc": "Aísla el sujeto sobre fondo transparente.",
     "removeWmName": "Quitar marca de agua",
@@ -119,7 +137,7 @@
     "firstOfMany": "La vista previa muestra la primera de {{count}} imágenes.",
     "hintJpeg": "Más alto = mejor calidad, archivos más grandes.",
     "hintPng": "Más alto = mayor compresión (siempre sin pérdida).",
-    "hintWebp": "La salida WebP es sin pérdida (la calidad no aplica).",
+    "hintWebp": "WebP usa compresión con pérdida. Una calidad menor reduce el tamaño del archivo.",
     "hintAvif": "Más alto = mejor calidad, archivos más grandes. 50–70 suele ser lo mejor para fotos.",
     "hintTiff": "TIFF siempre es sin pérdida.",
     "hintBmp": "BMP siempre es sin pérdida (archivos grandes).",
@@ -162,15 +180,20 @@
     "firstOfMany": "La vista previa muestra la primera de {{count}} imágenes."
   },
   "crop": {
+    "rotateLeft": "Girar 90° a la izquierda",
+    "rotateRight": "Girar 90° a la derecha",
+    "rotation": "Giro de {{angle}}°",
     "title": "Recortar y rotar",
     "subtitle": "Arrastra el marco de recorte, elige una proporción, rota o invierte — la vista previa siempre coincide con la salida. Se ejecuta localmente — gratis y privado.",
     "dropLabel": "Suelta una imagen para recortar",
     "free": "Libre",
     "output": "Salida",
-    "flipH": "⇋ Espejo horizontal",
-    "flipV": "⇅ Espejo vertical"
+    "flipH": "Espejo horizontal",
+    "flipV": "Espejo vertical"
   },
   "stitch": {
+    "moveEarlier": "Mover antes",
+    "moveLater": "Mover después",
     "title": "Unir imágenes",
     "subtitle": "Combina varias imágenes en una sola larga — vertical u horizontalmente, con espaciado y alineación. Se ejecuta localmente — gratis y privado.",
     "dropLabel": "Suelta las imágenes a unir (en orden)",
@@ -305,6 +328,10 @@
     "savePng": "Guardar PNG anotado"
   },
   "ai": {
+    "billingShort": "Requiere internet. Se cobra según el uso.",
+    "checkingKey": "Comprobando la clave de API…",
+    "requestDisclosure": "Requiere internet. El servicio de imágenes configurado recibe tus instrucciones y las imágenes o máscaras que incluyas. El coste depende del uso.",
+    "resultEmpty": "Las imágenes generadas aparecen aquí.",
     "title": "Caja de IA",
     "subtitle": "Genera imágenes nuevas, o pinta sobre la zona problemática y deja que los modelos de imagen de BrushLLM la regeneren. En la nube, con coste por imagen.",
     "noKey": "No hay clave API configurada.",
@@ -494,6 +521,7 @@
     "clipboard": "no se puede acceder al portapapeles"
   },
   "batch": {
+    "processingIn": "Procesando en {{tool}}",
     "done": "{{count}} listas",
     "failed": "{{count}} fallidas",
     "skipped": "{{count}} omitidas",
@@ -522,7 +550,7 @@
     "dropLabel": "Suelta una imagen para pixelar",
     "blockSize": "Tamaño de bloque",
     "blockHint": "Bloques grandes ocultan más; pequeños conservan más detalle.",
-    "hint": "Pinta las zonas a pixelar — la superposición violeta marca la selección.",
+    "hint": "Pinta las zonas que quieras pixelar.",
     "saveButton": "Guardar PNG con mosaico"
   },
   "shadow": {

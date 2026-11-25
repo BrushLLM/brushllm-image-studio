@@ -1,26 +1,21 @@
 import { usePersistedState } from "../lib/persistedState";
-import { useEffect } from "react";
+import { useMemo } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import BatchRunner from "../components/BatchRunner";
-import DropZone from "../components/DropZone";
-import FileQueue from "../components/FileQueue";
+import BatchInput from "../components/BatchInput";
 import FormatQuality, { type FormatChoice } from "../components/FormatQuality";
-import OutputPanel, { type OutputConfig } from "../components/OutputPanel";
+import OutputPanel from "../components/OutputPanel";
+import { useOutputConfig } from "../lib/useOutputConfig";
 import PageShell from "../components/PageShell";
 import PreviewCard from "../components/PreviewCard";
-import { loadDefaultOutputDir, previewBatch } from "../lib/ipc";
-import { blockedInputError, type OutFormat } from "../lib/types";
+import { blockedInputError, type RenderSettings } from "../lib/types";
 import { useImageFiles } from "../lib/useImageFiles";
-import { usePreview } from "../lib/usePreview";
+import { useBatchPreview } from "../lib/usePreview";
 import { useTranslation } from "react-i18next";
 
-interface Props {
-  onBack: () => void;
-}
-
-export default function Compress({ onBack }: Props) {
+export default function Compress() {
   const { t } = useTranslation();
-  const { files, add, remove, clear } = useImageFiles("compress");
+  const { files, add, remove, clear, previewFile, selectPreview } = useImageFiles("compress");
   const [inputError, setInputError] = usePersistedState<string | null>("local.compress.inputError", null);
   /** All encodable formats stay available in Compress — the same-format
    *  fallback keeps the original bytes whenever re-encoding cannot shrink,
@@ -32,41 +27,20 @@ export default function Compress({ onBack }: Props) {
   const [format, setFormat] = usePersistedState<FormatChoice>("local.compress.format", "same");
   const [quality, setQuality] = usePersistedState("local.compress.quality", 75);
   const [preserveExif, setPreserveExif] = usePersistedState("local.compress.preserveExif", false);
-  const [output, setOutput] = usePersistedState<OutputConfig>("local.compress.output", {
-    dir: null,
-    suffix: "-min",
-    collision: "rename",
-  });
+  const [output, setOutput] = useOutputConfig("compress", "-min");
 
-  useEffect(() => {
-    if (output.dir) return;
-    loadDefaultOutputDir().then((dir) => {
-      if (dir) setOutput((prev) => ({ ...prev, dir }));
-    });
-  }, []);
-
-  const firstFile = files[0] ?? null;
-  const preview = usePreview(
-    () =>
-      firstFile
-        ? previewBatch({
-            preserveExif: preserveExif,
-            file: firstFile,
-            steps: [],
-            format: format === "same" ? null : (format as OutFormat),
-            quality,
-          })
-        : null,
-    [firstFile, format, quality, preserveExif],
-    format === "avif",
-  );
+  const settings = useMemo<RenderSettings>(() => ({
+    steps: [],
+    format: format === "same" ? null : format,
+    quality,
+    preserve_exif: preserveExif,
+  }), [format, quality, preserveExif]);
+  const preview = useBatchPreview(previewFile, settings);
 
   return (
     <PageShell
       title={t("compress.title")}
       subtitle={t("compress.subtitle")}
-      onBack={onBack}
-      badge={<span className="badge badge-mint">{t("common.localBadge")}</span>}
     >
       {inputError && (
         <div className="banner banner-error">
@@ -74,28 +48,29 @@ export default function Compress({ onBack }: Props) {
         </div>
       )}
       <div className="split">
-        <div>
-          <FileQueue files={files} onRemove={remove} onClear={clear} />
-          <DropZone
-            onFiles={(paths) => { setInputError(null); add(paths); }}
-            label={t("compress.dropLabel")}
-            hero={files.length === 0}
-            onBlockedInput={(files) => setInputError(blockedInputError(files))}
-          />
-          {firstFile && (
-            <div className="mt-4">
-              <PreviewCard
-                beforeUrl={convertFileSrc(firstFile)}
-                onRefresh={format === "avif" ? preview.refresh : undefined}
-                result={preview.result}
-                loading={preview.loading}
-                error={preview.error}
-                afterTitle={format === "same" ? "Re-encoded" : format.toUpperCase()}
-                note={files.length > 1 ? t("compress.firstOfMany", { count: files.length }) : undefined}
-              />
-            </div>
+        <BatchInput
+          tool="compress"
+          files={files}
+          onAdd={(paths) => { setInputError(null); add(paths); }}
+          onRemove={remove}
+          onClear={clear}
+          previewFile={previewFile}
+          onSelectPreview={selectPreview}
+          label={t("compress.dropLabel")}
+          onBlockedInput={(files) => setInputError(blockedInputError(files))}
+        >
+          {previewFile && (
+            <PreviewCard
+              beforeUrl={convertFileSrc(previewFile)}
+              onRefresh={format === "avif" ? preview.refresh : undefined}
+              result={preview.result}
+              loading={preview.loading}
+              error={preview.error}
+              afterTitle={format === "same" ? undefined : format.toUpperCase()}
+              note={files.length > 1 ? t("common.batchPreviewNote") : undefined}
+            />
           )}
-        </div>
+        </BatchInput>
         <div className="side-col">
           <div className="card">
             <h2 className="card-title">{t("common.settingsCard")}</h2>
@@ -108,25 +83,13 @@ export default function Compress({ onBack }: Props) {
               onPreserveExif={setPreserveExif}
               formats={COMPRESSIBLE_FORMATS}
             />
-            <div className="hint mb-3">
-            </div>
             <OutputPanel value={output} onChange={setOutput} />
           </div>
           <BatchRunner
+            tool="compress"
             files={files}
             runLabel={t("compress.runButton", { count: files.length })}
-            buildJob={(selected) => ({
-              files: selected,
-              steps: [],
-              format: format === "same" ? null : (format as OutFormat),
-              quality,
-              preserve_exif: preserveExif,
-              output: {
-                dir: output.dir,
-                suffix: output.suffix,
-                collision: output.collision,
-              },
-            })}
+            buildJob={(selected) => ({ files: selected, ...settings, output })}
           />
         </div>
       </div>

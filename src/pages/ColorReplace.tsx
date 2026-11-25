@@ -1,4 +1,4 @@
-import { canvasDataUrl } from "../lib/canvas";
+import { saveCanvasImage } from "../lib/canvas";
 import { replaceColors, toHex, hexToRgb, type Rgb } from "../lib/colorReplacement";
 import { replaceColorsOffThread } from "../lib/colorReplacementWorker";
 import { usePersistedState, usePersistedRef } from "../lib/persistedState";
@@ -7,12 +7,9 @@ import { ArrowRight, Plus, X } from "lucide-react";
 import DropZone from "../components/DropZone";
 import PageShell from "../components/PageShell";
 import { useTranslation } from "react-i18next";
-import { loadDefaultOutputDir, readAssetDataUrl, saveBytes } from "../lib/ipc";
+import { readAssetDataUrl } from "../lib/ipc";
 import { CANVAS_FORMATS, unsupportedImageError } from "../lib/types";
 
-interface Props {
-  onBack: () => void;
-}
 
 /** One source → target replacement rule. */
 interface ColorPair {
@@ -26,7 +23,7 @@ const MAX_PAIRS = 6;
 
 let pairId = 1;
 
-export default function ColorReplace({ onBack }: Props) {
+export default function ColorReplace() {
   const { t } = useTranslation();
   const [file, setFile] = usePersistedState<string | null>("local.colorreplace.file", null);
   const [dataUrl, setDataUrl] = usePersistedState<string | null>("local.colorreplace.dataUrl", null);
@@ -129,12 +126,7 @@ export default function ColorReplace({ onBack }: Props) {
       const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const pixels = await replaceColorsOffThread(img.data, activePairs, tolerance);
       ctx.putImageData(new ImageData(pixels, naturalSize.width, naturalSize.height), 0, 0);
-      const out = await canvasDataUrl(canvas);
-      const dir = await loadDefaultOutputDir();
-      if (!dir) return;
-      const path = `${dir.replace(/\/+$/, "")}/recolor-${Date.now()}.png`;
-      await saveBytes(path, out.slice(out.indexOf(",") + 1));
-      setSavedTo(path);
+      setSavedTo(await saveCanvasImage(canvas, "recolor"));
     } catch (e) {
       setError(String(e));
     } finally {
@@ -146,13 +138,11 @@ export default function ColorReplace({ onBack }: Props) {
     <PageShell
       title={t("recolor.title")}
       subtitle={t("recolor.subtitle")}
-      onBack={onBack}
-      badge={<span className="badge badge-mint">{t("common.localBadge")}</span>}
     >
       {!file && error && <div className="banner banner-error">{error}</div>}
       {!file && (
         <DropZone
-          workbench
+          presentation="canvas"
           onFiles={loadFile}
           label={t("recolor.dropLabel")}
           multiple={false}
@@ -166,7 +156,7 @@ export default function ColorReplace({ onBack }: Props) {
 
       {file && dataUrl && naturalSize && (
         <div className="split">
-          <div>
+          <div className="canvas-panel">
             <div className="canvas-wrap cursor-cross">
               <canvas
                 ref={canvasRef}
@@ -188,7 +178,7 @@ export default function ColorReplace({ onBack }: Props) {
                   key={pair.id}
                   style={
                     index === nextIdx
-                      ? { outline: "1.5px dashed var(--violet)", outlineOffset: 4, borderRadius: 10 }
+                      ? { outline: "1.5px dashed var(--brand-teal)", outlineOffset: 4, borderRadius: 10 }
                       : undefined
                   }
                 >
@@ -286,7 +276,7 @@ export default function ColorReplace({ onBack }: Props) {
               )}
             </div>
             <button
-              className="btn btn-block btn-lemon"
+              className="btn btn-block"
               onClick={() => {
                 setFile(null);
                 setDataUrl(null);

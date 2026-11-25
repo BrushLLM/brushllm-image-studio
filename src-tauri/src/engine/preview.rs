@@ -1,8 +1,9 @@
 //! One bounded decoded-image cache. UI preview requests are serialized, so
 //! expensive codecs cannot fan out while the user adjusts their settings.
-use super::{decode, guard, Result};
+use super::{decode, encode, guard, ops, Result, StudioError};
 use std::{
-    path::PathBuf,
+    borrow::Cow,
+    path::{Path, PathBuf},
     sync::{Arc, Mutex, OnceLock},
     time::SystemTime,
 };
@@ -14,38 +15,125 @@ pub struct Source {
 
 struct Cached {
     path: PathBuf,
-    modified: SystemTime,
+    modified: Option<SystemTime>,
     len: u64,
-    source: Arc<Source>,
+    source: Option<Arc<Source>>,
+    crop: Option<CropSource>,
 }
 
-pub fn load(path: &std::path::Path) -> Result<Arc<Source>> {
+struct CropSource {
+    image: image::DynamicImage,
+    width: u32,
+    height: u32,
+}
+
+const MAX_CACHED_BYTES: usize = 128 * 1024 * 1024;
+const CROP_PREVIEW_EDGE: u32 = 1600;
+
+fn with_cached_file<T>(path: &Path, read: impl FnOnce(&mut Cached) -> Result<T>) -> Result<T> {
     static CACHE: OnceLock<Mutex<Option<Cached>>> = OnceLock::new();
-    guard::validate_input_file(path)?;
-    let path = std::fs::canonicalize(path).map_err(|e| super::StudioError::Io(e.to_string()))?;
-    let meta = std::fs::metadata(&path).map_err(|e| super::StudioError::Io(e.to_string()))?;
+    let path = std::fs::canonicalize(path)
+        .map_err(|e| StudioError::Io(format!("cannot read {}: {e}", path.display())))?;
+    let meta = guard::validate_input_file(&path)?;
     let modified = meta.modified().ok();
     let mut cache = CACHE.get_or_init(|| Mutex::new(None)).lock().unwrap();
-    if let Some(entry) = cache.as_ref() {
-        if entry.path == path && Some(entry.modified) == modified && entry.len == meta.len() {
-            return Ok(entry.source.clone());
+    if modified.is_none()
+        || cache.as_ref().is_none_or(|entry| {
+            entry.path != path || entry.modified != modified || entry.len != meta.len()
+        })
+    {
+        *cache = Some(Cached {
+            path,
+            modified,
+            len: meta.len(),
+            source: None,
+            crop: None,
+        });
+    }
+    read(cache.as_mut().unwrap())
+}
+
+pub fn load(path: &Path) -> Result<Arc<Source>> {
+    with_cached_file(path, |entry| {
+        if let Some(source) = &entry.source {
+            return Ok(source.clone());
+        }
+        let bytes = decode::read_bytes(&entry.path)?;
+        let image = decode::decode_bytes(&bytes)?;
+        let size = image.as_bytes().len().saturating_add(bytes.len());
+        let source = Arc::new(Source { bytes, image });
+        if size <= MAX_CACHED_BYTES {
+            entry.source = Some(source.clone());
+        }
+        Ok(source)
+    })
+}
+
+#[derive(serde::Serialize)]
+pub struct CropPreview {
+    pub data_url: String,
+    pub width: u32,
+    pub height: u32,
+}
+
+pub fn crop(path: &Path, steps: &[ops::Step]) -> Result<CropPreview> {
+    if steps.len() > 3 {
+        return Err(StudioError::Param("too many crop preview steps".into()));
+    }
+    let mut swap_dimensions = false;
+    for step in steps {
+        match step {
+            ops::Step::Rotate90 | ops::Step::Rotate270 => swap_dimensions = !swap_dimensions,
+            ops::Step::Rotate180 | ops::Step::FlipH | ops::Step::FlipV => {}
+            _ => return Err(StudioError::Param("unsupported crop preview step".into())),
         }
     }
-    // Drop the previous large source before allocating a new one.
-    *cache = None;
-    let bytes = decode::read_bytes(&path)?;
-    let image = decode::decode_from_buffer(&bytes)?;
-    let size = image.as_bytes().len().saturating_add(bytes.len());
-    let source = Arc::new(Source { bytes, image });
-    if let Some(modified) = modified {
-        if size <= 128 * 1024 * 1024 {
-            *cache = Some(Cached {
-                path,
-                modified,
-                len: meta.len(),
-                source: source.clone(),
+
+    // Cache the bounded raster even when the full image is too large to keep.
+    with_cached_file(path, |entry| {
+        if entry.crop.is_none() {
+            let source = match &entry.source {
+                Some(source) => Cow::Borrowed(&source.image),
+                None => Cow::Owned(decode::decode_file(&entry.path)?),
+            };
+            let (width, height) = (source.width(), source.height());
+            let image = if width.max(height) > CROP_PREVIEW_EDGE {
+                source.thumbnail(CROP_PREVIEW_EDGE, CROP_PREVIEW_EDGE)
+            } else {
+                source.into_owned()
+            };
+            entry.crop = Some(CropSource {
+                image,
+                width,
+                height,
             });
         }
-    }
-    Ok(source)
+        let source = entry.crop.as_ref().unwrap();
+        let image = if steps.is_empty() {
+            Cow::Borrowed(&source.image)
+        } else {
+            Cow::Owned(ops::apply_steps(source.image.clone(), steps)?)
+        };
+        let encoded = encode::encode(
+            &image,
+            &encode::EncodeSettings {
+                format: encode::OutFormat::Png,
+                quality: 33,
+            },
+        )?;
+        let (width, height) = if swap_dimensions {
+            (source.height, source.width)
+        } else {
+            (source.width, source.height)
+        };
+        use base64::Engine;
+        Ok(CropPreview {
+            data_url: format!(
+                "data:image/png;base64,{}",
+                base64::engine::general_purpose::STANDARD.encode(encoded)
+            ),
+            width,
+            height,
+        })
+    })
 }

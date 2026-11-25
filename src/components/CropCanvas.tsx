@@ -1,11 +1,6 @@
 import { usePersistedState } from "../lib/persistedState";
-import {
-  forwardRef,
-  useCallback,
-  useEffect,
-  useImperativeHandle,
-  useRef,
-} from "react";
+import { forwardRef, useImperativeHandle, useRef, type PointerEvent } from "react";
+import { useTranslation } from "react-i18next";
 
 export interface CropRect {
   x: number;
@@ -37,100 +32,65 @@ const CropCanvas = forwardRef<CropCanvasHandle, Props>(function CropCanvas(
   { src, naturalSize, aspect, persistKey },
   ref,
 ) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [rect, setRect] = usePersistedState<CropRect | null>(persistKey, null);
+  const { t } = useTranslation();
+  const [savedRect, setRect] = usePersistedState<CropRect | null>(persistKey, null);
   const drag = useRef<Drag>(null);
+  const { width, height } = naturalSize;
 
-  const initialRect = useCallback((): CropRect => {
-    // Free mode starts with the whole image selected (no crop).
-    if (!aspect) {
-      return {
-        x: 0,
-        y: 0,
-        width: naturalSize.width,
-        height: naturalSize.height,
-      };
-    }
-    const w = Math.round(naturalSize.width * 0.8);
-    const h = Math.min(Math.round(w / aspect), naturalSize.height);
-    const clampedW = Math.min(w, naturalSize.width);
-    const clampedH = Math.min(h, naturalSize.height);
-    const fittedW = Math.min(clampedW, Math.round(clampedH * aspect));
+  const initialRect = (): CropRect => {
+    if (!aspect) return { x: 0, y: 0, width, height };
+    const cropWidth = Math.max(1, Math.min(Math.round(width * 0.8), Math.round(height * aspect)));
+    const cropHeight = Math.max(1, Math.min(height, Math.round(cropWidth / aspect)));
     return {
-      x: Math.round((naturalSize.width - fittedW) / 2),
-      y: Math.round((naturalSize.height - clampedH) / 2),
-      width: fittedW,
-      height: clampedH,
-    };
-  }, [naturalSize.width, naturalSize.height, aspect]);
-
-  useEffect(() => {
-    setRect((current) => current ?? initialRect());
-  }, [initialRect, setRect]);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    if (!rect) return;
-    ctx.fillStyle = "rgba(21, 27, 40, 0.5)";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.clearRect(rect.x, rect.y, rect.width, rect.height);
-    ctx.strokeStyle = "#2aefc8";
-    ctx.lineWidth = Math.max(2, canvas.width / 500);
-    ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
-    // Bottom-right handle.
-    const handleSize = Math.max(14, canvas.width / 40);
-    ctx.fillStyle = "#2aefc8";
-    ctx.fillRect(
-      rect.x + rect.width - handleSize,
-      rect.y + rect.height - handleSize,
-      handleSize,
-      handleSize,
-    );
-  }, [rect, naturalSize.width, naturalSize.height]);
-
-  useImperativeHandle(ref, () => ({
-    getRect: () => rect,
-  }));
-
-  const toNatural = (event: React.PointerEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current!;
-    const bounds = canvas.getBoundingClientRect();
-    return {
-      x: (event.clientX - bounds.left) * (canvas.width / bounds.width),
-      y: (event.clientY - bounds.top) * (canvas.height / bounds.height),
+      x: Math.round((width - cropWidth) / 2),
+      y: Math.round((height - cropHeight) / 2),
+      width: cropWidth,
+      height: cropHeight,
     };
   };
+  const rect = savedRect ?? initialRect();
 
-  const nearHandle = (point: { x: number; y: number }, r: CropRect) => {
-    const threshold = Math.max(18, naturalSize.width / 30);
-    return (
-      point.x > r.x + r.width - threshold &&
-      point.y > r.y + r.height - threshold &&
-      point.x < r.x + r.width + threshold &&
-      point.y < r.y + r.height + threshold
-    );
+  useImperativeHandle(ref, () => ({
+    getRect: () => {
+      const rounded = {
+        x: Math.round(rect.x),
+        y: Math.round(rect.y),
+        width: Math.round(rect.width),
+        height: Math.round(rect.height),
+      };
+      return rounded.width === width && rounded.height === height ? null : rounded;
+    },
+  }));
+
+  const toNatural = (event: PointerEvent<HTMLDivElement>) => {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const scaleX = width / bounds.width;
+    const scaleY = height / bounds.height;
+    return {
+      x: (event.clientX - bounds.left) * scaleX,
+      y: (event.clientY - bounds.top) * scaleY,
+      handleWidth: 16 * scaleX,
+      handleHeight: 16 * scaleY,
+    };
   };
 
   const clampRect = (r: CropRect): CropRect => {
-    const width = Math.max(MIN_SIZE, Math.min(r.width, naturalSize.width));
-    const height = Math.max(MIN_SIZE, Math.min(r.height, naturalSize.height));
+    const cropWidth = Math.min(width, Math.max(MIN_SIZE, r.width));
+    const cropHeight = Math.min(height, Math.max(MIN_SIZE, r.height));
     return {
-      width,
-      height,
-      x: Math.max(0, Math.min(r.x, naturalSize.width - width)),
-      y: Math.max(0, Math.min(r.y, naturalSize.height - height)),
+      width: cropWidth,
+      height: cropHeight,
+      x: Math.max(0, Math.min(r.x, width - cropWidth)),
+      y: Math.max(0, Math.min(r.y, height - cropHeight)),
     };
   };
 
-  const onPointerDown = (event: React.PointerEvent<HTMLCanvasElement>) => {
-    if (!rect) return;
-    event.currentTarget.setPointerCapture(event.pointerId);
+  const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
+    event.currentTarget.setPointerCapture?.(event.pointerId);
     const point = toNatural(event);
-    if (nearHandle(point, rect)) {
+    if (Math.abs(point.x - rect.x - rect.width) < point.handleWidth
+      && Math.abs(point.y - rect.y - rect.height) < point.handleHeight) {
       drag.current = { kind: "resize", rect: { ...rect } };
     } else if (
       point.x >= rect.x &&
@@ -141,11 +101,11 @@ const CropCanvas = forwardRef<CropCanvasHandle, Props>(function CropCanvas(
       drag.current = { kind: "move", startX: point.x, startY: point.y, rect: { ...rect } };
     } else {
       drag.current = { kind: "new", originX: point.x, originY: point.y };
-      setRect({ x: point.x, y: point.y, width: MIN_SIZE, height: MIN_SIZE });
+      setRect(clampRect({ x: point.x, y: point.y, width: MIN_SIZE, height: MIN_SIZE }));
     }
   };
 
-  const onPointerMove = (event: React.PointerEvent<HTMLCanvasElement>) => {
+  const onPointerMove = (event: PointerEvent<HTMLDivElement>) => {
     const active = drag.current;
     if (!active) return;
     const point = toNatural(event);
@@ -174,8 +134,8 @@ const CropCanvas = forwardRef<CropCanvasHandle, Props>(function CropCanvas(
         }),
       );
     } else if (active.kind === "new") {
-      let width = Math.abs(point.x - active.originX);
-      let height = aspect ? width / aspect : Math.abs(point.y - active.originY);
+      const width = Math.abs(point.x - active.originX);
+      const height = aspect ? width / aspect : Math.abs(point.y - active.originY);
       const x = point.x < active.originX ? active.originX - width : active.originX;
       const y = point.y < active.originY ? active.originY - height : active.originY;
       setRect(
@@ -195,16 +155,25 @@ const CropCanvas = forwardRef<CropCanvasHandle, Props>(function CropCanvas(
 
   return (
     <div className="canvas-wrap">
-      <img src={src} alt="source" />
-      <canvas
-        ref={canvasRef}
-        width={naturalSize.width}
-        height={naturalSize.height}
+      <img src={src} alt={t("errors.original")} draggable={false} />
+      <div
+        className="crop-overlay"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
-      />
+        onLostPointerCapture={onPointerUp}
+      >
+        <div
+          className="crop-selection"
+          style={{
+            left: `${rect.x / width * 100}%`,
+            top: `${rect.y / height * 100}%`,
+            width: `${rect.width / width * 100}%`,
+            height: `${rect.height / height * 100}%`,
+          }}
+        />
+      </div>
     </div>
   );
 });

@@ -25,7 +25,7 @@ pub mod limits {
 }
 
 /// Reject non-regular files (FIFOs, devices, sockets) and enforce the size cap.
-pub fn validate_input_file(path: &Path) -> Result<()> {
+pub fn validate_input_file(path: &Path) -> Result<std::fs::Metadata> {
     let meta = std::fs::metadata(path)
         .map_err(|e| StudioError::Io(format!("cannot read {}: {e}", path.display())))?;
     if !meta.is_file() {
@@ -43,7 +43,7 @@ pub fn validate_input_file(path: &Path) -> Result<()> {
             limits::MAX_INPUT_BYTES / (1024 * 1024)
         )));
     }
-    Ok(())
+    Ok(meta)
 }
 
 /// Enforce the decoded-pixel budget (checked multiplication).

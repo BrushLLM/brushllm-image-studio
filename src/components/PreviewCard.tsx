@@ -1,3 +1,4 @@
+import { Image } from "lucide-react";
 import CompareSlider from "./CompareSlider";
 import type { PreviewOutcome } from "../lib/ipc";
 import { formatBytes } from "../lib/types";
@@ -9,95 +10,64 @@ interface Props {
   loading: boolean;
   error: string | null;
   note?: string;
-  /** Label for the "after" pane, e.g. "AVIF · q75". */
   afterTitle?: string;
   onRefresh?: () => void;
 }
 
-export default function PreviewCard({
-  beforeUrl,
-  result,
-  loading,
-  error,
-  note,
-  afterTitle,
-  onRefresh,
-}: Props) {
+export default function PreviewCard({ beforeUrl, result, loading, error, note, afterTitle, onRefresh }: Props) {
   const { t } = useTranslation();
-  // An empty beforeUrl means "result only" (e.g. stitch composites).
-  const showBefore = beforeUrl !== "";
   if (!beforeUrl && !result && !loading && !error) return null;
-  const saved =
-    result && result.in_bytes > 0
-      ? Math.round((1 - result.bytes / result.in_bytes) * 100)
-      : null;
+
+  const before = t("errors.original");
+  const after = afterTitle ?? t("common.result");
+  const saved = result && result.in_bytes > 0
+    ? Math.round((1 - result.bytes / result.in_bytes) * 100)
+    : 0;
 
   return (
-    <div className="card">
-      <div className="row row-center mb-3">
-        <h2 className="m-0">{t("common.preview")}</h2>
-        <div className="flex-1" />
-        {onRefresh && <button className="btn btn-sm" disabled={loading} onClick={onRefresh}>{t("common.exactPreview")}</button>}
-        {result && saved !== null && saved > 0 && (
+    <section className="studio-preview" aria-label={t("common.preview")}>
+      <header className="preview-heading">
+        <h2><span className="preview-icon"><Image aria-hidden="true" /></span>{t("common.preview")}</h2>
+        {result && saved > 0 && (
           <span className="badge badge-ok">{t("errors.smallerBadge", { pct: saved })}</span>
         )}
         {loading && (
-          <span className="status-note">
-            <span className="spinner" /> {t("errors.rendering")}
+          <span className="status-note" role="status">
+            <span className="spinner" aria-hidden="true" /> {t("errors.rendering")}
           </span>
         )}
-      </div>
-      {onRefresh && !result && !loading && <p className="status-note">{t("common.manualPreviewHint")}</p>}
-
-      {showBefore && result ? (
-        <div style={{ textAlign: "center" }}>
+        {onRefresh && (
+          <button type="button" className="btn btn-sm" disabled={loading} onClick={onRefresh}>
+            {t("common.exactPreview")}
+          </button>
+        )}
+      </header>
+      <div className="preview-stage" aria-busy={loading}>
+        {beforeUrl && result ? (
           <CompareSlider
             before={beforeUrl}
             after={result.data_url}
-            beforeTag={`${t("errors.original")} · ${formatBytes(result.in_bytes)}`}
-            afterTag={`${afterTitle ? `${afterTitle} · ` : ""}${formatBytes(result.bytes)}`}
+            beforeTag={`${before} · ${formatBytes(result.in_bytes)}`}
+            afterTag={`${after} · ${formatBytes(result.bytes)}`}
           />
-        </div>
-      ) : (
-        <div className="preview-row">
-          {showBefore && (
-            <figure className="preview-fig">
-              <img src={beforeUrl} alt="before" />
-              <figcaption>
-                {t("errors.original")}{result ? ` · ${formatBytes(result.in_bytes)}` : ""}
-              </figcaption>
-            </figure>
-          )}
-          {showBefore && <div className="preview-arrow">→</div>}
-          <figure className="preview-fig">
-            {result ? (
-              <img src={result.data_url} alt="after" />
-            ) : (
-              <div className="preview-placeholder">
-                {loading ? "…" : error ? t("errors.cannotPreview") : t("errors.adjustSettings")}
-              </div>
-            )}
-            <figcaption>
-              {t("common.result")}
-              {result ? (
-                <>
-                  {" · "}
-                  {formatBytes(result.bytes)}
-                  {saved !== null && saved > 0 ? ` · −${saved}%` : ""}
-                </>
-              ) : (
-                ""
-              )}
-            </figcaption>
+        ) : beforeUrl || result ? (
+          <figure className="preview-single">
+            <img src={result?.data_url ?? beforeUrl} alt={result ? after : before} />
+            <figcaption>{result ? `${after} · ${formatBytes(result.bytes)}` : before}</figcaption>
           </figure>
-        </div>
+        ) : (
+          <p className="status-note">{loading ? t("errors.rendering") : t("errors.cannotPreview")}</p>
+        )}
+      </div>
+      {(note || onRefresh || error) && (
+        <footer className="preview-footer">
+          {onRefresh && !result && !loading && !error && (
+            <p className="status-note">{t("common.manualPreviewHint")}</p>
+          )}
+          {note && <p className="status-note">{note}</p>}
+          {error && <p className="status-note text-danger" role="alert">{error}</p>}
+        </footer>
       )}
-      {note && <p className="status-note mt-3">{note}</p>}
-      {error && (
-        <p className="status-note mt-2 text-danger">
-          {error}
-        </p>
-      )}
-    </div>
+    </section>
   );
 }

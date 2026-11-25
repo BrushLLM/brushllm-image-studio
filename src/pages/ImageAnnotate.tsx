@@ -1,4 +1,4 @@
-import { canvasDataUrl } from "../lib/canvas";
+import { saveCanvasImage } from "../lib/canvas";
 import { usePersistedState, usePersistedRef } from "../lib/persistedState";
 import { useEffect, useRef, type PointerEvent as ReactPointerEvent } from "react";
 import {
@@ -11,13 +11,9 @@ import {
 } from "lucide-react";
 import DropZone from "../components/DropZone";
 import PageShell from "../components/PageShell";
-import { loadDefaultOutputDir, readAssetDataUrl, saveBytes } from "../lib/ipc";
+import { readAssetDataUrl } from "../lib/ipc";
 import { CANVAS_FORMATS, unsupportedImageError } from "../lib/types";
 import { useTranslation } from "react-i18next";
-
-interface Props {
-  onBack: () => void;
-}
 
 type Tool = "rect" | "ellipse" | "line" | "arrow" | "highlight" | "text";
 
@@ -140,7 +136,7 @@ function outlineColor(color: string): string {
   return (r * 299 + g * 587 + b * 114) / 1000 > 150 ? "#1c1917" : "#ffffff";
 }
 
-export default function ImageAnnotate({ onBack }: Props) {
+export default function ImageAnnotate() {
   const { t } = useTranslation();
   const [file, setFile] = usePersistedState<string | null>("local.annotate.file", null);
   const [dataUrl, setDataUrl] = usePersistedState<string | null>("local.annotate.dataUrl", null);
@@ -240,17 +236,10 @@ export default function ImageAnnotate({ onBack }: Props) {
 
   const exportImage = async () => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
-    // With a default output folder configured, save straight into it —
-    // no dialog. Otherwise fall back to the save dialog.
-    const dir = await loadDefaultOutputDir();
-    if (!dir) return;
-    const path = `${dir.replace(/\/+$/, "")}/annotated-${Date.now()}.png`;
+    if (!canvas || busy) return;
     setBusy(true);
     try {
-      const out = await canvasDataUrl(canvas);
-      await saveBytes(path, out.slice(out.indexOf(",") + 1));
-      setSavedTo(path);
+      setSavedTo(await saveCanvasImage(canvas, "annotated"));
     } catch (e) {
       setError(String(e));
     } finally {
@@ -262,13 +251,11 @@ export default function ImageAnnotate({ onBack }: Props) {
     <PageShell
       title={t("annotate.title")}
       subtitle={t("annotate.subtitle")}
-      onBack={onBack}
-      badge={<span className="badge badge-mint">{t("common.localBadge")}</span>}
     >
       {!file && error && <div className="banner banner-error">{error}</div>}
       {!file && (
         <DropZone
-          workbench
+          presentation="canvas"
           onFiles={loadFile}
           label={t("annotate.dropLabel")}
           multiple={false}
@@ -282,7 +269,7 @@ export default function ImageAnnotate({ onBack }: Props) {
 
       {file && dataUrl && naturalSize && (
         <div className="split">
-          <div>
+          <div className="canvas-panel">
             <div className="toolbar">
               {TOOLS.map(({ id, label, icon: Icon }) => (
                 <button
@@ -329,7 +316,7 @@ export default function ImageAnnotate({ onBack }: Props) {
                         borderRadius: 8,
                         border:
                           color === c
-                            ? "2.5px solid var(--violet)"
+                            ? "2.5px solid var(--brand-teal)"
                             : "1px solid var(--border-strong)",
                         background: c,
                         cursor: "pointer",
@@ -403,7 +390,7 @@ export default function ImageAnnotate({ onBack }: Props) {
               )}
             </div>
             <button
-              className="btn btn-block btn-lemon"
+              className="btn btn-block"
               onClick={() => {
                 setFile(null);
                 setDataUrl(null);

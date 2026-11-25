@@ -1,5 +1,8 @@
 {
   "common": {
+    "previewImage": "Aperçu de {{name}}",
+    "batchPreviewNote": "Sélectionnez une vignette à comparer. Vos réglages s’appliquent à tout le lot.",
+    "addImages": "Ajouter des images",
     "tools": "Outils",
     "settings": "Réglages",
     "save": "Enregistrer",
@@ -42,7 +45,22 @@
     "compare": "Comparer l’original et le résultat",
     "savedTo": "Enregistré dans {{path}}"
   },
+  "navigation": {
+    "fileTools": "Fichiers et taille",
+    "editTools": "Retouche d’images",
+    "markTools": "Annotations et couleur",
+    "label": "Navigation des outils",
+    "allTools": "Tous les outils",
+    "onlineAi": "IA en ligne",
+    "collapse": "Réduire la barre latérale",
+    "expand": "Développer la barre latérale",
+    "skip": "Aller à l’espace de travail",
+    "search": "Rechercher des outils",
+    "customEditDescription": "Modifiez une image avec vos propres instructions et un masque facultatif."
+  },
   "home": {
+    "workspaceIntro": "Choisissez un outil ou ouvrez des images à convertir.",
+    "importLabel": "Déposez des images à convertir",
     "heroTitle": "Vos images, la vitesse en local — l'IA quand il le faut.",
     "heroSub": "Les outils du quotidien tournent gratuitement sur cet appareil. Les problèmes difficiles — génération, détourage, filigranes — passent par la boîte à outils IA de BrushLLM.",
     "localSection": "Local · Gratuit · Sur l'appareil",
@@ -72,7 +90,7 @@
     "generateName": "Générer une image",
     "generateDesc": "Créez une image inédite à partir d'un texte.",
     "removeBgName": "Supprimer l'arrière-plan",
-    "removeBgDesc": "Suppression propre de l'arrière-plan par régénération IA.",
+    "removeBgDesc": "Remplacez l’arrière-plan par un blanc uni.",
     "cutoutName": "Détourage",
     "cutoutDesc": "Isolez le sujet sur un arrière-plan transparent.",
     "removeWmName": "Supprimer le filigrane",
@@ -119,7 +137,7 @@
     "firstOfMany": "L'aperçu montre la première des {{count}} images.",
     "hintJpeg": "Plus élevé = meilleure qualité, fichiers plus lourds.",
     "hintPng": "Plus élevé = compression plus forte (toujours sans perte).",
-    "hintWebp": "La sortie WebP est sans perte (la qualité ne s'applique pas).",
+    "hintWebp": "WebP utilise une compression avec perte. Une qualité plus basse réduit la taille du fichier.",
     "hintAvif": "Plus élevé = meilleure qualité, fichiers plus lourds. 50–70 est souvent le meilleur pour les photos.",
     "hintTiff": "TIFF est toujours sans perte.",
     "hintBmp": "BMP est toujours sans perte (fichiers volumineux).",
@@ -162,15 +180,20 @@
     "firstOfMany": "L'aperçu montre la première des {{count}} images."
   },
   "crop": {
+    "rotateLeft": "Pivoter de 90° à gauche",
+    "rotateRight": "Pivoter de 90° à droite",
+    "rotation": "Rotation de {{angle}}°",
     "title": "Rogner et pivoter",
     "subtitle": "Faites glisser le cadre de rognage, choisissez un ratio, pivotez ou reflétez — l'aperçu correspond toujours à la sortie. En local — gratuit et privé.",
     "dropLabel": "Déposez une image à rogner",
     "free": "Libre",
     "output": "Sortie",
-    "flipH": "⇋ Miroir horizontal",
-    "flipV": "⇅ Miroir vertical"
+    "flipH": "Miroir horizontal",
+    "flipV": "Miroir vertical"
   },
   "stitch": {
+    "moveEarlier": "Déplacer plus tôt",
+    "moveLater": "Déplacer plus tard",
     "title": "Assembler des images",
     "subtitle": "Combinez plusieurs images en une seule longue — verticalement ou horizontalement, avec espacement et alignement. En local — gratuit et privé.",
     "dropLabel": "Déposez les images à assembler (dans l'ordre)",
@@ -305,6 +328,10 @@
     "savePng": "Enregistrer le PNG annoté"
   },
   "ai": {
+    "billingShort": "Connexion Internet requise. Facturation à l’usage.",
+    "checkingKey": "Vérification de la clé API…",
+    "requestDisclosure": "Connexion Internet requise. Le service d’image configuré reçoit vos instructions et les images ou masques inclus. La facturation dépend de l’usage.",
+    "resultEmpty": "Les images générées s’affichent ici.",
     "title": "Boîte à outils IA",
     "subtitle": "Générez des images inédites, ou peignez la zone à problème et laissez les modèles d'image de BrushLLM la régénérer. Dans le cloud, facturé à l'image.",
     "noKey": "Aucune clé API configurée.",
@@ -494,6 +521,7 @@
     "clipboard": "impossible d'accéder au presse-papiers"
   },
   "batch": {
+    "processingIn": "Traitement en cours dans {{tool}}",
     "done": "{{count}} terminées",
     "failed": "{{count}} échouées",
     "skipped": "{{count}} ignorées",
@@ -522,7 +550,7 @@
     "dropLabel": "Déposez une image à pixeliser",
     "blockSize": "Taille de bloc",
     "blockHint": "Grands blocs masquent plus ; petits gardent le détail.",
-    "hint": "Peignez les zones à pixeliser — le voile violet marque la sélection.",
+    "hint": "Peignez les zones à pixelliser.",
     "saveButton": "Enregistrer le PNG mosaïque"
   },
   "shadow": {

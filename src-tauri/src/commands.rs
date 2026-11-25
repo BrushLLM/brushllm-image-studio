@@ -254,8 +254,8 @@ pub fn pictures_dir(app: AppHandle) -> Option<String> {
 /// Lightweight file facts (name + size) for queue thumbnails.
 #[tauri::command]
 pub fn file_meta(path: String) -> Result<serde_json::Value, String> {
-    guard::validate_input_file(std::path::Path::new(&path)).map_err(|e| e.to_string())?;
-    let meta = std::fs::metadata(&path).map_err(|e| format!("cannot stat {path}: {e}"))?;
+    let meta =
+        guard::validate_input_file(std::path::Path::new(&path)).map_err(|e| e.to_string())?;
     let name = std::path::Path::new(&path)
         .file_name()
         .map(|n| n.to_string_lossy().to_string())
@@ -507,6 +507,18 @@ pub async fn preview_batch(
     })
     .await
     .map_err(|e| format!("preview failed: {e}"))?
+}
+
+#[tauri::command]
+pub async fn preview_crop(
+    file: String,
+    steps: Vec<crate::engine::ops::Step>,
+) -> Result<crate::engine::preview::CropPreview, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::engine::preview::crop(std::path::Path::new(&file), &steps).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| format!("crop preview failed: {e}"))?
 }
 
 #[tauri::command]

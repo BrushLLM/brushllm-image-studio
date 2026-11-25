@@ -1,268 +1,151 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
+import { Search, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import {
-  Bandage,
-  Combine,
-  Crop,
-  Eraser,
-  FlipHorizontal,
-  Frame,
-  Grid2x2,
-  Layers,
-  PaintBucket,
-  SlidersHorizontal,
-  ImageOff,
-  Maximize2,
-  Minimize2,
-  Palette,
-  PenTool,
-  Pipette,
-  Repeat,
-  Scissors,
-  Search,
-  Settings as SettingsIcon,
-  Sparkles,
-  Stamp,
-  Tags,
-  Wand2,
-  type LucideIcon,
-} from "lucide-react";
-import type { Page } from "../pages/Home";
+import { AI_TOOLS, LOCAL_TOOLS, SETTINGS_TOOL, isAiTool, type Page } from "../lib/tools";
 
-export interface CommandItem {
-  page: Page;
-  tool?: string;
-  labelKey: string;
-  descKey: string;
-  icon: LucideIcon;
-  section: "Local tools" | "AI tools" | "Other";
-  /** Language-independent search terms: the English tool name plus common
-   *  aliases. Matched in addition to the translated label/description, so
-   *  "ColorReplace", "convert" or "webp" find the tool in any UI language. */
-  keywords?: string[];
+const COMMANDS = [...LOCAL_TOOLS, ...AI_TOOLS, SETTINGS_TOOL];
+const SUGGESTIONS = LOCAL_TOOLS.slice(0, 5);
+const LIST_ID = "tool-search-results";
+
+function sectionKey(page: Page) {
+  if (page === "settings") return "cmdk.otherSection";
+  return isAiTool(page) ? "navigation.onlineAi" : "cmdk.localSection";
 }
 
-export const COMMANDS: CommandItem[] = [
-{ page: "convert", labelKey: "home.convertName",
-  descKey: "cmdk.convertDesc", icon: Repeat, section: "Local tools",
-  keywords: ["convert", "format", "jpg", "jpeg", "png", "webp", "avif"] },
-{ page: "compress", labelKey: "home.compressName",
-  descKey: "cmdk.compressDesc", icon: Minimize2, section: "Local tools",
-  keywords: ["compress", "shrink", "smaller", "quality"] },
-{ page: "resize", labelKey: "home.resizeName",
-  descKey: "cmdk.resizeDesc", icon: Maximize2, section: "Local tools",
-  keywords: ["resize", "scale"] },
-{ page: "crop", labelKey: "home.cropName",
-  descKey: "cmdk.cropDesc", icon: Crop, section: "Local tools",
-  keywords: ["crop", "rotate", "flip"] },
-{ page: "watermark", labelKey: "home.watermarkName",
-  descKey: "cmdk.watermarkDesc", icon: Stamp, section: "Local tools",
-  keywords: ["watermark", "overlay", "text"] },
-{ page: "exif", labelKey: "home.exifName",
-  descKey: "cmdk.exifDesc", icon: Tags, section: "Local tools",
-  keywords: ["exif", "metadata", "gps"] },
-{ page: "stitch", labelKey: "home.stitchName",
-  descKey: "cmdk.stitchDesc", icon: Combine, section: "Local tools",
-  keywords: ["stitch", "combine", "strip", "long"] },
-{ page: "rounded", labelKey: "home.roundedName",
-  descKey: "cmdk.roundedDesc", icon: Frame, section: "Local tools",
-  keywords: ["rounded", "corners", "radius"] },
-{ page: "picker", labelKey: "home.pickerName",
-  descKey: "cmdk.pickerDesc", icon: Pipette, section: "Local tools",
-  keywords: ["picker", "color", "eyedropper", "hex", "rgb"] },
-{ page: "annotate", labelKey: "home.annotateName",
-  descKey: "cmdk.annotateDesc", icon: PenTool, section: "Local tools",
-  keywords: ["annotate", "markup", "arrows", "shapes"] },
-{ page: "mirror", labelKey: "home.mirrorName", descKey: "cmdk.mirrorDesc", icon: FlipHorizontal, section: "Local tools",
-  keywords: ["mirror", "reflect", "symmetry"] },
-{ page: "adjust", labelKey: "home.adjustName", descKey: "cmdk.adjustDesc", icon: SlidersHorizontal, section: "Local tools",
-  keywords: ["adjust", "brightness", "contrast", "saturation"] },
-{ page: "mosaic", labelKey: "home.mosaicName", descKey: "cmdk.mosaicDesc", icon: Grid2x2, section: "Local tools",
-  keywords: ["mosaic", "pixelate", "blur", "censor"] },
-{ page: "shadow", labelKey: "home.shadowName", descKey: "cmdk.shadowDesc", icon: Layers, section: "Local tools",
-  keywords: ["shadow", "drop shadow"] },
-{ page: "colorreplace", labelKey: "home.recolorName", descKey: "cmdk.recolorDesc", icon: PaintBucket, section: "Local tools",
-  keywords: ["colorreplace", "color replace", "recolor", "swap color"] },
-{ page: "repaint", tool: "generate-image", labelKey: "home.generateName",
-  descKey: "cmdk.generateDesc", icon: Sparkles, section: "AI tools",
-  keywords: ["generate", "text to image", "t2i", "ai image"] },
-{ page: "repaint", tool: "remove-background", labelKey: "home.removeBgName",
-  descKey: "cmdk.removeBgDesc", icon: ImageOff, section: "AI tools",
-  keywords: ["remove background", "removebackground", "background"] },
-{ page: "repaint", tool: "cutout", labelKey: "home.cutoutName",
-  descKey: "cmdk.cutoutDesc", icon: Scissors, section: "AI tools",
-  keywords: ["cutout", "cut out", "subject"] },
-{ page: "repaint", tool: "remove-watermark", labelKey: "home.removeWmName",
-  descKey: "cmdk.removeWmDesc", icon: Eraser, section: "AI tools",
-  keywords: ["remove watermark", "removewatermark"] },
-{ page: "repaint", tool: "remove-object", labelKey: "home.removeObjectName",
-  descKey: "cmdk.removeObjDesc", icon: Bandage, section: "AI tools",
-  keywords: ["remove object", "removeobject", "erase"] },
-{ page: "repaint", tool: "generative-fill", labelKey: "home.fillName",
-  descKey: "cmdk.fillDesc", icon: Wand2, section: "AI tools",
-  keywords: ["generative fill", "fill", "inpaint"] },
-{ page: "repaint", tool: "restyle", labelKey: "home.restyleName",
-  descKey: "cmdk.restyleDesc", icon: Palette, section: "AI tools",
-  keywords: ["restyle", "style", "redraw"] },
-{ page: "settings", labelKey: "common.settings",
-  descKey: "cmdk.settingsDesc", icon: SettingsIcon, section: "Other",
-  keywords: ["settings", "preferences", "config", "api key"] },
-];
-
 interface Props {
-  onNavigate: (page: Page, tool?: string) => void;
+  onNavigate: (page: Page) => void;
   onClose: () => void;
 }
 
 export default function CommandPalette({ onNavigate, onClose }: Props) {
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState(0);
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const dialogRef = useRef<HTMLDialogElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  const results = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return COMMANDS;
-    // CamelCase queries like "ColorReplace" tokenize to ["colorreplace",
-    // "color", "replace"] so both the joined form and individual words hit.
-    const tokens = q.match(/[a-z0-9]+/g) ?? [q];
-    return COMMANDS.filter((item) => {
-      const haystack = [
-        t(item.labelKey).toLowerCase(),
-        t(item.descKey).toLowerCase(),
-        ...(item.keywords ?? []),
-      ];
-      return haystack.some((h) => h.includes(q)) || tokens.every((tok) =>
-        haystack.some((h) => h.includes(tok)),
-      );
-    });
-  }, [query]);
+  const search = query.trim().toLowerCase();
+  const tokens = search.match(/[a-z0-9]+/g) ?? [search];
+  const matches = search
+    ? COMMANDS.filter((item) => {
+        const keys = [
+          t(item.labelKey).toLowerCase(),
+          t(item.searchDescriptionKey).toLowerCase(),
+          ...item.keywords,
+        ];
+        return keys.some((key) => key.includes(search)) ||
+          tokens.every((token) => keys.some((key) => key.includes(token)));
+      })
+    : COMMANDS;
+  const showingSuggestions = matches.length === 0;
+  const results = showingSuggestions ? SUGGESTIONS : matches;
+  const selected = activeIndex ?? (showingSuggestions ? -1 : 0);
+  const selectedItem = results[selected];
 
-  useEffect(() => {
-    setSelected(0);
-  }, [query]);
-
-  useEffect(() => {
+  useLayoutEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    dialog.showModal();
     inputRef.current?.focus();
+    return () => dialog.close();
   }, []);
 
-  // Keep the selected row visible while arrowing through the list.
   useEffect(() => {
-    const el = listRef.current?.querySelector<HTMLElement>(
-      `[data-index="${selected}"]`,
-    );
-    el?.scrollIntoView({ block: "nearest" });
-  }, [selected]);
+    listRef.current?.querySelector<HTMLElement>('[aria-selected="true"]')
+      ?.scrollIntoView?.({ block: "nearest" });
+  }, [selectedItem]);
 
-  const run = (item: CommandItem | undefined) => {
-    if (!item) return;
-    onNavigate(item.page, item.tool);
+  const changeQuery = (value: string) => {
+    setQuery(value);
+    setActiveIndex(null);
+  };
+
+  const run = (page: Page) => {
+    onNavigate(page);
     onClose();
   };
 
-  const onKeyDown = (e: ReactKeyboardEvent) => {
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setSelected((s) => Math.min(results.length - 1, s + 1));
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setSelected((s) => Math.max(0, s - 1));
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      run(results[selected]);
-    } else if (e.key === "Escape") {
-      e.preventDefault();
-      onClose();
+  const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.nativeEvent.isComposing) return;
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setActiveIndex(Math.min(results.length - 1, selected + 1));
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setActiveIndex(Math.max(0, selected - 1));
+    } else if (event.key === "Enter" && selectedItem) {
+      event.preventDefault();
+      run(selectedItem.id);
     }
   };
 
-  let lastSection = "";
-
   return (
-    <div className="cmdk-overlay" onPointerDown={onClose}>
-      <div
-        className="cmdk"
-        role="dialog"
-        aria-modal="true"
-        aria-label={t("cmdk.placeholder")}
-        onPointerDown={(e) => e.stopPropagation()}
-        onKeyDown={onKeyDown}
-      >
-        <div className="cmdk-search">
-          <Search />
-          <input
-            ref={inputRef}
-            value={query}
-            placeholder={t("cmdk.placeholder")}
-            onChange={(e) => setQuery(e.target.value)}
-            spellCheck={false}
-          />
-          {query && (
-            <button
-              className="cmdk-clear"
-              aria-label={t("cmdk.clear")}
-              onClick={() => {
-                setQuery("");
-                inputRef.current?.focus();
-              }}
-            >
-              ×
-            </button>
-          )}
-          <span className="kbd cmdk-kbd">esc</span>
-        </div>
-        <div className="cmdk-list" ref={listRef}>
-          {results.length === 0 && (
-            <>
-              <div className="cmdk-empty">{t("cmdk.empty", { query: query.trim() })}</div>
-              <div className="cmdk-section">{t("cmdk.suggestSection")}</div>
-              {COMMANDS.slice(0, 5).map((item, i) => (
-                <button
-                  key={`sug-${item.page}-${item.tool ?? ""}`}
-                  className="cmdk-item"
-                  data-index={i}
-                  role="option"
-                  aria-selected={false}
-                  onPointerEnter={() => setSelected(-1)}
-                  onClick={() => run(item)}
-                >
-                  <item.icon />
-                  <span className="cmdk-item-text">
-                    {t(item.labelKey)}
-                    <span className="cmdk-item-desc">{t(item.descKey)}</span>
-                  </span>
-                </button>
-              ))}
-            </>
-          )}
-          {results.map((item, index) => {
-            const header =
-              item.section !== lastSection ? t(`cmdk.${item.section === "Local tools" ? "localSection" : item.section === "AI tools" ? "aiSection" : "otherSection"}`) : null;
-            lastSection = item.section;
-            return (
-              <div key={`${item.page}-${item.tool ?? ""}`}>
-                {header && <div className="cmdk-section">{header}</div>}
-                <button
-                  className={`cmdk-item${index === selected ? " selected" : ""}`}
-                  data-index={index}
-                  role="option"
-                  aria-selected={index === selected}
-                  onPointerEnter={() => setSelected(index)}
-                  onClick={() => run(item)}
-                >
-                  <item.icon />
-                  <span className="cmdk-item-text">
-                    {t(item.labelKey)}
-                    <span className="cmdk-item-desc">{t(item.descKey)}</span>
-                  </span>
-                  <span className="kbd cmdk-enter">↵</span>
-                </button>
-              </div>
-            );
-          })}
-        </div>
+    <dialog
+      className="cmdk"
+      ref={dialogRef}
+      aria-label={t("navigation.search")}
+      onCancel={(event) => { event.preventDefault(); onClose(); }}
+      onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}
+    >
+      <div className="cmdk-search">
+        <Search aria-hidden="true" />
+        <input
+          ref={inputRef}
+          role="combobox"
+          aria-label={t("navigation.search")}
+          aria-expanded="true"
+          aria-autocomplete="list"
+          aria-controls={LIST_ID}
+          aria-activedescendant={selectedItem ? `${LIST_ID}-${selectedItem.id}` : undefined}
+          value={query}
+          placeholder={t("cmdk.placeholder")}
+          onChange={(event) => changeQuery(event.target.value)}
+          onKeyDown={onKeyDown}
+          spellCheck={false}
+        />
+        {query && (
+          <button type="button" className="cmdk-clear" aria-label={t("cmdk.clear")} onClick={() => {
+            changeQuery("");
+            inputRef.current?.focus();
+          }}>
+            <X aria-hidden="true" />
+          </button>
+        )}
+        <kbd className="kbd cmdk-kbd" aria-hidden="true">Esc</kbd>
       </div>
-    </div>
+      {showingSuggestions && (
+        <p className="cmdk-empty" role="status">{t("cmdk.empty", { query: query.trim() })}</p>
+      )}
+      <div id={LIST_ID} className="cmdk-list" role="listbox"
+        aria-label={t(showingSuggestions ? "cmdk.suggestSection" : "navigation.search")} ref={listRef}>
+        {results.map((item, index) => {
+          const section = showingSuggestions ? "cmdk.suggestSection" : sectionKey(item.id);
+          const previous = results[index - 1];
+          const showSection = !previous || (!showingSuggestions && sectionKey(previous.id) !== section);
+          return (
+            <div key={item.id} role="presentation">
+              {showSection && <div className="cmdk-section" aria-hidden="true">{t(section)}</div>}
+              <button
+                id={`${LIST_ID}-${item.id}`}
+                type="button"
+                className={`cmdk-item${index === selected ? " selected" : ""}`}
+                role="option"
+                tabIndex={-1}
+                aria-selected={index === selected}
+                onPointerEnter={() => setActiveIndex(index)}
+                onClick={() => run(item.id)}
+              >
+                <item.icon aria-hidden="true" />
+                <span className="cmdk-item-text">
+                  {t(item.labelKey)}
+                  <span className="cmdk-item-desc">{t(item.searchDescriptionKey)}</span>
+                </span>
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </dialog>
   );
 }

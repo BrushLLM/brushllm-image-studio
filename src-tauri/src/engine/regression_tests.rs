@@ -197,6 +197,7 @@ fn stitch_checks_combined_input_headers_before_decoding() {
 
 #[test]
 fn preview_cache_reuses_decoding_and_invalidates_modified_files() {
+    let _serial = PREVIEW_CACHE_TESTS.lock().unwrap();
     let dir = std::env::temp_dir().join(format!("studio-cache-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join("source.bmp");
@@ -220,6 +221,53 @@ fn preview_cache_reuses_decoding_and_invalidates_modified_files() {
     let updated = preview::load(&path).unwrap();
     assert!(!std::sync::Arc::ptr_eq(&first, &updated));
     assert_eq!(updated.image.width(), 16);
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+// These tests exercise the same single-file cache as the desktop commands.
+static PREVIEW_CACHE_TESTS: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+#[test]
+fn crop_preview_bounds_the_raster_and_uses_export_orientation() {
+    use base64::Engine;
+    use image::Rgb;
+    let _serial = PREVIEW_CACHE_TESTS.lock().unwrap();
+    let dir = std::env::temp_dir().join(format!("studio-crop-preview-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("source.png");
+    let (width, height) = (2400, 1200);
+    let source = image::RgbImage::from_fn(width, height, |x, y| {
+        Rgb([
+            if x < width / 2 { 255 } else { 0 },
+            if y < height / 2 { 255 } else { 0 },
+            0,
+        ])
+    });
+    source.save(&path).unwrap();
+    let steps = [ops::Step::Rotate90, ops::Step::FlipH];
+    let preview = preview::crop(&path, &steps).unwrap();
+    let png = base64::engine::general_purpose::STANDARD
+        .decode(
+            preview
+                .data_url
+                .strip_prefix("data:image/png;base64,")
+                .unwrap(),
+        )
+        .unwrap();
+    let thumbnail = image::load_from_memory(&png).unwrap().to_rgb8();
+    let edited = ops::apply_steps(image::DynamicImage::ImageRgb8(source), &steps)
+        .unwrap()
+        .to_rgb8();
+    assert_eq!((preview.width, preview.height), edited.dimensions());
+    assert_eq!(thumbnail.dimensions(), (800, 1600));
+    assert_eq!(
+        thumbnail.get_pixel(799, 0),
+        edited.get_pixel(preview.width - 1, 0)
+    );
+    assert_eq!(
+        thumbnail.get_pixel(0, 1599),
+        edited.get_pixel(0, preview.height - 1)
+    );
     std::fs::remove_dir_all(dir).unwrap();
 }
 

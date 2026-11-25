@@ -4,8 +4,8 @@ import type {
   BatchReport,
   Collision,
   EditResult,
-  OutFormat,
   OverlayJob,
+  RenderSettings,
   Settings,
   Step,
   StitchJob,
@@ -129,15 +129,21 @@ export interface PreviewOutcome {
   in_bytes: number;
 }
 
-export function previewBatch(args: {
-  preserveExif: boolean;
-  file: string;
-  steps: Step[];
-  format: OutFormat | null;
-  quality: number;
-}): Promise<PreviewOutcome> {
-  const { preserveExif, ...rest } = args;
-  return invoke("preview_batch", { ...rest, preserveExif });
+export function previewBatch(
+  file: string,
+  { preserve_exif, ...settings }: RenderSettings,
+): Promise<PreviewOutcome> {
+  return invoke("preview_batch", { file, ...settings, preserveExif: preserve_exif });
+}
+
+export interface CropPreview {
+  data_url: string;
+  width: number;
+  height: number;
+}
+
+export function previewCrop(file: string, steps: Step[]): Promise<CropPreview> {
+  return invoke("preview_crop", { file, steps });
 }
 
 export function previewStitch(files: string[], opts: StitchOpts): Promise<PreviewOutcome> {

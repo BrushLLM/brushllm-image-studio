@@ -21,18 +21,13 @@ import { LANGUAGES, resolveLanguage } from "../i18n";
 import { usePersistedState } from "../lib/persistedState";
 import { version as appVersion } from "../../package.json";
 
-
-interface Props {
-  onBack: () => void;
-}
-
 const APPEARANCES: { value: Appearance; labelKey: string; icon: typeof Sun }[] = [
   { value: "system", labelKey: "settings.system", icon: Monitor },
   { value: "light", labelKey: "settings.light", icon: Sun },
   { value: "dark", labelKey: "settings.dark", icon: Moon },
 ];
 
-export default function Settings({ onBack }: Props) {
+export default function Settings() {
   const { t } = useTranslation();
   const [keyInput, setKeyInput] = useState("");
   const [hasKey, setHasKey] = useState(false);
@@ -292,7 +287,6 @@ export default function Settings({ onBack }: Props) {
     <PageShell
       title={t("settings.title")}
       subtitle={t("settings.subtitle")}
-      onBack={onBack}
     >
       <div className="split">
         <div>
@@ -444,7 +438,7 @@ export default function Settings({ onBack }: Props) {
               </div>
             )}
             <button
-              className="btn btn-block btn-credits mt-3"
+              className="btn btn-block mt-3"
               onClick={() => openUrl("https://api.brushllm.com/login")}
             >
               <Coins /> {t("ai.getCredits")}
@@ -495,6 +489,7 @@ export default function Settings({ onBack }: Props) {
                   <button
                     key={value}
                     className={`radio-chip${appearance === value ? " active" : ""}`}
+                    aria-pressed={appearance === value}
                     onClick={() => chooseAppearance(value)}
                   >
                     <Icon />
@@ -514,6 +509,8 @@ export default function Settings({ onBack }: Props) {
                 <button
                   key={value}
                   className={`radio-chip${language === value ? " active" : ""}`}
+                  aria-pressed={language === value}
+                  title={label}
                   onClick={() => chooseLanguage(value)}
                 >
                   {label}
@@ -552,12 +549,15 @@ export default function Settings({ onBack }: Props) {
               <br />
               <br />
               {t("settings.docs")}:{" "}
-              <span
-                className="banner-link"
-                onClick={() => openUrl("https://brushllm.com/docs")}
+              <a
+                href="https://brushllm.com/docs"
+                onClick={(event) => {
+                  event.preventDefault();
+                  void openUrl("https://brushllm.com/docs");
+                }}
               >
                 https://brushllm.com/docs
-              </span>
+              </a>
             </p>
 
             <div className="field" style={{ borderTop: "1px solid var(--border)", marginTop: 14, paddingTop: 14 }}>

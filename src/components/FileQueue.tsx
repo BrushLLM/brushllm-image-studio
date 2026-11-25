@@ -1,15 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
-import { Check, FileImage, Loader, X } from "lucide-react";
+import { Check, FileImage, Minus, X } from "lucide-react";
 import { fileMeta } from "../lib/ipc";
-import { formatBytes, type BatchProgress } from "../lib/types";
+import { forgetBatchFiles, useBatchFileStatuses } from "../lib/batchState";
+import type { LocalToolId } from "../lib/tools";
+import { formatBytes } from "../lib/types";
 import { useTranslation } from "react-i18next";
 
 interface Props {
+  tool: LocalToolId;
   files: string[];
   onRemove: (index: number) => void;
-  onClear: () => void;
+  previewFile: string | null;
+  onSelectPreview: (file: string) => void;
 }
 
 function baseName(path: string): string {
@@ -17,14 +20,11 @@ function baseName(path: string): string {
   return parts[parts.length - 1] ?? path;
 }
 
-/**
- * Thumbnail queue with per-file sizes and a live status ring driven by the
- * global "batch-progress" event (matched by full path).
- */
-export default function FileQueue({ files, onRemove, onClear }: Props) {
+export default function FileQueue({ tool, files, onRemove, previewFile, onSelectPreview }: Props) {
   const { t } = useTranslation();
+  const removeButtons = useRef(new Map<string, HTMLButtonElement>());
   const [sizes, setSizes] = useState<Record<string, number>>({});
-  const [status, setStatus] = useState<Record<string, string>>({});
+  const statuses = useBatchFileStatuses(tool);
   // Formats the WebView cannot render (e.g. TIFF) fail <img> loading — show
   // a neutral tile instead of a broken-image icon.
   const [broken, setBroken] = useState<Record<string, boolean>>({});
@@ -50,91 +50,69 @@ export default function FileQueue({ files, onRemove, onClear }: Props) {
     }
   }, [files]);
 
-  // Live per-file status while a batch runs (event is global to the app).
-  // The payload's `file` is the full path — statuses are keyed by it, the
-  // same key the render below reads.
-  useEffect(() => {
-    const unlisten = listen<BatchProgress>("batch-progress", (event) => {
-      const { file, status: next } = event.payload;
-      setStatus((prev) => ({ ...prev, [file]: next }));
-    });
-    return () => {
-      unlisten.then((fn) => fn());
-    };
-  }, []);
-
-  // Drop stale statuses whenever the queue itself changes (full-path keys).
-  useEffect(() => {
-    setStatus((prev) => {
-      const next: Record<string, string> = {};
-      for (const file of files) {
-        if (prev[file]) next[file] = prev[file];
-      }
-      return next;
-    });
-  }, [files]);
-
-  if (files.length === 0) return null;
   return (
-    <div className="card queue-card">
-      <div className="row row-center mb-3">
-        <h2 className="m-0">{t("common.files", { count: files.length })}</h2>
-        <div className="flex-1" />
-        <button className="btn btn-sm" onClick={onClear}>
-          {t("common.removeAll")}
-        </button>
-      </div>
-      <div className="queue">
-        {files.map((file, index) => {
-          const name = baseName(file);
-          const state = status[file];
-          const key = file;
-          return (
-            <div
-              className="queue-item"
-              key={key}
-              data-status={state}
+    <div className="queue">
+      {files.map((file, index) => {
+        const name = baseName(file);
+        const state = statuses.get(file);
+        const key = file;
+        return (
+          <div
+            className="queue-item"
+            key={key}
+            data-status={state}
+          >
+            <button
+              type="button"
+              ref={(button) => {
+                if (button) removeButtons.current.set(file, button);
+                else removeButtons.current.delete(file);
+              }}
+              className="q-remove"
+              title={t("common.remove")}
+              aria-label={`${t("common.remove")} ${name}`}
+              onClick={() => {
+                const adjacent = files[index + 1] ?? files[index - 1];
+                if (adjacent) removeButtons.current.get(adjacent)?.focus();
+                forgetBatchFiles(tool, [file]);
+                onRemove(index);
+              }}
             >
-              <button
-                className="q-remove"
-                title={t("common.remove")}
-                onClick={() => onRemove(index)}
-              >
-                <X />
-              </button>
+              <X aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              className="queue-preview"
+              aria-label={t("common.previewImage", { name })}
+              aria-pressed={file === previewFile}
+              onClick={() => onSelectPreview(file)}
+            >
               {broken[key] ? (
-                <div className="q-thumb q-thumb-placeholder">
-                  <FileImage />
-                </div>
+                <span className="q-thumb q-thumb-placeholder"><FileImage aria-hidden="true" /></span>
               ) : (
-                <img
-                  src={convertFileSrc(file)}
-                  alt={name}
-                  loading="lazy"
-                  onError={() => markBroken(key)}
-                />
+                <img src={convertFileSrc(file)} alt="" loading="lazy" onError={() => markBroken(key)} />
               )}
-              {state && (
-                <span className="q-status">
-                  {state === "ok" ? (
-                    <Check />
-                  ) : state === "failed" ? (
-                    <X />
-                  ) : (
-                    <Loader />
-                  )}
-                </span>
-              )}
-              <div className="q-name" title={file}>
-                {name}
-              </div>
-              {sizes[file] !== undefined && (
-                <div className="q-size">{formatBytes(sizes[file])}</div>
-              )}
+            </button>
+            {state && (
+              <span className="q-status" aria-hidden="true">
+                {state === "ok" ? (
+                  <Check />
+                ) : state === "failed" ? (
+                  <X />
+                ) : (
+                  <Minus />
+                )}
+              </span>
+            )}
+            <div className="q-name" title={file}>
+              {name}
             </div>
-          );
-        })}
-      </div>
+            {sizes[file] !== undefined && (
+              <div className="q-size">{formatBytes(sizes[file])}</div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

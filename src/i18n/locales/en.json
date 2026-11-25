@@ -1,5 +1,8 @@
 {
   "common": {
+    "previewImage": "Preview {{name}}",
+    "batchPreviewNote": "Select a thumbnail to compare. Your settings apply to the whole batch.",
+    "addImages": "Add images",
     "tools": "Tools",
     "settings": "Settings",
     "save": "Save",
@@ -42,7 +45,22 @@
     "compare": "Compare original and result",
     "savedTo": "Saved to {{path}}"
   },
+  "navigation": {
+    "fileTools": "Files and size",
+    "editTools": "Edit images",
+    "markTools": "Markup and color",
+    "label": "Tool navigation",
+    "allTools": "All tools",
+    "onlineAi": "Online AI",
+    "collapse": "Collapse sidebar",
+    "expand": "Expand sidebar",
+    "skip": "Skip to workspace",
+    "search": "Search tools",
+    "customEditDescription": "Edit an image with your own prompt and optional mask."
+  },
   "home": {
+    "workspaceIntro": "Choose a tool or open images to convert them.",
+    "importLabel": "Drop images to convert",
     "heroTitle": "Your images, local speed — AI when you need it.",
     "heroSub": "Everyday tools run free on this device. Hard problems — generation, cutouts, watermarks — go to the BrushLLM AI toolbox.",
     "localSection": "Local · Free · On device",
@@ -72,7 +90,7 @@
     "generateName": "Generate Image",
     "generateDesc": "Create a brand-new image from a text prompt.",
     "removeBgName": "Remove Background",
-    "removeBgDesc": "Clean background removal via AI regeneration.",
+    "removeBgDesc": "Replace the background with solid white.",
     "cutoutName": "Cutout",
     "cutoutDesc": "Isolate the subject on a transparent background.",
     "removeWmName": "Remove Watermark",
@@ -119,7 +137,7 @@
     "firstOfMany": "Preview shows the first of {{count}} images.",
     "hintJpeg": "Higher = better quality, larger files.",
     "hintPng": "Higher = stronger compression (always lossless).",
-    "hintWebp": "WebP output is lossless (quality does not apply).",
+    "hintWebp": "WebP uses lossy compression. Lower quality makes smaller files.",
     "hintAvif": "Higher = better quality, larger files. 50–70 usually best for photos.",
     "hintTiff": "TIFF is always lossless.",
     "hintBmp": "BMP is always lossless (large files).",
@@ -162,15 +180,20 @@
     "firstOfMany": "Preview shows the first of {{count}} images."
   },
   "crop": {
+    "rotateLeft": "Rotate 90° left",
+    "rotateRight": "Rotate 90° right",
+    "rotation": "Rotated {{angle}}°",
     "title": "Crop & Rotate",
     "subtitle": "Drag the crop frame, pick an aspect ratio, rotate or flip — the preview always matches the output. Runs locally — free and private.",
     "dropLabel": "Drop an image to crop",
     "free": "Free",
     "output": "Output",
-    "flipH": "⇋ Flip horizontal",
-    "flipV": "⇅ Flip vertical"
+    "flipH": "Flip horizontal",
+    "flipV": "Flip vertical"
   },
   "stitch": {
+    "moveEarlier": "Move earlier",
+    "moveLater": "Move later",
     "title": "Stitch Images",
     "subtitle": "Combine multiple images into one long image — vertically or horizontally, with spacing and alignment. Runs locally — free and private.",
     "dropLabel": "Drop images to stitch (add in order)",
@@ -305,6 +328,10 @@
     "savePng": "Save annotated PNG"
   },
   "ai": {
+    "billingShort": "Internet required. Usage-based billing.",
+    "checkingKey": "Checking for an API key…",
+    "requestDisclosure": "Requires internet. The configured image service receives your prompt and any images or masks you include. Charges depend on usage.",
+    "resultEmpty": "Generated images appear here.",
     "title": "AI Toolbox",
     "subtitle": "Generate brand-new images, or paint over the problem area and let BrushLLM's image models regenerate it. Cloud-powered, billed per image.",
     "noKey": "No API key configured.",
@@ -498,6 +525,7 @@
     "apiDocs": "API docs"
   },
   "batch": {
+    "processingIn": "Processing in {{tool}}",
     "done": "{{count}} done",
     "failed": "{{count}} failed",
     "skipped": "{{count}} skipped",
@@ -522,7 +550,7 @@
     "dropLabel": "Drop an image to pixelate",
     "blockSize": "Block size",
     "blockHint": "Larger blocks hide more; smaller blocks keep more detail.",
-    "hint": "Paint the areas to pixelate; the purple overlay marks the selection.",
+    "hint": "Paint the areas you want to pixelate.",
     "saveButton": "Save mosaic PNG"
   },
   "shadow": {

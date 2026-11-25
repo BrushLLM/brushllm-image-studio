@@ -1,22 +1,18 @@
 import { usePersistedState } from "../lib/persistedState";
-import { useEffect, type CSSProperties } from "react";
+import { useMemo, type CSSProperties } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import BatchRunner from "../components/BatchRunner";
-import DropZone from "../components/DropZone";
-import FileQueue from "../components/FileQueue";
+import BatchInput from "../components/BatchInput";
 import FormatQuality, { type FormatChoice } from "../components/FormatQuality";
-import OutputPanel, { type OutputConfig } from "../components/OutputPanel";
+import OutputPanel from "../components/OutputPanel";
+import { useOutputConfig } from "../lib/useOutputConfig";
 import PageShell from "../components/PageShell";
 import PreviewCard from "../components/PreviewCard";
 import { useTranslation } from "react-i18next";
-import { loadDefaultOutputDir, previewBatch } from "../lib/ipc";
-import { blockedInputError, type OutFormat, type Step } from "../lib/types";
+import { blockedInputError, type RenderSettings } from "../lib/types";
 import { useImageFiles } from "../lib/useImageFiles";
-import { usePreview } from "../lib/usePreview";
+import { useBatchPreview } from "../lib/usePreview";
 
-interface Props {
-  onBack: () => void;
-}
 
 interface Slider {
   key: "brightness" | "contrast" | "saturation";
@@ -29,9 +25,9 @@ const SLIDERS: Slider[] = [
   { key: "saturation", labelKey: "adjust.saturation" },
 ];
 
-export default function Adjust({ onBack }: Props) {
+export default function Adjust() {
   const { t } = useTranslation();
-  const { files, add, remove, clear } = useImageFiles("adjust");
+  const { files, add, remove, clear, previewFile, selectPreview } = useImageFiles("adjust");
   const [inputError, setInputError] = usePersistedState<string | null>("local.adjust.inputError", null);
   const [brightness, setBrightness] = usePersistedState("local.adjust.brightness", 0);
   const [contrast, setContrast] = usePersistedState("local.adjust.contrast", 0);
@@ -39,75 +35,49 @@ export default function Adjust({ onBack }: Props) {
   const [format, setFormat] = usePersistedState<FormatChoice>("local.adjust.format", "same");
   const [quality, setQuality] = usePersistedState("local.adjust.quality", 92);
   const [preserveExif, setPreserveExif] = usePersistedState("local.adjust.preserveExif", false);
-  const [output, setOutput] = usePersistedState<OutputConfig>("local.adjust.output", {
-    dir: null,
-    suffix: "-adjusted",
-    collision: "rename",
-  });
+  const [output, setOutput] = useOutputConfig("adjust", "-adjusted");
 
-  useEffect(() => {
-    if (output.dir) return;
-    loadDefaultOutputDir().then((dir) => {
-      if (dir) setOutput((prev) => ({ ...prev, dir }));
-    });
-  }, []);
-
-  const buildSteps = (): Step[] => {
-    if (brightness === 0 && contrast === 0 && saturation === 0) return [];
-    return [{ kind: "adjust", brightness, contrast, saturation }];
-  };
-
-  const firstFile = files[0] ?? null;
-  const stepsJson = JSON.stringify(buildSteps());
-  const preview = usePreview(
-    () =>
-      firstFile
-        ? previewBatch({
-            preserveExif: preserveExif,
-            file: firstFile,
-            steps: JSON.parse(stepsJson) as Step[],
-            format: format === "same" ? null : (format as OutFormat),
-            quality,
-          })
-        : null,
-    [firstFile, stepsJson, format, quality, preserveExif],
-    format === "avif",
-  );
+  const dirty = brightness !== 0 || contrast !== 0 || saturation !== 0;
+  const settings = useMemo<RenderSettings>(() => ({
+    steps: dirty ? [{ kind: "adjust", brightness, contrast, saturation }] : [],
+    format: format === "same" ? null : format,
+    quality,
+    preserve_exif: preserveExif,
+  }), [dirty, brightness, contrast, saturation, format, quality, preserveExif]);
+  const preview = useBatchPreview(previewFile, settings);
 
   const values = { brightness, contrast, saturation };
   const setters = { brightness: setBrightness, contrast: setContrast, saturation: setSaturation };
-  const dirty = brightness !== 0 || contrast !== 0 || saturation !== 0;
 
   return (
     <PageShell
       title={t("adjust.title")}
       subtitle={t("adjust.subtitle")}
-      onBack={onBack}
-      badge={<span className="badge badge-mint">{t("common.localBadge")}</span>}
     >
       {inputError && <div className="banner banner-error">{inputError}</div>}
       <div className="split">
-        <div>
-          <FileQueue files={files} onRemove={remove} onClear={clear} />
-          <DropZone
-            onFiles={(paths) => { setInputError(null); add(paths); }}
-            label={t("adjust.dropLabel")}
-            hero={files.length === 0}
-            onBlockedInput={(files) => setInputError(blockedInputError(files))}
-          />
-          {firstFile && (
-            <div className="mt-4">
-              <PreviewCard
-                beforeUrl={convertFileSrc(firstFile)}
-                onRefresh={format === "avif" ? preview.refresh : undefined}
-                result={preview.result}
-                loading={preview.loading}
-                error={preview.error}
-                note={files.length > 1 ? t("adjust.firstOfMany", { count: files.length }) : undefined}
-              />
-            </div>
+        <BatchInput
+          tool="adjust"
+          files={files}
+          onAdd={(paths) => { setInputError(null); add(paths); }}
+          onRemove={remove}
+          onClear={clear}
+          previewFile={previewFile}
+          onSelectPreview={selectPreview}
+          label={t("adjust.dropLabel")}
+          onBlockedInput={(files) => setInputError(blockedInputError(files))}
+        >
+          {previewFile && (
+            <PreviewCard
+              beforeUrl={convertFileSrc(previewFile)}
+              onRefresh={format === "avif" ? preview.refresh : undefined}
+              result={preview.result}
+              loading={preview.loading}
+              error={preview.error}
+              note={files.length > 1 ? t("common.batchPreviewNote") : undefined}
+            />
           )}
-        </div>
+        </BatchInput>
         <div className="side-col">
           <div className="card">
             <h2 className="card-title">{t("common.settingsCard")}</h2>
@@ -152,20 +122,10 @@ export default function Adjust({ onBack }: Props) {
             <OutputPanel value={output} onChange={setOutput} defaultSuffix="-adjusted" />
           </div>
           <BatchRunner
+            tool="adjust"
             files={files}
             runLabel={t("adjust.runButton", { count: files.length })}
-            buildJob={(selected) => ({
-              files: selected,
-              steps: buildSteps(),
-              format: format === "same" ? null : (format as OutFormat),
-              quality,
-              preserve_exif: preserveExif,
-              output: {
-                dir: output.dir,
-                suffix: output.suffix,
-                collision: output.collision,
-              },
-            })}
+            buildJob={(selected) => ({ files: selected, ...settings, output })}
           />
         </div>
       </div>

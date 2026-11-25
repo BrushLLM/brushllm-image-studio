@@ -1,119 +1,60 @@
-import { canvasDataUrl } from "../lib/canvas";
+import { saveCanvasImage } from "../lib/canvas";
 import { usePersistedState } from "../lib/persistedState";
-import { useEffect, useRef } from "react";
+import { useId } from "react";
 import DropZone from "../components/DropZone";
 import PageShell from "../components/PageShell";
-import { loadDefaultOutputDir, readAssetDataUrl, saveBytes } from "../lib/ipc";
-import { CANVAS_FORMATS, unsupportedImageError } from "../lib/types";
+import { useCanvasSource } from "../lib/useCanvasSource";
+import { blockedInputError, CANVAS_FORMATS, unsupportedImageError } from "../lib/types";
 import { useTranslation } from "react-i18next";
-
-interface Props {
-  onBack: () => void;
-}
 
 type OutFormat = "png" | "jpeg";
 
-export default function RoundedCorners({ onBack }: Props) {
+export default function RoundedCorners() {
   const { t } = useTranslation();
-  const [file, setFile] = usePersistedState<string | null>("local.rounded.file", null);
-  const [dataUrl, setDataUrl] = usePersistedState<string | null>("local.rounded.dataUrl", null);
-  const [naturalSize, setNaturalSize] = usePersistedState<{ width: number; height: number } | null>("local.rounded.naturalSize", null);
+  const source = useCanvasSource("rounded");
+  const radiusId = useId();
   const [radiusPct, setRadiusPct] = usePersistedState("local.rounded.radiusPct", 15);
   const [format, setFormat] = usePersistedState<OutFormat>("local.rounded.format", "png");
   const [error, setError] = usePersistedState<string | null>("local.rounded.error", null);
   const [busy, setBusy] = usePersistedState("local.rounded.busy", false);
   const [savedTo, setSavedTo] = usePersistedState<string | null>("local.rounded.savedTo", null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const width = source.image?.naturalWidth ?? 0;
+  const height = source.image?.naturalHeight ?? 0;
+  const radius = Math.min(width, height) * radiusPct / 100;
 
   const loadFile = (paths: string[]) => {
     const path = paths[0];
     if (!path) return;
-    setFile(path);
     setError(null);
-    readAssetDataUrl(path).then((url) => {
-      const image = new Image();
-      image.onload = () => {
-        setNaturalSize({ width: image.naturalWidth, height: image.naturalHeight });
-        setDataUrl(url);
-      };
-      image.src = url;
-    });
+    setSavedTo(null);
+    void source.load(path);
   };
 
-  // Redraw whenever the image, radius or format changes.
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || !dataUrl || !naturalSize) return;
-    const { width, height } = naturalSize;
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    const image = new Image();
-    image.onload = () => {
-      // Step 1: rounded image on an intermediate canvas (outside = alpha).
-      const rounded = document.createElement("canvas");
-      rounded.width = width;
-      rounded.height = height;
-      const rctx = rounded.getContext("2d")!;
-      rctx.drawImage(image, 0, 0);
-      const r = (Math.min(width, height) * radiusPct) / 100;
-      rctx.globalCompositeOperation = "destination-in";
-      rctx.beginPath();
-      // Fallback for older WebViews without ctx.roundRect.
-      if (typeof rctx.roundRect === "function") {
-        rctx.roundRect(0, 0, width, height, r);
-      } else {
-        rctx.moveTo(r, 0);
-        rctx.arcTo(width, 0, width, height, r);
-        rctx.arcTo(width, height, 0, height, r);
-        rctx.arcTo(0, height, 0, 0, r);
-        rctx.arcTo(0, 0, width, 0, r);
-        rctx.closePath();
-      }
-      rctx.fill();
-
-      // Step 2: compose. PNG keeps the transparent corners; JPEG has no
-      // alpha channel (transparent would encode as BLACK), so the rounded
-      // image is placed on a white base first.
-      ctx.clearRect(0, 0, width, height);
+  const exportImage = async () => {
+    if (!source.image || busy) return;
+    setBusy(true);
+    setError(null);
+    setSavedTo(null);
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error(t("errors.cannotPreview"));
       if (format === "jpeg") {
         ctx.fillStyle = "#ffffff";
         ctx.fillRect(0, 0, width, height);
       }
-      ctx.drawImage(rounded, 0, 0);
-    };
-    image.src = dataUrl;
-  }, [dataUrl, naturalSize, radiusPct, format]);
-
-  const exportImage = async () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ext = format === "jpeg" ? "jpg" : "png";
-    // Output straight into the default output folder — or, when it is set to
-    // "each image's own folder", next to the source image. No dialog.
-    const dir = await loadDefaultOutputDir();
-    if (!dir) return;
-    const path = `${dir.replace(/\/+$/, "")}/rounded-${Date.now()}.${ext}`;
-    setBusy(true);
-    try {
-      let out: string;
-      if (format === "jpeg") {
-        // Composite the transparent-corner canvas onto white: JPEG has no
-        // alpha and toDataURL flattens it onto black otherwise.
-        const flat = document.createElement("canvas");
-        flat.width = canvas.width;
-        flat.height = canvas.height;
-        const fctx = flat.getContext("2d")!;
-        fctx.fillStyle = "#ffffff";
-        fctx.fillRect(0, 0, flat.width, flat.height);
-        fctx.drawImage(canvas, 0, 0);
-        out = await canvasDataUrl(flat, "image/jpeg");
-      } else {
-        out = await canvasDataUrl(canvas);
-      }
-      await saveBytes(path, out.slice(out.indexOf(",") + 1));
-      setSavedTo(path);
+      ctx.beginPath();
+      ctx.moveTo(radius, 0);
+      ctx.arcTo(width, 0, width, height, radius);
+      ctx.arcTo(width, height, 0, height, radius);
+      ctx.arcTo(0, height, 0, 0, radius);
+      ctx.arcTo(0, 0, width, 0, radius);
+      ctx.closePath();
+      ctx.clip();
+      ctx.drawImage(source.image, 0, 0);
+      setSavedTo(await saveCanvasImage(canvas, "rounded", format));
     } catch (e) {
       setError(String(e));
     } finally {
@@ -125,32 +66,36 @@ export default function RoundedCorners({ onBack }: Props) {
     <PageShell
       title={t("rounded.title")}
       subtitle={t("rounded.subtitle")}
-      onBack={onBack}
-      badge={<span className="badge badge-mint">{t("common.localBadge")}</span>}
     >
-      {!file && error && <div className="banner banner-error">{error}</div>}
-      {!file && (
+      {!source.image && (error || source.error) && <div className="banner banner-error" role="alert">{error || source.error}</div>}
+      {source.loading && <p className="status-note" role="status">{t("errors.rendering")}</p>}
+      {!source.image && !source.loading && (
         <DropZone
+          presentation="canvas"
           onFiles={loadFile}
           label={t("rounded.dropLabel")}
           multiple={false}
           accept={CANVAS_FORMATS}
           hint={t("common.canvasBrowseHint")}
           onUnsupported={(files) =>
-            setError(unsupportedImageError(files.length, "JPEG, PNG, WebP, GIF or BMP"))
+            setError(unsupportedImageError(files.length, "JPEG, PNG, WebP, BMP"))
           }
+          onBlockedInput={(files) => setError(blockedInputError(files))}
         />
       )}
 
-      {file && dataUrl && naturalSize && (
+      {source.image && (
         <div className="split">
-          <div>
-            <div className="preview-frame">
-              <canvas ref={canvasRef} />
+          <div className="canvas-panel">
+            <div className="canvas-wrap" style={format === "jpeg" ? { background: "#ffffff" } : undefined}>
+              <img
+                src={source.image.src}
+                alt={t("common.preview")}
+                style={{ borderRadius: `${radius / width * 100}% / ${radius / height * 100}%` }}
+              />
             </div>
             <p className="status-note mt-2">
-              {naturalSize.width}×{naturalSize.height}px · radius{" "}
-              {Math.round((Math.min(naturalSize.width, naturalSize.height) * radiusPct) / 100)}px
+              {width} × {height} px · {t("rounded.radius")} {Math.round(radius)} px
             </p>
           </div>
           <div className="side-col">
@@ -158,10 +103,11 @@ export default function RoundedCorners({ onBack }: Props) {
               <h2 className="card-title">{t("common.settingsCard")}</h2>
               <div className="field">
                 <div className="range-head">
-                  <label className="mb-0">{t("rounded.radius")}</label>
+                  <label className="mb-0" htmlFor={radiusId}>{t("rounded.radius")}</label>
                   <span className="range-value">{radiusPct}%</span>
                 </div>
                 <input
+                  id={radiusId}
                   type="range"
                   className="range"
                   min={0}
@@ -188,12 +134,14 @@ export default function RoundedCorners({ onBack }: Props) {
                 <div className="radio-row">
                   <button
                     className={`radio-chip${format === "png" ? " active" : ""}`}
+                    aria-pressed={format === "png"}
                     onClick={() => setFormat("png")}
                   >
                     {t("rounded.pngCorners")}
                   </button>
                   <button
                     className={`radio-chip${format === "jpeg" ? " active" : ""}`}
+                    aria-pressed={format === "jpeg"}
                     onClick={() => setFormat("jpeg")}
                   >
                     {t("rounded.jpegCorners")}
@@ -215,12 +163,9 @@ export default function RoundedCorners({ onBack }: Props) {
               )}
             </div>
             <button
-              className="btn btn-block btn-lemon"
-              onClick={() => {
-                setFile(null);
-                setDataUrl(null);
-                setNaturalSize(null);
-              }}
+              className="btn btn-block"
+              onClick={() => { source.clear(); setError(null); }}
+              disabled={busy}
             >
               {t("common.chooseDifferentImage")}
             </button>

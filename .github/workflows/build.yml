@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       target:
-        description: Job to validate
+        description: Job to validate, or release to build and publish all installers
         type: choice
         default: quality
         options:
@@ -15,26 +15,79 @@ on:
           - aarch64-apple-darwin
           - x86_64-pc-windows-msvc
           - aarch64-pc-windows-msvc
+          - release
+      release_sha:
+        description: Full SHA from main to build when target is release
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  BUILD_SHA: ${{ inputs.target == 'release' && inputs.release_sha || github.sha }}
 
 # One build at a time; a newer tag cancels the stale run instead of burning
 # minutes in parallel. The group is tag-independent: per-ref groups would let
 # two different tags run concurrently (the expensive macOS job bills at 10x).
 concurrency:
-  group: ${{ github.event_name == 'workflow_dispatch' && format('validate-{0}', inputs.target) || 'release-build' }}
+  group: ${{ github.event_name == 'workflow_dispatch' && inputs.target != 'release' && format('validate-{0}', inputs.target) || 'release-build' }}
   cancel-in-progress: true
 
 jobs:
   quality:
     name: quality gates
-    if: github.event_name == 'push' || inputs.target == 'quality'
+    if: github.event_name == 'push' || inputs.target == 'quality' || inputs.target == 'release'
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.number }}
     steps:
+      - name: Validate manual release request
+        if: inputs.target == 'release'
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        run: |
+          if [[ "$GITHUB_REF" != refs/heads/main || ! "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::Dispatch releases from main with a full release SHA"
+            exit 1
+          fi
+
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BUILD_SHA }}
+          fetch-depth: ${{ inputs.target == 'release' && '0' || '1' }}
 
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+
+      # Check versions before installing any build dependencies.
+      - name: Version consistency
+        id: version
+        env:
+          RELEASE_TARGET: ${{ inputs.target }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          CARGO_VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' src-tauri/Cargo.toml | head -1)
+          TAURI_VERSION=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          if [[ "$VERSION" != "$CARGO_VERSION" || "$VERSION" != "$TAURI_VERSION" ]]; then
+            echo "::error::Versions differ (package.json=$VERSION, Cargo.toml=$CARGO_VERSION, tauri.conf.json=$TAURI_VERSION)"
+            exit 1
+          fi
+          if [[ "$GITHUB_REF_TYPE" == tag && "$GITHUB_REF_NAME" != "v$VERSION" ]]; then
+            echo "::error::The tag must match the application version v$VERSION"
+            exit 1
+          fi
+          if [[ "$RELEASE_TARGET" == release ]]; then
+            git merge-base --is-ancestor "$BUILD_SHA" "$GITHUB_SHA"
+            status=0
+            git ls-remote --exit-code --refs origin "refs/tags/v$VERSION" || status=$?
+            if [[ "$status" != 2 ]]; then
+              echo "::error::Could not confirm tag v$VERSION is available"
+              exit 1
+            fi
+          fi
+          echo "number=$VERSION" >> "$GITHUB_OUTPUT"
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -49,28 +102,6 @@ jobs:
 
       - name: Install frontend dependencies
         run: npm ci
-
-      # A tag build with mismatched in-app versions ships installers whose
-      # names claim one version while the app reports another — the update
-      # check would then flag the fresh release as outdated. Fail before any
-      # expensive matrix job runs.
-      - name: Version consistency
-        run: |
-          TAG_VERSION="${GITHUB_REF_NAME#v}"
-          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
-            PKG_VERSION=$(node -p "require('./package.json').version")
-            CARGO_VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' src-tauri/Cargo.toml | head -1)
-            TAURI_VERSION=$(node -p "require('./src-tauri/tauri.conf.json').version")
-            for v in "$PKG_VERSION" "$CARGO_VERSION" "$TAURI_VERSION"; do
-              if [ "$v" != "$TAG_VERSION" ]; then
-                echo "::error::tag v$TAG_VERSION does not match in-app version $v (package.json=$PKG_VERSION, Cargo.toml=$CARGO_VERSION, tauri.conf.json=$TAURI_VERSION)"
-                exit 1
-              fi
-            done
-            echo "versions consistent: $TAG_VERSION"
-          else
-            echo "not a tag build — skipping version check"
-          fi
 
       - name: Typecheck
         run: npm run typecheck
@@ -95,15 +126,17 @@ jobs:
 
   build:
     needs: quality
-    if: ${{ !cancelled() && ((github.event_name == 'push' && needs.quality.result == 'success') || (github.event_name == 'workflow_dispatch' && inputs.target != 'quality')) }}
+    if: ${{ !cancelled() && ((needs.quality.result == 'success' && (github.event_name == 'push' || inputs.target == 'release')) || (needs.quality.result == 'skipped' && github.event_name == 'workflow_dispatch' && inputs.target != 'quality' && inputs.target != 'release')) }}
     name: ${{ matrix.target }}
     strategy:
       fail-fast: false
       matrix:
-        target: ${{ fromJSON(github.event_name == 'workflow_dispatch' && format('["{0}"]', inputs.target) || '["aarch64-apple-darwin","x86_64-pc-windows-msvc","aarch64-pc-windows-msvc"]') }}
+        target: ${{ fromJSON(github.event_name == 'workflow_dispatch' && inputs.target != 'release' && format('["{0}"]', inputs.target) || '["aarch64-apple-darwin","x86_64-pc-windows-msvc","aarch64-pc-windows-msvc"]') }}
     runs-on: ${{ matrix.target == 'aarch64-apple-darwin' && 'macos-15' || matrix.target == 'x86_64-pc-windows-msvc' && 'windows-latest' || 'windows-11-arm' }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BUILD_SHA }}
 
       - uses: actions/setup-node@v4
         with:
@@ -176,15 +209,15 @@ jobs:
           path: installers/BrushLLM.Image.Studio-*
 
   release:
-    if: startsWith(github.ref, 'refs/tags/v')
-    # CI ships the three desktop installers only — mobile (iOS/Android)
-    # builds are retired.
-    needs: [build]
+    if: startsWith(github.ref, 'refs/tags/v') || inputs.target == 'release'
+    needs: [quality, build]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BUILD_SHA }}
 
       - uses: actions/download-artifact@v4
         with:
@@ -193,19 +226,31 @@ jobs:
 
       - name: Verify release assets and select notes
         id: release_files
+        env:
+          VERSION: ${{ needs.quality.outputs.version }}
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
           for platform in arm64.dmg x64.exe arm64.exe; do
             test -s "artifacts/BrushLLM.Image.Studio-$VERSION-$platform"
           done
-          NOTES="docs/releases/$GITHUB_REF_NAME.md"
+          NOTES="docs/releases/v$VERSION.md"
           if [ -s "$NOTES" ]; then
             echo "notes=$NOTES" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Tag the tested release SHA
+        if: inputs.target == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.quality.outputs.version }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$BUILD_SHA"
+          gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+            --raw-field "ref=refs/tags/v$VERSION" --raw-field "sha=$BUILD_SHA" --silent
+
       - uses: softprops/action-gh-release@v2
         with:
-          name: "BrushLLM Image Studio ${{ github.ref_name }}"
+          tag_name: v${{ needs.quality.outputs.version }}
+          name: "BrushLLM Image Studio v${{ needs.quality.outputs.version }}"
           body_path: ${{ steps.release_files.outputs.notes }}
           generate_release_notes: ${{ steps.release_files.outputs.notes == '' }}
           fail_on_unmatched_files: true

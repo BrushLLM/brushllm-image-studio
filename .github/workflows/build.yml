@@ -19,6 +19,9 @@ on:
       release_sha:
         description: Full SHA from main to build when target is release
         type: string
+      reuse_run_id:
+        description: Optional previous Build run with all three installers ready
+        type: string
 
 permissions:
   contents: read
@@ -38,6 +41,9 @@ jobs:
     name: quality gates
     if: github.event_name == 'push' || inputs.target == 'quality' || inputs.target == 'release'
     runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
     outputs:
       version: ${{ steps.version.outputs.number }}
     steps:
@@ -45,9 +51,14 @@ jobs:
         if: inputs.target == 'release'
         env:
           RELEASE_SHA: ${{ inputs.release_sha }}
+          REUSE_RUN_ID: ${{ inputs.reuse_run_id }}
         run: |
           if [[ "$GITHUB_REF" != refs/heads/main || ! "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
             echo "::error::Dispatch releases from main with a full release SHA"
+            exit 1
+          fi
+          if [[ -n "$REUSE_RUN_ID" && ! "$REUSE_RUN_ID" =~ ^[0-9]+$ ]]; then
+            echo "::error::Enter a numeric Build run ID"
             exit 1
           fi
 
@@ -80,6 +91,7 @@ jobs:
           fi
           if [[ "$RELEASE_TARGET" == release ]]; then
             git merge-base --is-ancestor "$BUILD_SHA" "$GITHUB_SHA"
+            git diff --exit-code "$BUILD_SHA" "$GITHUB_SHA" -- . ':(exclude).github/workflows/**'
             status=0
             git ls-remote --exit-code --refs origin "refs/tags/v$VERSION" || status=$?
             if [[ "$status" != 2 ]]; then
@@ -89,44 +101,69 @@ jobs:
           fi
           echo "number=$VERSION" >> "$GITHUB_OUTPUT"
 
+      - name: Verify the previous installer build
+        if: inputs.target == 'release' && inputs.reuse_run_id != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REUSE_RUN_ID: ${{ inputs.reuse_run_id }}
+        run: |
+          RUN_API="repos/$GITHUB_REPOSITORY/actions/runs/$REUSE_RUN_ID"
+          RUN_SHA=$(gh api "$RUN_API" | jq -er --arg repo "$GITHUB_REPOSITORY" '
+            select(.path == ".github/workflows/build.yml" and .status == "completed"
+              and .head_branch == "main" and .head_repository.full_name == $repo)
+            | .head_sha')
+          git diff --exit-code "$BUILD_SHA" "$RUN_SHA" -- . ':(exclude).github/workflows/**'
+          gh api "$RUN_API/jobs" | jq -e '
+            [.jobs[] | select(.conclusion == "success") | .name] as $passed
+            | (["quality gates","aarch64-apple-darwin","x86_64-pc-windows-msvc","aarch64-pc-windows-msvc"] - $passed | length) == 0'
+
       - uses: dtolnay/rust-toolchain@stable
+        if: inputs.target != 'release' || inputs.reuse_run_id == ''
         with:
           components: rustfmt, clippy
 
       # Tauri's Linux backend (gtk/webkit) needs system libraries to
       # compile; macOS and Windows runners have their equivalents built in.
       - name: Install Linux system deps
+        if: inputs.target != 'release' || inputs.reuse_run_id == ''
         run: |
           sudo apt-get update
           sudo apt-get install -y libglib2.0-dev libgtk-3-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev
 
       - name: Install frontend dependencies
+        if: inputs.target != 'release' || inputs.reuse_run_id == ''
         run: npm ci
 
       - name: Typecheck
+        if: inputs.target != 'release' || inputs.reuse_run_id == ''
         run: npm run typecheck
 
       - name: Generate desktop icons
+        if: inputs.target != 'release' || inputs.reuse_run_id == ''
         run: npm run icons
 
       - name: Frontend tests
+        if: inputs.target != 'release' || inputs.reuse_run_id == ''
         run: npm run test:run
 
       - name: Rust format
+        if: inputs.target != 'release' || inputs.reuse_run_id == ''
         run: cargo fmt --check
         working-directory: src-tauri
 
       - name: Rust tests
+        if: inputs.target != 'release' || inputs.reuse_run_id == ''
         run: cargo test --lib
         working-directory: src-tauri
 
       - name: Clippy
+        if: inputs.target != 'release' || inputs.reuse_run_id == ''
         run: cargo clippy --all-targets --all-features -- -D warnings
         working-directory: src-tauri
 
   build:
     needs: quality
-    if: ${{ !cancelled() && ((needs.quality.result == 'success' && (github.event_name == 'push' || inputs.target == 'release')) || (needs.quality.result == 'skipped' && github.event_name == 'workflow_dispatch' && inputs.target != 'quality' && inputs.target != 'release')) }}
+    if: ${{ !cancelled() && ((needs.quality.result == 'success' && (github.event_name == 'push' || (inputs.target == 'release' && inputs.reuse_run_id == ''))) || (needs.quality.result == 'skipped' && github.event_name == 'workflow_dispatch' && inputs.target != 'quality' && inputs.target != 'release')) }}
     name: ${{ matrix.target }}
     strategy:
       fail-fast: false
@@ -209,10 +246,11 @@ jobs:
           path: installers/BrushLLM.Image.Studio-*
 
   release:
-    if: startsWith(github.ref, 'refs/tags/v') || inputs.target == 'release'
+    if: ${{ !cancelled() && needs.quality.result == 'success' && (startsWith(github.ref, 'refs/tags/v') || inputs.target == 'release') && (needs.build.result == 'success' || (inputs.target == 'release' && inputs.reuse_run_id != '' && needs.build.result == 'skipped')) }}
     needs: [quality, build]
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       contents: write
     steps:
       - uses: actions/checkout@v4
@@ -221,8 +259,11 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
+          pattern: BrushLLM-Studio-*
           path: artifacts
           merge-multiple: true
+          github-token: ${{ inputs.target == 'release' && inputs.reuse_run_id != '' && github.token || '' }}
+          run-id: ${{ inputs.target == 'release' && inputs.reuse_run_id || github.run_id }}
 
       - name: Verify release assets and select notes
         id: release_files
@@ -237,15 +278,15 @@ jobs:
             echo "notes=$NOTES" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Tag the tested release SHA
+      - name: Tag the release workflow SHA
         if: inputs.target == 'release'
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ needs.quality.outputs.version }}
         run: |
-          test "$(git rev-parse HEAD)" = "$BUILD_SHA"
+          # The quality gate has compared the workflow commit with the installer source.
           gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
-            --raw-field "ref=refs/tags/v$VERSION" --raw-field "sha=$BUILD_SHA" --silent
+            --raw-field "ref=refs/tags/v$VERSION" --raw-field "sha=$GITHUB_SHA" --silent
 
       - uses: softprops/action-gh-release@v2
         with:

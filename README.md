@@ -8,9 +8,7 @@ Edit images on macOS and Windows. Local tools run on your device for free and re
 
 [English](README.md) · [Deutsch](docs/README.de.md) · [Español](docs/README.es.md) · [Français](docs/README.fr.md) · [Português (Brasil)](docs/README.pt-BR.md) · [日本語](docs/README.ja.md) · [한국어](docs/README.ko.md) · [简体中文](docs/README.zh-CN.md) · [繁體中文](docs/README.zh-TW.md)
 
-![Image Studio comparing an original photo with a compressed WebP and showing the batch export results](.github/assets/workspace.svg)
-
-Sample photo by [Olympic National Park](https://www.flickr.com/photos/131856925@N02/22938296331).
+![Image Studio showing image import and the local tools directory](.github/assets/workspace.svg)
 
 ## Download
 
@@ -29,10 +27,6 @@ Open the disk image on macOS and drag the app into Applications. On Windows, run
 3. Inspect the result in the preview. Choose the output folder and how to handle existing filenames, then export.
 
 Batch import supports JPEG, PNG, WebP, GIF (first frame), BMP, TIFF, ICO and SVG. Export formats include JPEG, PNG, WebP, AVIF, TIFF, BMP, ICO and SVG with embedded raster data.
-
-## Online AI
-
-Generate images, remove backgrounds or objects, cut out subjects, or edit with a prompt and mask. Configure your API key in Settings. The configured service receives the prompt and any images or mask you include. Charges depend on usage.
 
 ## Development
 

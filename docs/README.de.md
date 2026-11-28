@@ -8,9 +8,7 @@ Bearbeite Bilder unter macOS und Windows. Die lokalen Werkzeuge laufen kostenlos
 
 [English](../README.md) · [Deutsch](../docs/README.de.md) · [Español](../docs/README.es.md) · [Français](../docs/README.fr.md) · [Português (Brasil)](../docs/README.pt-BR.md) · [日本語](../docs/README.ja.md) · [한국어](../docs/README.ko.md) · [简体中文](../docs/README.zh-CN.md) · [繁體中文](../docs/README.zh-TW.md)
 
-![Image Studio mit Vergleich zwischen Original und komprimiertem WebP sowie dem Ergebnis des Stapelexports](../.github/assets/workspace.svg)
-
-Beispielfoto vom [Olympic National Park](https://www.flickr.com/photos/131856925@N02/22938296331).
+![Image Studio mit Bildimport und Übersicht der lokalen Werkzeuge](../.github/assets/workspace.svg)
 
 ## Download
 
@@ -29,10 +27,6 @@ Beispielfoto vom [Olympic National Park](https://www.flickr.com/photos/131856925
 3. Prüfe das Ergebnis in der Vorschau. Wähle beim Export den Zielordner und den Umgang mit vorhandenen Dateinamen.
 
 Der Stapelimport unterstützt JPEG, PNG, WebP, GIF (erstes Bild), BMP, TIFF, ICO und SVG. Der Export unterstützt unter anderem JPEG, PNG, WebP, AVIF, TIFF, BMP, ICO und SVG mit eingebetteten Rasterdaten.
-
-## Online-KI
-
-Erzeuge Bilder, entferne Hintergründe und Objekte, stelle Motive frei oder bearbeite ein Bild per Anweisung und Maske. Hinterlege deinen API-Schlüssel in den Einstellungen. Der konfigurierte Dienst erhält die Anweisung und beigefügte Bilder oder Masken. Die Abrechnung richtet sich nach der Nutzung.
 
 ## Entwicklung
 

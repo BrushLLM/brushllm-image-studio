@@ -1,13 +1,13 @@
 import { saveCanvasImage } from "../lib/canvas";
 import { replaceColors, toHex, hexToRgb, type Rgb } from "../lib/colorReplacement";
 import { replaceColorsOffThread } from "../lib/colorReplacementWorker";
-import { usePersistedState, usePersistedRef } from "../lib/persistedState";
+import { usePersistedState } from "../lib/persistedState";
 import { useEffect, useRef, type CSSProperties } from "react";
 import { ArrowRight, Plus, X } from "lucide-react";
 import DropZone from "../components/DropZone";
 import PageShell from "../components/PageShell";
 import { useTranslation } from "react-i18next";
-import { readAssetDataUrl } from "../lib/ipc";
+import { useCanvasSource } from "../lib/useCanvasSource";
 import { CANVAS_FORMATS, unsupportedImageError } from "../lib/types";
 
 
@@ -25,16 +25,15 @@ let pairId = 1;
 
 export default function ColorReplace() {
   const { t } = useTranslation();
-  const [file, setFile] = usePersistedState<string | null>("local.colorreplace.file", null);
-  const [dataUrl, setDataUrl] = usePersistedState<string | null>("local.colorreplace.dataUrl", null);
-  const [naturalSize, setNaturalSize] = usePersistedState<{ width: number; height: number } | null>("local.colorreplace.naturalSize", null);
+  const source = useCanvasSource("colorreplace");
+  const image = source.image;
   const [pairs, setPairs] = usePersistedState<ColorPair[]>("local.colorreplace.pairs", [{ id: 0, source: null, target: "#3b82f6" }]);
   const [tolerance, setTolerance] = usePersistedState("local.colorreplace.tolerance", 25);
   const [error, setError] = usePersistedState<string | null>("local.colorreplace.error", null);
   const [busy, setBusy] = usePersistedState("local.colorreplace.busy", false);
   const [savedTo, setSavedTo] = usePersistedState<string | null>("local.colorreplace.savedTo", null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const offscreenRef = usePersistedRef<HTMLCanvasElement | null>("local.colorreplace.offscreenRef", null);
+  const offscreenRef = useRef<HTMLCanvasElement | null>(null);
 
   const activePairs = pairs.filter((p): p is ColorPair & { source: Rgb } => p.source !== null);
   // The pair the next image click will fill (highlighted in the list).
@@ -43,25 +42,23 @@ export default function ColorReplace() {
   const loadFile = (paths: string[]) => {
     const path = paths[0];
     if (!path) return;
-    setFile(path);
     setError(null);
     setSavedTo(null);
-    setPairs([{ id: pairId++, source: null, target: "#3b82f6" }]);
-    readAssetDataUrl(path).then((url) => {
-      const image = new Image();
-      image.onload = () => {
-        setNaturalSize({ width: image.naturalWidth, height: image.naturalHeight });
-        const scale = Math.min(1, PREVIEW_MAX / Math.max(image.naturalWidth, image.naturalHeight));
-        const canvas = document.createElement("canvas");
-        canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
-        canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
-        canvas.getContext("2d")!.drawImage(image, 0, 0, canvas.width, canvas.height);
-        offscreenRef.current = canvas;
-        setDataUrl(url);
-      };
-      image.src = url;
-    });
+    void source.load(path);
   };
+
+  useEffect(() => {
+    offscreenRef.current = null;
+    if (!image) return;
+    const scale = Math.min(1, PREVIEW_MAX / Math.max(image.naturalWidth, image.naturalHeight));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+    canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+    const context = canvas.getContext("2d");
+    if (!context) return;
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    offscreenRef.current = canvas;
+  }, [image]);
 
   // Live preview on the scaled-down offscreen copy.
   useEffect(() => {
@@ -79,7 +76,7 @@ export default function ColorReplace() {
       ctx.putImageData(img, 0, 0);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dataUrl, pairs, tolerance]);
+  }, [image, pairs, tolerance]);
 
   // Clicking the image picks a source color: it fills the first pair without
   // one, or starts a new pair when every existing pair already has a source.
@@ -90,9 +87,9 @@ export default function ColorReplace() {
     const y = Math.floor(((event.clientY - rect.top) / rect.height) * canvas.height);
     if (x < 0 || y < 0 || x >= canvas.width || y >= canvas.height) return;
     // Sample from the ORIGINAL offscreen (pre-replacement) copy.
-    const orig = offscreenRef.current!
-      .getContext("2d")!
-      .getImageData(x, y, 1, 1).data;
+    const offscreen = offscreenRef.current?.getContext("2d");
+    if (!offscreen) return;
+    const orig = offscreen.getImageData(x, y, 1, 1).data;
     const picked: Rgb = { r: orig[0], g: orig[1], b: orig[2] };
     setPairs((prev) => {
       const idx = prev.findIndex((p) => p.source === null);
@@ -109,23 +106,17 @@ export default function ColorReplace() {
   };
 
   const exportImage = async () => {
-    if (!naturalSize || !dataUrl || activePairs.length === 0) return;
+    if (!image || busy || activePairs.length === 0) return;
     setBusy(true);
     try {
-      const image = new Image();
-      await new Promise<void>((resolve, reject) => {
-        image.onload = () => resolve();
-        image.onerror = () => reject(new Error("load"));
-        image.src = dataUrl;
-      });
       const canvas = document.createElement("canvas");
-      canvas.width = naturalSize.width;
-      canvas.height = naturalSize.height;
+      canvas.width = image.naturalWidth;
+      canvas.height = image.naturalHeight;
       const ctx = canvas.getContext("2d")!;
       ctx.drawImage(image, 0, 0);
       const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const pixels = await replaceColorsOffThread(img.data, activePairs, tolerance);
-      ctx.putImageData(new ImageData(pixels, naturalSize.width, naturalSize.height), 0, 0);
+      ctx.putImageData(new ImageData(pixels, image.naturalWidth, image.naturalHeight), 0, 0);
       setSavedTo(await saveCanvasImage(canvas, "recolor"));
     } catch (e) {
       setError(String(e));
@@ -139,156 +130,156 @@ export default function ColorReplace() {
       title={t("recolor.title")}
       subtitle={t("recolor.subtitle")}
     >
-      {!file && error && <div className="banner banner-error">{error}</div>}
-      {!file && (
-        <DropZone
-          presentation="canvas"
-          onFiles={loadFile}
-          label={t("recolor.dropLabel")}
-          multiple={false}
-          accept={CANVAS_FORMATS}
-          hint={t("common.canvasBrowseHint")}
-          onUnsupported={(files) =>
-            setError(unsupportedImageError(files.length, "JPEG, PNG, WebP, GIF or BMP"))
-          }
-        />
-      )}
-
-      {file && dataUrl && naturalSize && (
-        <div className="split">
-          <div className="canvas-panel">
-            <div className="canvas-wrap cursor-cross">
-              <canvas
-                ref={canvasRef}
-                onClick={pickSource}
-                style={{ position: "static", maxWidth: "100%", maxHeight: 480 }}
-              />
-            </div>
-            <p className="status-note mt-2">
-              {t("recolor.hint")}
-            </p>
-          </div>
-          <div className="side-col">
-            <div className="card">
-              <h2 className="card-title">{t("recolor.pairs")}</h2>
-              <p className="hint mb-3">{t("recolor.pairHint")}</p>
-              {pairs.map((pair, index) => (
-                <div
-                  className="field"
-                  key={pair.id}
-                  style={
-                    index === nextIdx
-                      ? { outline: "1.5px dashed var(--brand-teal)", outlineOffset: 4, borderRadius: 10 }
-                      : undefined
-                  }
-                >
-                  <div className="row" style={{ alignItems: "center" }}>
-                    <input
-                      type="color"
-                      className="swatch-input"
-                      value={pair.source ? toHex(pair.source) : "#808080"}
-                      onChange={(e) =>
-                        setPairs((prev) => {
-                          const next = [...prev];
-                          next[index] = { ...next[index], source: hexToRgb(e.target.value) };
-                          return next;
-                        })
-                      }
-                      title={t("recolor.pairSource")}
-                    />
-                    <span className="status-note" style={{ userSelect: "text", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>
-                      {pair.source ? toHex(pair.source).toUpperCase() : t("recolor.clickToPick")}
-                    </span>
-                    <ArrowRight size={14} style={{ flex: "0 0 auto", opacity: 0.6 }} />
-                    <input
-                      type="color"
-                      className="swatch-input"
-                      value={pair.target}
-                      onChange={(e) =>
-                        setPairs((prev) => {
-                          const next = [...prev];
-                          next[index] = { ...next[index], target: e.target.value };
-                          return next;
-                        })
-                      }
-                      title={t("recolor.pairTarget")}
-                    />
-                    {pairs.length > 1 && (
-                      <button
-                        className="btn btn-sm flex-fix"
-                        onClick={() => setPairs((prev) => prev.filter((_, i) => i !== index))}
-                        title={t("recolor.remove")}
-                      >
-                        <X />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-              {pairs.length < MAX_PAIRS && (
-                <button
-                  className="btn btn-sm"
-                  onClick={() =>
-                    setPairs((prev) => [...prev, { id: pairId++, source: null, target: "#3b82f6" }])
-                  }
-                >
-                  <Plus /> {t("recolor.addPair")}
-                </button>
-              )}
-              <div className="field mt-3">
-                <div className="range-head">
-                  <label className="mb-0">{t("recolor.tolerance")}</label>
-                  <span className="range-value">{tolerance}%</span>
-                </div>
-                <input
-                  type="range"
-                  className="range"
-                  min={1}
-                  max={100}
-                  value={tolerance}
-                  style={{ "--val": `${tolerance}%` } as CSSProperties}
-                  onChange={(e) => setTolerance(Number(e.target.value))}
+      {(error || source.error) && <div className="banner banner-error" role="alert">{error || source.error}</div>}
+      <div className="split">
+        <div className="workbench-main">
+          {source.loading && <p className="status-note" role="status">{t("errors.rendering")}</p>}
+          {!image && !source.loading && (
+            <DropZone
+              presentation="canvas"
+              onFiles={loadFile}
+              label={t("recolor.dropLabel")}
+              multiple={false}
+              accept={CANVAS_FORMATS}
+              hint={t("common.canvasBrowseHint")}
+              onUnsupported={(files) =>
+                setError(unsupportedImageError(files.length, "JPEG, PNG, WebP, GIF or BMP"))
+              }
+            />
+          )}
+          {image && (
+            <div className="canvas-panel">
+              <div className="canvas-wrap cursor-cross">
+                <canvas
+                  ref={canvasRef}
+                  onClick={pickSource}
+                  style={{ position: "static", maxWidth: "100%", maxHeight: 480 }}
                 />
-                <div className="hint">{t("recolor.toleranceHint")}</div>
               </div>
-              <button
-                className="btn btn-primary btn-block"
-                onClick={exportImage}
-                disabled={busy || activePairs.length === 0}
+              <p className="status-note mt-2">
+                {t("recolor.hint")}
+              </p>
+            </div>
+          )}
+        </div>
+        <div className="side-col">
+          <div className="card">
+            <h2 className="card-title">{t("recolor.pairs")}</h2>
+            <p className="hint mb-3">{t("recolor.pairHint")}</p>
+            {pairs.map((pair, index) => (
+              <div
+                className="field"
+                key={pair.id}
+                style={
+                  index === nextIdx
+                    ? { outline: "1.5px dashed var(--brand-teal)", outlineOffset: 4, borderRadius: 10 }
+                    : undefined
+                }
               >
-                {busy ? (
-                  <>
-                    <span className="spinner" /> {t("common.saving")}
-                  </>
-                ) : (
-                  t("common.saveImage")
-                )}
+                <div className="row" style={{ alignItems: "center" }}>
+                  <input
+                    type="color"
+                    className="swatch-input"
+                    value={pair.source ? toHex(pair.source) : "#808080"}
+                    onChange={(e) =>
+                      setPairs((prev) => {
+                        const next = [...prev];
+                        next[index] = { ...next[index], source: hexToRgb(e.target.value) };
+                        return next;
+                      })
+                    }
+                    title={t("recolor.pairSource")}
+                  />
+                  <span className="status-note" style={{ userSelect: "text", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {pair.source ? toHex(pair.source).toUpperCase() : t("recolor.clickToPick")}
+                  </span>
+                  <ArrowRight size={14} style={{ flex: "0 0 auto", opacity: 0.6 }} />
+                  <input
+                    type="color"
+                    className="swatch-input"
+                    value={pair.target}
+                    onChange={(e) =>
+                      setPairs((prev) => {
+                        const next = [...prev];
+                        next[index] = { ...next[index], target: e.target.value };
+                        return next;
+                      })
+                    }
+                    title={t("recolor.pairTarget")}
+                  />
+                  {pairs.length > 1 && (
+                    <button
+                      className="btn btn-sm flex-fix"
+                      onClick={() => setPairs((prev) => prev.filter((_, i) => i !== index))}
+                      title={t("recolor.remove")}
+                    >
+                      <X />
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+            {pairs.length < MAX_PAIRS && (
+              <button
+                className="btn btn-sm"
+                onClick={() =>
+                  setPairs((prev) => [...prev, { id: pairId++, source: null, target: "#3b82f6" }])
+                }
+              >
+                <Plus /> {t("recolor.addPair")}
               </button>
-              {savedTo && !busy && (
-                <div className="banner banner-ok mt-3 break-all">
-                  {savedTo}
-                </div>
-              )}
-              {error && (
-                <div className="banner banner-error mt-3">
-                  {error}
-                </div>
-              )}
+            )}
+            <div className="field mt-3">
+              <div className="range-head">
+                <label className="mb-0">{t("recolor.tolerance")}</label>
+                <span className="range-value">{tolerance}%</span>
+              </div>
+              <input
+                type="range"
+                className="range"
+                min={1}
+                max={100}
+                value={tolerance}
+                style={{ "--val": `${tolerance}%` } as CSSProperties}
+                onChange={(e) => setTolerance(Number(e.target.value))}
+              />
+              <div className="hint">{t("recolor.toleranceHint")}</div>
             </div>
             <button
+              className="btn btn-primary btn-block"
+              onClick={exportImage}
+              disabled={!image || busy || activePairs.length === 0}
+            >
+              {busy ? (
+                <>
+                  <span className="spinner" /> {t("common.saving")}
+                </>
+              ) : (
+                t("common.saveImage")
+              )}
+            </button>
+            {savedTo && !busy && (
+              <div className="banner banner-ok mt-3 break-all">
+                {savedTo}
+              </div>
+            )}
+          </div>
+          {image && (
+            <button
               className="btn btn-block"
+              disabled={busy}
               onClick={() => {
-                setFile(null);
-                setDataUrl(null);
-                setNaturalSize(null);
+                source.clear();
+                setError(null);
+                setSavedTo(null);
                 setPairs([{ id: pairId++, source: null, target: "#3b82f6" }]);
               }}
             >
               {t("common.chooseDifferentImage")}
             </button>
-          </div>
+          )}
         </div>
-      )}
+      </div>
     </PageShell>
   );
 }

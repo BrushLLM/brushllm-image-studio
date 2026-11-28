@@ -3,7 +3,6 @@ import type {
   BatchJob,
   BatchReport,
   Collision,
-  EditResult,
   OverlayJob,
   RenderSettings,
   Settings,
@@ -26,24 +25,6 @@ export function runStitch(job: StitchJob): Promise<string> {
 
 export function applyOverlay(job: OverlayJob): Promise<string> {
   return invoke("apply_overlay", { job });
-}
-
-export function aiGenerate(args: {
-  requestId: string;
-  model: string;
-  prompt: string;
-  size?: string | null;
-  quality?: string | null;
-  n?: number | null;
-}): Promise<EditResult> {
-  return invoke("ai_generate", {
-    requestId: args.requestId,
-    model: args.model,
-    prompt: args.prompt,
-    size: args.size ?? null,
-    quality: args.quality ?? null,
-    n: args.n ?? null,
-  });
 }
 
 /** Load the default output folder once per tool page: the configured one,
@@ -150,55 +131,6 @@ export function previewStitch(files: string[], opts: StitchOpts): Promise<Previe
   return invoke("preview_stitch", { files, opts });
 }
 
-export interface AiEditArgs {
-  requestId: string;
-  model: string;
-  prompt: string;
-  /** Primary image first, then up to 3 reference images. */
-  imagePaths: string[];
-  maskB64?: string | null;
-  size?: string | null;
-  quality?: string | null;
-  n?: number | null;
-}
-
-export function aiEdit(args: AiEditArgs): Promise<EditResult> {
-  return invoke("ai_edit", {
-    requestId: args.requestId,
-    model: args.model,
-    prompt: args.prompt,
-    imagePaths: args.imagePaths,
-    maskB64: args.maskB64 ?? null,
-    size: args.size ?? null,
-    quality: args.quality ?? null,
-    n: args.n ?? null,
-  });
-}
-
-export function apiKeyStatus(): Promise<boolean> {
-  return invoke("api_key_status");
-}
-
-export function apiKeySet(key: string): Promise<void> {
-  return invoke("api_key_set", { key });
-}
-
-export function apiKeyClear(): Promise<void> {
-  return invoke("api_key_clear");
-}
-
-export function apiTest(
-  baseUrl?: string | null,
-  baseUrlT2i?: string | null,
-  apiKey?: string | null,
-): Promise<{ models: string[]; models_t2i: string[] }> {
-  return invoke("api_test", {
-    baseUrl: baseUrl ?? null,
-    baseUrlT2i: baseUrlT2i ?? null,
-    apiKey: apiKey ?? null,
-  });
-}
-
 export function getSettings(): Promise<Settings> {
   return invoke("get_settings");
 }
@@ -228,9 +160,4 @@ export interface UpdateInfo {
 
 export function checkUpdate(): Promise<UpdateInfo> {
   return invoke("check_update");
-}
-
-
-export function aiCancel(requestId: string): Promise<void> {
-  return invoke("ai_cancel", { requestId });
 }

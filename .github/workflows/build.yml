@@ -192,32 +192,22 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
-      - name: Build app (macOS)
+      - name: Build installer (macOS)
         if: matrix.target == 'aarch64-apple-darwin'
-        # npm swallows --flags after `run` unless separated by `--`.
-        # dmg bundling is done manually below: tauri's bundle_dmg.sh output
-        # is swallowed by the bundler on failure, and the script depends on
-        # runner-volatile tools (hdiutil mount quirks, SetFile). A plain
-        # hdiutil image with an Applications symlink is deterministic and
-        # equivalent to what tauri produces on CI (Finder cosmetics are
-        # skipped there anyway via --skip-jenkins).
-        run: CARGO_PROFILE_RELEASE_LTO=thin npm run tauri build -- --target aarch64-apple-darwin --bundles app
+        run: CARGO_PROFILE_RELEASE_LTO=thin npm run tauri build -- --target aarch64-apple-darwin --bundles dmg
 
-      - name: Create dmg (macOS)
+      - name: Stage macOS installer
         if: matrix.target == 'aarch64-apple-darwin'
+        shell: bash
         run: |
-          set -e
           VERSION=$(node -p "require('./package.json').version")
-          BUNDLE="src-tauri/target/aarch64-apple-darwin/release/bundle"
-          APP="$BUNDLE/macos/BrushLLM Image Studio.app"
-          DMG="installers/BrushLLM.Image.Studio-$VERSION-arm64.dmg"
-          STAGING=$(mktemp -d)
-          trap 'rm -rf "$STAGING"' EXIT
-          cp -R "$APP" "$STAGING/"
-          ln -s /Applications "$STAGING/Applications"
+          installers=(src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg)
+          if [ "${#installers[@]}" -ne 1 ] || [ ! -s "${installers[0]}" ]; then
+            echo "::error::Expected one macOS arm64 DMG"
+            exit 1
+          fi
           mkdir -p installers
-          hdiutil create -volname "BrushLLM Image Studio" -srcfolder "$STAGING" -ov -format UDZO "$DMG"
-          ls -lh "$DMG"
+          cp "${installers[0]}" "installers/BrushLLM.Image.Studio-$VERSION-arm64.dmg"
 
       - name: Build app (Windows)
         if: matrix.target != 'aarch64-apple-darwin'

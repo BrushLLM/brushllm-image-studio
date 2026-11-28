@@ -1,14 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { open, message } from "@tauri-apps/plugin-dialog";
+import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { Coins, ExternalLink, FolderOpen, Monitor, Moon, RotateCw, Sun } from "lucide-react";
+import { ExternalLink, FolderOpen, Monitor, Moon, RotateCw, Sun } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import PageShell from "../components/PageShell";
 import {
-  apiKeyClear,
-  apiKeySet,
-  apiKeyStatus,
-  apiTest,
   checkUpdate,
   getSettings,
   saveSettings,
@@ -17,8 +13,7 @@ import {
 } from "../lib/ipc";
 import { setAppearance, type Appearance } from "../lib/theme";
 import type { Settings as AppSettings } from "../lib/types";
-import { LANGUAGES, resolveLanguage } from "../i18n";
-import { usePersistedState } from "../lib/persistedState";
+import i18next, { LANGUAGES, resolveLanguage } from "../i18n";
 import { version as appVersion } from "../../package.json";
 
 const APPEARANCES: { value: Appearance; labelKey: string; icon: typeof Sun }[] = [
@@ -29,58 +24,21 @@ const APPEARANCES: { value: Appearance; labelKey: string; icon: typeof Sun }[] =
 
 export default function Settings() {
   const { t } = useTranslation();
-  const [keyInput, setKeyInput] = useState("");
-  const [hasKey, setHasKey] = useState(false);
-  const [baseUrl, setBaseUrl] = useState("https://api.brushllm.com/v1");
-  const [baseUrlT2i, setBaseUrlT2i] = useState("https://api.brushllm.com/v1");
-  const [defaultModel, setDefaultModel] = useState("gpt-image-2");
   const [outputDir, setOutputDir] = useState<string | null>(null);
   const [appearance, setAppearanceState] = useState<Appearance>("system");
   const [language, setLanguageState] = useState("system");
   const [status, setStatus] = useState<string | null>(null);
   /** Whether the status line is a success (green) or an error (red). */
   const [statusOk, setStatusOk] = useState(false);
-  const [testing, setTesting] = useState(false);
-  const [saving, setSaving] = useState(false);
-  /** Save stays locked until a successful connection test. */
-  const [testedOk, setTestedOk] = useState(false);
-  /** Snapshot of the saved connection fields, for the dirty check. */
-  const [saved, setSaved] = useState<{
-    base: string;
-    baseT2i: string;
-    model: string;
-  } | null>(null);
-  /** Model ids the gateway actually serves — filled by a successful test. */
-  // Survives navigating away (and app restarts within a session) so the
-  // picked model stays visible after Save.
-  const [availableModels, setAvailableModels] = usePersistedState<string[]>(
-    "settings.availableModels",
-    [],
-  );
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [checking, setChecking] = useState(false);
   const [updateError, setUpdateError] = useState<string | null>(null);
-  /** Last settings known to be persisted — preference-only saves merge on
-   *  top of this instead of the (possibly unsaved) connection draft. */
+  /** Last settings known to be persisted. */
   const committedRef = useRef<AppSettings | null>(null);
-  /** Latest connection-input values, kept current on every render so a
-   *  finishing test can detect edits made while it was in flight. */
-  const connRef = useRef({ base: baseUrl, baseT2i: baseUrlT2i, key: keyInput });
-  connRef.current = { base: baseUrl, baseT2i: baseUrlT2i, key: keyInput };
-
   useEffect(() => {
-    apiKeyStatus().then(setHasKey);
     getSettings()
       .then((settings) => {
         committedRef.current = settings;
-        setBaseUrl(settings.base_url);
-        setBaseUrlT2i(settings.base_url_t2i || settings.base_url);
-        setDefaultModel(settings.default_model);
-        setSaved({
-          base: settings.base_url,
-          baseT2i: settings.base_url_t2i || settings.base_url,
-          model: settings.default_model,
-        });
         setOutputDir(settings.output_dir ?? null);
         if (
           settings.appearance === "light" ||
@@ -100,8 +58,9 @@ export default function Settings() {
             setOutputDir(pics);
             try {
               await savePreferences({ output_dir: pics });
-            } catch {
-              /* shown on save anyway */
+            } catch (e) {
+              setStatusOk(false);
+              setStatus(String(e));
             }
           });
         }
@@ -109,10 +68,7 @@ export default function Settings() {
       .catch(() => {});
   }, []);
 
-  /** Persist a preference-only patch (appearance / language / output_dir)
-   *  merged on top of the last committed settings — never on top of the
-   *  current connection draft, so e.g. switching the theme can't silently
-   *  save unsaved baseUrl/model edits. No-op until settings are loaded. */
+  /** Save a preference without changing the other settings. */
   const savePreferences = async (patch: Partial<AppSettings>) => {
     const base = committedRef.current;
     if (!base) return;
@@ -123,7 +79,6 @@ export default function Settings() {
 
   const chooseLanguage = async (next: string) => {
     setLanguageState(next);
-    const i18next = (await import("../i18n")).default;
     await i18next.changeLanguage(
       next === "system" ? resolveLanguage("system") : next,
     );
@@ -146,58 +101,6 @@ export default function Settings() {
     }
   };
 
-  const saveAll = async () => {
-    setStatus(null);
-    setStatusOk(false);
-    setSaving(true);
-    try {
-      if (keyInput.trim().length > 0) {
-        await apiKeySet(keyInput);
-        setKeyInput("");
-        setHasKey(true);
-      }
-      const next: AppSettings = {
-        base_url: baseUrl.trim(),
-        base_url_t2i: baseUrlT2i.trim(),
-        default_model: defaultModel,
-        output_dir: outputDir,
-        appearance,
-        language,
-      };
-      await saveSettings(next);
-      committedRef.current = next;
-      setSaved({
-        base: baseUrl.trim(),
-        baseT2i: baseUrlT2i.trim(),
-        model: defaultModel,
-      });
-      setStatusOk(true);
-      setStatus(t("settings.savedStatus"));
-    } catch (e) {
-      setStatusOk(false);
-      setStatus(String(e));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const removeKey = async () => {
-    try {
-      await apiKeyClear();
-      setHasKey(false);
-      // A new key means a new round of testing: drop the old test state,
-      // model list and the model picked from it.
-      setTestedOk(false);
-      setAvailableModels([]);
-      setDefaultModel("");
-      setStatusOk(true);
-      setStatus(t("settings.keyRemoved"));
-    } catch (e) {
-      setStatusOk(false);
-      setStatus(String(e));
-    }
-  };
-
   const pickOutputDirFor = async (dir: string) => {
     setOutputDir(dir);
     try {
@@ -212,239 +115,13 @@ export default function Settings() {
 
   const pickOutputDir = async () => {
     const dir = await open({ directory: true, multiple: false });
-    if (typeof dir === "string") {
-      setOutputDir(dir);
-      try {
-        await savePreferences({ output_dir: dir });
-        setStatusOk(true);
-        setStatus(t("settings.folderSet", { dir }));
-      } catch (e) {
-        setStatusOk(false);
-        setStatus(String(e));
-      }
-    }
+    if (typeof dir === "string") await pickOutputDirFor(dir);
   };
-
-  const test = async () => {
-    setStatus(null);
-    setStatusOk(false);
-    setTesting(true);
-    setTestedOk(false);
-    // Snapshot of what is actually being tested: the success below only
-    // unlocks saving if the inputs still hold these exact values when the
-    // response arrives (edits made mid-test void the result).
-    const tested = {
-      base: baseUrl.trim(),
-      baseT2i: baseUrlT2i.trim(),
-      key: keyInput.trim(),
-    };
-    try {
-      const result = await apiTest(tested.base, tested.baseT2i, tested.key || null);
-      const text = t("settings.connected", { edits: result.models.length, t2i: result.models_t2i.length });
-      setStatusOk(true);
-      setStatus(`✓ ${text}`);
-      if (
-        connRef.current.base.trim() === tested.base &&
-        connRef.current.baseT2i.trim() === tested.baseT2i &&
-        connRef.current.key.trim() === tested.key
-      ) {
-        setTestedOk(true);
-        setAvailableModels([...new Set([...result.models, ...result.models_t2i])]);
-      }
-      await message(text, { title: t("settings.connectionOk"), kind: "info" });
-    } catch (e) {
-      const text = String(e);
-      setStatusOk(false);
-      setStatus(text);
-      await message(text, { title: t("settings.connectionFailed"), kind: "error" });
-    } finally {
-      setTesting(false);
-    }
-  };
-
-  // Unsaved-connection indicator: red when any field (or a freshly typed
-  // key) differs from the saved snapshot, green once saved.
-  const connectionDirty =
-    saved !== null &&
-    (baseUrl.trim() !== saved.base ||
-      baseUrlT2i.trim() !== saved.baseT2i ||
-      defaultModel !== saved.model ||
-      keyInput.trim().length > 0);
-
-  // Save stays locked until every connection field is filled in.
-  const missing: string[] = [];
-  if (!baseUrlT2i.trim()) missing.push(t("settings.missingT2i"));
-  if (!baseUrl.trim()) missing.push(t("settings.missingEdits"));
-  if (!hasKey && keyInput.trim().length === 0) missing.push(t("settings.missingKey"));
-  if (
-    !defaultModel.trim() ||
-    (availableModels.length > 0 && !availableModels.includes(defaultModel))
-  ) {
-    missing.push(t("settings.missingModel"));
-  }
 
   return (
-    <PageShell
-      title={t("settings.title")}
-      subtitle={t("settings.subtitle")}
-    >
+    <PageShell title={t("settings.title")}>
       <div className="split">
         <div>
-          <div className="card">
-            <h2 className="card-title">
-              {t("settings.connection")}
-              {saved !== null &&
-                (connectionDirty ? (
-                  <span className="badge badge-fail ml-2">
-                    {t("settings.unsaved")}
-                  </span>
-                ) : (
-                  <span className="badge badge-ok ml-2">
-                    {t("settings.saved")}
-                  </span>
-                ))}
-            </h2>
-            <div className="field">
-              <label>{t("settings.t2iUrl")}</label>
-              <input
-                type="text"
-                value={baseUrlT2i}
-                onChange={(e) => {
-                  setBaseUrlT2i(e.target.value);
-                  setTestedOk(false);
-                }}
-                className="selectable"
-              />
-              <div className="hint">
-                {t("home.generateName")} → POST{" "}
-                <code>{baseUrlT2i.trim().replace(/\/+$/, "")}/images/generations</code>
-                <br />
-                {t("settings.gatewayHint")}
-              </div>
-            </div>
-            <div className="field">
-              <label>{t("settings.editsUrl")}</label>
-              <input
-                type="text"
-                value={baseUrl}
-                onChange={(e) => {
-                  setBaseUrl(e.target.value);
-                  setTestedOk(false);
-                }}
-                className="selectable"
-              />
-              <div className="hint">
-                {t("ai.imageEdits")} → POST{" "}
-                <code>{baseUrl.trim().replace(/\/+$/, "")}/images/edits</code>
-                <br />
-                {t("settings.gatewayHint")}
-              </div>
-            </div>
-            <div className="field">
-              <label>{t("settings.apiKey")}</label>
-              <input
-                type="password"
-                value={keyInput}
-                placeholder={hasKey ? t("settings.keyStored") : t("settings.keyPlaceholder")}
-                onChange={(e) => {
-                  setKeyInput(e.target.value);
-                  setTestedOk(false);
-                }}
-                className="selectable"
-              />
-              <div className="hint">
-                {hasKey ? (
-                  <>{t("settings.keyStoredHint")}</>
-                ) : (
-                  <>{t("settings.keyCreateHint")}</>
-                )}
-              </div>
-              {hasKey && (
-                <button
-                  className="btn btn-danger-ghost btn-sm mt-2"
-                  onClick={removeKey}
-                >
-                  {t("settings.removeKey")}
-                </button>
-              )}
-            </div>
-            <div className="field">
-              <label>{t("settings.defaultModel")}</label>
-              {availableModels.length > 0 ? (
-                <select
-                  value={availableModels.includes(defaultModel) ? defaultModel : ""}
-                  onChange={(e) => setDefaultModel(e.target.value)}
-                >
-                  <option value="" disabled>
-                    {t("settings.chooseModel")}
-                  </option>
-                  {availableModels.map((id) => (
-                    <option key={id} value={id}>
-                      {id}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <>
-                  <div className="hint" style={{ fontWeight: 650 }}>
-                    {t("settings.modelCurrent", { model: defaultModel || t("ai.modelNotSet") })}
-                  </div>
-                  <div className="hint">
-                    {t("settings.modelListHint")}
-                  </div>
-                </>
-              )}
-              <div className="hint">
-                {t("settings.modelOneHint")}
-              </div>
-            </div>
-            <div className="row">
-              <button
-                className="btn btn-success"
-                onClick={test}
-                disabled={testing || (!hasKey && keyInput.trim().length === 0)}
-                title={
-                  hasKey || keyInput.trim().length > 0
-                    ? undefined
-                    : t("settings.enterKeyFirst")
-                }
-              >
-                {testing ? (
-                  <>
-                    <span className="spinner" /> {t("settings.testing")}
-                  </>
-                ) : (
-                  t("settings.test")
-                )}
-              </button>
-              <button
-                className="btn btn-primary"
-                onClick={saveAll}
-                disabled={saving || !testedOk || missing.length > 0}
-                title={
-                  missing.length > 0
-                    ? t("settings.missingFields", { fields: missing.join(", ") })
-                    : testedOk
-                      ? undefined
-                      : t("settings.testFirst")
-                }
-              >
-                {t("common.save")}
-              </button>
-            </div>
-            {missing.length > 0 && (
-              <div className="hint mt-2 text-danger">
-                {t("settings.missingFields", { fields: missing.map((m) => t(m === "Text-to-image base URL" ? "settings.missingT2i" : m === "Image edits base URL" ? "settings.missingEdits" : m === "API key" ? "settings.missingKey" : "settings.missingModel")).join(", ") })}
-              </div>
-            )}
-            <button
-              className="btn btn-block mt-3"
-              onClick={() => openUrl("https://api.brushllm.com/login")}
-            >
-              <Coins /> {t("ai.getCredits")}
-            </button>
-          </div>
-
           <div className="card">
             <h2 className="card-title">{t("settings.output")}</h2>
             <div className="field">
@@ -478,6 +155,21 @@ export default function Settings() {
               {status}
             </div>
           )}
+          <div className="card">
+            <h2 className="card-title">{t("settings.privacy")}</h2>
+            <div className="field">
+              <label>{t("settings.localProcessing")}</label>
+              <div className="hint">
+                {t("settings.localHint")}
+              </div>
+            </div>
+            <div className="field">
+              <label>{t("settings.telemetry")}</label>
+              <div className="hint">
+                {t("settings.telemetryHint")}
+              </div>
+            </div>
+          </div>
         </div>
         <div className="side-col">
           <div className="card">
@@ -519,46 +211,8 @@ export default function Settings() {
             </div>
           </div>
           <div className="card">
-            <h2 className="card-title">{t("settings.privacy")}</h2>
-            <div className="field">
-              <label>{t("settings.localProcessing")}</label>
-              <div className="hint">
-                {t("settings.localHint")}
-              </div>
-            </div>
-            <div className="field">
-              <label>{t("settings.aiRequests")}</label>
-              <div className="hint">
-                {t("settings.aiHint")}
-              </div>
-            </div>
-            <div className="field">
-              <label>{t("settings.telemetry")}</label>
-              <div className="hint">
-                {t("settings.telemetryHint")}
-              </div>
-            </div>
-          </div>
-          <div className="card">
             <h2 className="card-title">{t("settings.about")}</h2>
-            <p className="status-note selectable">
-              {t("settings.aboutText")}
-              <br />
-              <br />
-              {t("settings.aboutLocal")}
-              <br />
-              <br />
-              {t("settings.docs")}:{" "}
-              <a
-                href="https://brushllm.com/docs"
-                onClick={(event) => {
-                  event.preventDefault();
-                  void openUrl("https://brushllm.com/docs");
-                }}
-              >
-                https://brushllm.com/docs
-              </a>
-            </p>
+            <p className="status-note">{t("settings.aboutText")}</p>
 
             <div className="field" style={{ borderTop: "1px solid var(--border)", marginTop: 14, paddingTop: 14 }}>
               <div className="range-head">

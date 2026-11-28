@@ -99,78 +99,81 @@ export default function Shadow() {
       subtitle={t("shadow.subtitle")}
     >
       {!image && (error || source.error) && <div className="banner banner-error" role="alert">{error || source.error}</div>}
-      {source.loading && <p className="status-note" role="status">{t("errors.rendering")}</p>}
-      {!image && !source.loading && (
-        <DropZone
-          presentation="canvas"
-          onFiles={loadFile}
-          label={t("shadow.dropLabel")}
-          multiple={false}
-          accept={CANVAS_FORMATS}
-          hint={t("common.canvasBrowseHint")}
-          onUnsupported={(files) =>
-            setError(unsupportedImageError(files.length, "JPEG, PNG, WebP, BMP"))
-          }
-          onBlockedInput={(files) => setError(blockedInputError(files))}
-        />
-      )}
-
-      {image && (
-        <div className="split">
-          <div className="canvas-panel">
-            <div className="preview-frame">
-              <canvas ref={canvasRef} />
-            </div>
-            <p className="status-note mt-2">
-              {t("shadow.canvasNote")}
-            </p>
-          </div>
-          <div className="side-col">
-            <div className="card">
-              <h2 className="card-title">{t("common.settingsCard")}</h2>
-              {slider(t("shadow.offsetX"), offsetX, -60, 60, setOffsetX, (v) => `${v}px`)}
-              {slider(t("shadow.offsetY"), offsetY, -60, 60, setOffsetY, (v) => `${v}px`)}
-              {slider(t("shadow.blur"), blur, 0, 80, setBlur, (v) => `${v}px`)}
-              {slider(t("watermark.opacity"), opacityPct, 10, 100, setOpacityPct, (v) => `${v}%`)}
-              <div className="field">
-                <label>{t("watermark.color")}</label>
-                <input
-                  type="color" className="swatch-input"
-                  value={color}
-                  onChange={(e) => setColor(e.target.value)}
-                  
-                />
+      <div className="split">
+        <div className="workbench-main">
+          {source.loading && <p className="status-note" role="status">{t("errors.rendering")}</p>}
+          {!image && !source.loading && (
+            <DropZone
+              presentation="canvas"
+              onFiles={loadFile}
+              label={t("shadow.dropLabel")}
+              multiple={false}
+              accept={CANVAS_FORMATS}
+              hint={t("common.canvasBrowseHint")}
+              onUnsupported={(files) =>
+                setError(unsupportedImageError(files.length, "JPEG, PNG, WebP, BMP"))
+              }
+              onBlockedInput={(files) => setError(blockedInputError(files))}
+            />
+          )}
+          {image && (
+            <div className="canvas-panel">
+              <div className="preview-frame">
+                <canvas ref={canvasRef} />
               </div>
-              <button className="btn btn-primary btn-block" onClick={exportImage} disabled={busy}>
-                {busy ? (
-                  <>
-                    <span className="spinner" /> {t("common.saving")}
-                  </>
-                ) : (
-                  t("common.saveImage")
-                )}
-              </button>
-              {savedTo && !busy && (
-                <div className="banner banner-ok mt-3 break-all">
-                  {savedTo}
-                </div>
-              )}
-              {error && (
-                <div className="banner banner-error mt-3">
-                  {error}
-                </div>
-              )}
+              <p className="status-note mt-2">
+                {t("shadow.canvasNote")}
+              </p>
             </div>
+          )}
+        </div>
+        <div className="side-col">
+          <div className="card">
+            <h2 className="card-title">{t("common.settingsCard")}</h2>
+            {slider(t("shadow.offsetX"), offsetX, -60, 60, setOffsetX, (v) => `${v}px`)}
+            {slider(t("shadow.offsetY"), offsetY, -60, 60, setOffsetY, (v) => `${v}px`)}
+            {slider(t("shadow.blur"), blur, 0, 80, setBlur, (v) => `${v}px`)}
+            {slider(t("watermark.opacity"), opacityPct, 10, 100, setOpacityPct, (v) => `${v}%`)}
+            <div className="field">
+              <label>{t("watermark.color")}</label>
+              <input
+                type="color" className="swatch-input"
+                value={color}
+                onChange={(e) => setColor(e.target.value)}
+
+              />
+            </div>
+            <button className="btn btn-primary btn-block" onClick={exportImage} disabled={!image || busy}>
+              {busy ? (
+                <>
+                  <span className="spinner" /> {t("common.saving")}
+                </>
+              ) : (
+                t("common.saveImage")
+              )}
+            </button>
+            {savedTo && !busy && (
+              <div className="banner banner-ok mt-3 break-all">
+                {savedTo}
+              </div>
+            )}
+            {error && (
+              <div className="banner banner-error mt-3">
+                {error}
+              </div>
+            )}
+          </div>
+          {image && (
             <button
               className="btn btn-block"
-              onClick={() => { source.clear(); setError(null); }}
+              onClick={() => { source.clear(); setError(null); setSavedTo(null); }}
               disabled={busy}
             >
               {t("common.chooseDifferentImage")}
             </button>
-          </div>
+          )}
         </div>
-      )}
+      </div>
     </PageShell>
   );
 }

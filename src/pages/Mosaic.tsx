@@ -5,16 +5,15 @@ import { Circle, Eraser, Square } from "lucide-react";
 import DropZone from "../components/DropZone";
 import PageShell from "../components/PageShell";
 import { useTranslation } from "react-i18next";
-import { readAssetDataUrl } from "../lib/ipc";
+import { useCanvasSource } from "../lib/useCanvasSource";
 import { CANVAS_FORMATS, unsupportedImageError } from "../lib/types";
-import { clearPersisted, usePersistedState, usePersistedRef } from "../lib/persistedState";
+import { clearPersisted, usePersistedState } from "../lib/persistedState";
 
 
 export default function Mosaic() {
   const { t } = useTranslation();
-  const [file, setFile] = usePersistedState<string | null>("local.mosaic.file", null);
-  const [dataUrl, setDataUrl] = usePersistedState<string | null>("local.mosaic.dataUrl", null);
-  const [naturalSize, setNaturalSize] = usePersistedState<{ width: number; height: number } | null>("local.mosaic.naturalSize", null);
+  const source = useCanvasSource("mosaic");
+  const image = source.image;
   const [tool, setTool] = usePersistedState<"brush" | "rect" | "erase">("local.mosaic.tool", "brush");
   const [brushSize, setBrushSize] = usePersistedState("local.mosaic.brushSize", 48);
   const [blockSize, setBlockSize] = usePersistedState("local.mosaic.blockSize", 24);
@@ -23,7 +22,6 @@ export default function Mosaic() {
   const [savedTo, setSavedTo] = usePersistedState<string | null>("local.mosaic.savedTo", null);
   const [strokes, setStrokes] = usePersistedState<MaskStroke[]>("mosaic.strokes", []);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const imgElRef = usePersistedRef<HTMLImageElement | null>("local.mosaic.imgElRef", null);
   const activeRef = useRef<MaskStroke | null>(null);
   /** natural px per displayed px — export uses it to keep preview-sized
    *  blocks proportional at full resolution. */
@@ -32,29 +30,19 @@ export default function Mosaic() {
   const loadFile = (paths: string[]) => {
     const path = paths[0];
     if (!path) return;
-    setFile(path);
     setError(null);
     setSavedTo(null);
     clearPersisted("mosaic.strokes");
-    readAssetDataUrl(path).then((url) => {
-      const image = new Image();
-      image.onload = () => {
-        imgElRef.current = image;
-        setNaturalSize({ width: image.naturalWidth, height: image.naturalHeight });
-        setDataUrl(url);
-      };
-      image.src = url;
-    });
+    void source.load(path);
   };
 
   // Live preview: mosaic layer (downscale/upscale with smoothing off) revealed
   // only inside the painted selection.
   useEffect(() => {
     const canvas = canvasRef.current;
-    const image = imgElRef.current;
-    if (!canvas || !image || !naturalSize) return;
-    canvas.width = naturalSize.width;
-    canvas.height = naturalSize.height;
+    if (!canvas || !image) return;
+    canvas.width = image.naturalWidth;
+    canvas.height = image.naturalHeight;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -63,11 +51,11 @@ export default function Mosaic() {
     // you get — natural-resolution blocks would shrink to mush once the
     // browser scales the canvas down to fit.
     const rect = canvas.getBoundingClientRect();
-    const displayW = rect.width > 0 ? rect.width : naturalSize.width;
-    const scale = naturalSize.width / displayW;
+    const displayW = rect.width > 0 ? rect.width : image.naturalWidth;
+    const scale = image.naturalWidth / displayW;
     previewScaleRef.current = scale;
     const sw = Math.max(1, Math.round(displayW / blockSize));
-    const sh = Math.max(1, Math.round(sw * naturalSize.height / naturalSize.width));
+    const sh = Math.max(1, Math.round(sw * image.naturalHeight / image.naturalWidth));
     const small = document.createElement("canvas");
     small.width = sw;
     small.height = sh;
@@ -75,12 +63,12 @@ export default function Mosaic() {
     sctx.imageSmoothingEnabled = true;
     sctx.drawImage(image, 0, 0, sw, sh);
     ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(small, 0, 0, naturalSize.width, naturalSize.height);
+    ctx.drawImage(small, 0, 0, image.naturalWidth, image.naturalHeight);
     ctx.imageSmoothingEnabled = true;
     // Keep the mosaic only where strokes were painted.
     const mask = document.createElement("canvas");
-    mask.width = naturalSize.width;
-    mask.height = naturalSize.height;
+    mask.width = image.naturalWidth;
+    mask.height = image.naturalHeight;
     drawMask(mask, strokes, "#ffffff");
     ctx.globalCompositeOperation = "destination-in";
     ctx.drawImage(mask, 0, 0);
@@ -104,7 +92,7 @@ export default function Mosaic() {
     }
     ctx.restore();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dataUrl, naturalSize, strokes, blockSize]);
+  }, [image, strokes, blockSize]);
 
   const toNatural = (event: ReactPointerEvent<HTMLCanvasElement>): MaskPoint => {
     const canvas = event.currentTarget;
@@ -144,33 +132,32 @@ export default function Mosaic() {
   };
 
   const exportImage = async () => {
-    const image = imgElRef.current;
-    if (!image || !naturalSize) return;
+    if (!image || busy || strokes.length === 0) return;
     setBusy(true);
     try {
       const canvas = document.createElement("canvas");
-      canvas.width = naturalSize.width;
-      canvas.height = naturalSize.height;
+      canvas.width = image.naturalWidth;
+      canvas.height = image.naturalHeight;
       const ctx = canvas.getContext("2d")!;
       ctx.drawImage(image, 0, 0);
       // Mosaic layer — block size scaled from display px to natural px so
       // the exported blocks match the preview proportions.
       const blockNatural = Math.max(1, Math.round(blockSize * previewScaleRef.current));
-      const sw = Math.max(1, Math.round(naturalSize.width / blockNatural));
-      const sh = Math.max(1, Math.round(naturalSize.height / blockNatural));
+      const sw = Math.max(1, Math.round(image.naturalWidth / blockNatural));
+      const sh = Math.max(1, Math.round(image.naturalHeight / blockNatural));
       const small = document.createElement("canvas");
       small.width = sw;
       small.height = sh;
       small.getContext("2d")!.drawImage(image, 0, 0, sw, sh);
       const mosaic = document.createElement("canvas");
-      mosaic.width = naturalSize.width;
-      mosaic.height = naturalSize.height;
+      mosaic.width = image.naturalWidth;
+      mosaic.height = image.naturalHeight;
       const mctx = mosaic.getContext("2d")!;
       mctx.imageSmoothingEnabled = false;
-      mctx.drawImage(small, 0, 0, naturalSize.width, naturalSize.height);
+      mctx.drawImage(small, 0, 0, image.naturalWidth, image.naturalHeight);
       const mask = document.createElement("canvas");
-      mask.width = naturalSize.width;
-      mask.height = naturalSize.height;
+      mask.width = image.naturalWidth;
+      mask.height = image.naturalHeight;
       drawMask(mask, strokes, "#ffffff");
       mctx.globalCompositeOperation = "destination-in";
       mctx.drawImage(mask, 0, 0);
@@ -188,153 +175,153 @@ export default function Mosaic() {
       title={t("mosaic.title")}
       subtitle={t("mosaic.subtitle")}
     >
-      {!file && error && <div className="banner banner-error">{error}</div>}
-      {!file && (
-        <DropZone
-          presentation="canvas"
-          onFiles={loadFile}
-          label={t("mosaic.dropLabel")}
-          multiple={false}
-          accept={CANVAS_FORMATS}
-          hint={t("common.canvasBrowseHint")}
-          onUnsupported={(files) =>
-            setError(unsupportedImageError(files.length, "JPEG, PNG, WebP, GIF or BMP"))
-          }
-        />
-      )}
-
-      {file && dataUrl && naturalSize && (
-        <div className="split">
-          <div className="canvas-panel">
-            <div className="toolbar">
-              <button
-                className={`radio-chip${tool === "brush" ? " active" : ""}`}
-                onClick={() => setTool("brush")}
-              >
-                <Circle /> {t("ai.brush")}
-              </button>
-              <button
-                className={`radio-chip${tool === "rect" ? " active" : ""}`}
-                onClick={() => setTool("rect")}
-              >
-                <Square /> {t("annotate.rect")}
-              </button>
-              <button
-                className={`radio-chip${tool === "erase" ? " active" : ""}`}
-                onClick={() => setTool("erase")}
-              >
-                <Eraser /> {t("ai.eraser")}
-              </button>
-              <label className="status-note" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                {t("ai.size")}
-                <input
-                  type="range"
-                  className="range"
-                  min={8}
-                  max={160}
-                  value={brushSize}
-                  style={{ "--val": `${((brushSize - 8) / 152) * 100}%` } as React.CSSProperties}
-                  onChange={(e) => setBrushSize(Number(e.target.value))}
-                />
-              </label>
-              <span className="spacer" />
-              <button
-                className="btn btn-sm"
-                onClick={() => setStrokes((prev) => prev.slice(0, -1))}
-                disabled={strokes.length === 0}
-              >
-                {t("common.undo")}
-              </button>
-              <button
-                className="btn btn-sm"
-                onClick={() => setStrokes([])}
-                disabled={strokes.length === 0}
-              >
-                {t("common.clear")}
-              </button>
-            </div>
-            <div className="canvas-wrap cursor-cross">
-              <img src={dataUrl} alt="source" draggable={false} />
-              <canvas
-                ref={canvasRef}
-                onPointerDown={onPointerDown}
-                onPointerMove={onPointerMove}
-                onPointerUp={onPointerUp}
-                onPointerCancel={onPointerUp}
+      {(error || source.error) && <div className="banner banner-error" role="alert">{error || source.error}</div>}
+      <div className="split">
+        <div className="canvas-panel">
+          <div className="toolbar">
+            <button
+              className={`radio-chip${tool === "brush" ? " active" : ""}`}
+              onClick={() => setTool("brush")}
+            >
+              <Circle /> {t("mosaic.brush")}
+            </button>
+            <button
+              className={`radio-chip${tool === "rect" ? " active" : ""}`}
+              onClick={() => setTool("rect")}
+            >
+              <Square /> {t("annotate.rect")}
+            </button>
+            <button
+              className={`radio-chip${tool === "erase" ? " active" : ""}`}
+              onClick={() => setTool("erase")}
+            >
+              <Eraser /> {t("mosaic.eraser")}
+            </button>
+            <label className="status-note toolbar-range">
+              {t("mosaic.size")}
+              <input
+                type="range"
+                className="range"
+                min={8}
+                max={160}
+                value={brushSize}
+                style={{ "--val": `${((brushSize - 8) / 152) * 100}%` } as React.CSSProperties}
+                onChange={(e) => setBrushSize(Number(e.target.value))}
               />
-            </div>
-            <p className="status-note mt-2">
-              {t("mosaic.hint")}
-            </p>
+            </label>
+            <span className="spacer" />
+            <button
+              className="btn btn-sm"
+              onClick={() => setStrokes((prev) => prev.slice(0, -1))}
+              disabled={strokes.length === 0}
+            >
+              {t("common.undo")}
+            </button>
+            <button
+              className="btn btn-sm"
+              onClick={() => setStrokes([])}
+              disabled={strokes.length === 0}
+            >
+              {t("common.clear")}
+            </button>
           </div>
-          <div className="side-col">
-            <div className="card">
-              <h2 className="card-title">{t("common.settingsCard")}</h2>
-              <div className="field">
-                <div className="range-head">
-                  <label className="mb-0">{t("mosaic.blockSize")}</label>
-                  <span className="range-value">{blockSize}px</span>
-                </div>
-                <input
-                  type="range"
-                  className="range"
-                  min={2}
-                  max={320}
-                  value={blockSize}
-                  style={{ "--val": `${((blockSize - 2) / 318) * 100}%` } as React.CSSProperties}
-                  onChange={(e) => setBlockSize(Number(e.target.value))}
+          {source.loading && <p className="status-note" role="status">{t("errors.rendering")}</p>}
+          {!image && !source.loading && (
+            <DropZone
+              presentation="canvas"
+              onFiles={loadFile}
+              label={t("mosaic.dropLabel")}
+              multiple={false}
+              accept={CANVAS_FORMATS}
+              hint={t("common.canvasBrowseHint")}
+              onUnsupported={(files) =>
+                setError(unsupportedImageError(files.length, "JPEG, PNG, WebP, GIF or BMP"))
+              }
+            />
+          )}
+          {image && (
+            <>
+              <div className="canvas-wrap cursor-cross">
+                <img src={image.src} alt="source" draggable={false} />
+                <canvas
+                  ref={canvasRef}
+                  onPointerDown={onPointerDown}
+                  onPointerMove={onPointerMove}
+                  onPointerUp={onPointerUp}
+                  onPointerCancel={onPointerUp}
                 />
-                <div className="preset-chips">
-                  {[2, 4, 8, 16].map((v) => (
-                    <button
-                      key={v}
-                      className={`chip${blockSize === v ? " active" : ""}`}
-                      onClick={() => setBlockSize(v)}
-                    >
-                      {v}px
-                    </button>
-                  ))}
-                </div>
-                <div className="hint">{t("mosaic.blockHint")}</div>
               </div>
-              <button
-                className="btn btn-primary btn-block"
-                onClick={exportImage}
-                disabled={busy || strokes.length === 0}
-              >
-                {busy ? (
-                  <>
-                    <span className="spinner" /> {t("common.saving")}
-                  </>
-                ) : (
-                  t("mosaic.saveButton")
-                )}
-              </button>
-              {savedTo && !busy && (
-                <div className="banner banner-ok mt-3 break-all">
-                  {savedTo}
-                </div>
-              )}
-              {error && (
-                <div className="banner banner-error mt-3">
-                  {error}
-                </div>
-              )}
+              <p className="status-note mt-2">
+                {t("mosaic.hint")}
+              </p>
+            </>
+          )}
+        </div>
+        <div className="side-col">
+          <div className="card">
+            <h2 className="card-title">{t("common.settingsCard")}</h2>
+            <div className="field">
+              <div className="range-head">
+                <label className="mb-0">{t("mosaic.blockSize")}</label>
+                <span className="range-value">{blockSize}px</span>
+              </div>
+              <input
+                type="range"
+                className="range"
+                min={2}
+                max={320}
+                value={blockSize}
+                style={{ "--val": `${((blockSize - 2) / 318) * 100}%` } as React.CSSProperties}
+                onChange={(e) => setBlockSize(Number(e.target.value))}
+              />
+              <div className="preset-chips">
+                {[2, 4, 8, 16].map((v) => (
+                  <button
+                    key={v}
+                    className={`chip${blockSize === v ? " active" : ""}`}
+                    onClick={() => setBlockSize(v)}
+                  >
+                    {v}px
+                  </button>
+                ))}
+              </div>
+              <div className="hint">{t("mosaic.blockHint")}</div>
             </div>
             <button
+              className="btn btn-primary btn-block"
+              onClick={exportImage}
+              disabled={!image || busy || strokes.length === 0}
+            >
+              {busy ? (
+                <>
+                  <span className="spinner" /> {t("common.saving")}
+                </>
+              ) : (
+                t("mosaic.saveButton")
+              )}
+            </button>
+            {savedTo && !busy && (
+              <div className="banner banner-ok mt-3 break-all">
+                {savedTo}
+              </div>
+            )}
+          </div>
+          {image && (
+            <button
               className="btn btn-block"
+              disabled={busy}
               onClick={() => {
-                setFile(null);
-                setDataUrl(null);
-                setNaturalSize(null);
+                source.clear();
+                setSavedTo(null);
+                setError(null);
                 setStrokes([]);
               }}
             >
               {t("common.chooseDifferentImage")}
             </button>
-          </div>
+          )}
         </div>
-      )}
+      </div>
     </PageShell>
   );
 }

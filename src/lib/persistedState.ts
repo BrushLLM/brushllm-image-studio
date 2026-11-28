@@ -2,7 +2,7 @@ import { useCallback, useRef, useSyncExternalStore } from "react";
 
 /**
  * Module-level external store keyed by slot name. Values survive component
- * unmount, so navigating away and back (e.g. AI Toolbox → Settings → back)
+ * unmount, so navigating away and back (e.g. Compress → Settings → back)
  * restores the session instead of resetting it. In-flight async work can
  * also write results here after the component is gone: a captured `set`
  * talks to the store, not to a hook instance, so it still persists.
@@ -149,16 +149,4 @@ export function readPersisted<T>(key: string): T | undefined {
 export function writePersisted(key: string, value: unknown) {
   store.set(key, value);
   notifyKey(key);
-}
-
-/** Session-owned image/offscreen references survive page navigation, while
- * DOM refs and event listeners remain tied to their mounted components. */
-export function usePersistedRef<T>(key: string, initial: T): { current: T } {
-  const slot = useRef<{ key: string; value: { current: T } } | null>(null);
-  if (slot.current === null || slot.current.key !== key) {
-    const value = store.has(key) ? store.get(key) as { current: T } : { current: initial };
-    store.set(key, value);
-    slot.current = { key, value };
-  }
-  return slot.current.value;
 }

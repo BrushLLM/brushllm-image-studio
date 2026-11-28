@@ -7,7 +7,9 @@ import FormatQuality, { type FormatChoice } from "../components/FormatQuality";
 import OutputPanel from "../components/OutputPanel";
 import { useOutputConfig } from "../lib/useOutputConfig";
 import PageShell from "../components/PageShell";
-import { applyOverlay, readAssetDataUrl } from "../lib/ipc";
+import { applyOverlay } from "../lib/ipc";
+import { loadCanvasImage } from "../lib/canvas";
+import { useCanvasSource } from "../lib/useCanvasSource";
 import { blockedInputError, CANVAS_FORMATS, unsupportedImageError, type OutFormat } from "../lib/types";
 import { useTranslation } from "react-i18next";
 
@@ -19,13 +21,15 @@ const FONT_STACK = `system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", 
 export default function Watermark() {
   const { t } = useTranslation();
   const [file, setFile] = usePersistedState<string | null>("local.watermark.file", null);
-  const [baseImage, setBaseImage] = usePersistedState<HTMLImageElement | null>("local.watermark.baseImage", null);
+  const source = useCanvasSource("watermark");
+  const baseImage = source.image;
   const [type, setType] = usePersistedState<WatermarkType>("local.watermark.type", "text");
   const [text, setText] = usePersistedState("local.watermark.text", "© BrushLLM");
   const [textColor, setTextColor] = usePersistedState("local.watermark.textColor", "#ffffff");
   const [textSizePct, setTextSizePct] = usePersistedState("local.watermark.textSizePct", 6);
   const [logoPath, setLogoPath] = usePersistedState<string | null>("local.watermark.logoPath", null);
   const [logoImage, setLogoImage] = usePersistedState<HTMLImageElement | null>("local.watermark.logoImage", null);
+  const [logoLoading, setLogoLoading] = usePersistedState("local.watermark.logoLoading", false);
   const [logoSizePct, setLogoSizePct] = usePersistedState("local.watermark.logoSizePct", 25);
   const [opacity, setOpacity] = usePersistedState("local.watermark.opacity", 35);
   const [rotation, setRotation] = usePersistedState("local.watermark.rotation", -30);
@@ -47,26 +51,26 @@ export default function Watermark() {
     setFile(path);
     setResultPath(null);
     setError(null);
-    // Data URL (not asset protocol) so canvas exports stay untainted.
-    readAssetDataUrl(path).then((url) => {
-      const image = new Image();
-      image.onload = () => setBaseImage(image);
-      image.src = url;
-    });
+    void source.load(path);
   };
 
   const pickLogo = async () => {
-    const path = await open({
-      multiple: false,
-      filters: [{ name: "Images", extensions: CANVAS_FORMATS }],
-    });
-    if (typeof path !== "string") return;
-    setLogoPath(path);
-    readAssetDataUrl(path).then((url) => {
-      const image = new Image();
-      image.onload = () => setLogoImage(image);
-      image.src = url;
-    });
+    setLogoLoading(true);
+    try {
+      const path = await open({
+        multiple: false,
+        filters: [{ name: "Images", extensions: CANVAS_FORMATS }],
+      });
+      if (typeof path !== "string") return;
+      setError(null);
+      const image = await loadCanvasImage(path);
+      setLogoPath(path);
+      setLogoImage(image);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setLogoLoading(false);
+    }
   };
 
   /** Draw the watermark layer (only) into a context at natural resolution. */
@@ -154,8 +158,11 @@ export default function Watermark() {
     drawWatermark(ctx, canvas.width, canvas.height);
   }, [baseImage, drawWatermark]);
 
+  const hasWatermark = type === "text" ? text.trim().length > 0 : logoImage !== null && !logoLoading;
+  const canApply = Boolean(file && baseImage && hasWatermark && !busy);
+
   const run = async () => {
-    if (!file || !baseImage || busy) return;
+    if (!file || !baseImage || !canApply) return;
     setBusy(true);
     setError(null);
     setResultPath(null);
@@ -194,251 +201,242 @@ export default function Watermark() {
     }
   };
 
-  const hasWatermark =
-    (type === "text" && text.trim().length > 0) || (type === "image" && logoImage !== null);
-
   return (
     <PageShell
       title={t("watermark.title")}
       subtitle={t("watermark.subtitle")}
     >
-      {!file && error && (
-        <div className="banner banner-error">{error}</div>
-      )}
-      {!file && (
-        <DropZone
-          presentation="canvas"
-          onFiles={loadFile}
-          label={t("watermark.dropLabel")}
-          multiple={false}
-          accept={CANVAS_FORMATS}
-          hint={t("common.canvasBrowseHint")}
-          onUnsupported={(files) =>
-            setError(unsupportedImageError(files.length, "JPEG, PNG, WebP, GIF or BMP"))
-          }
-          onBlockedInput={(files) => setError(blockedInputError(files))}
-        />
-      )}
-
-      {file && (
-        <div className="split">
-          <div className="canvas-panel">
-            <div className="preview-frame">
-              <canvas ref={previewRef} />
-            </div>
-            <p className="status-note mt-2">
-              {baseImage ? `${baseImage.naturalWidth}×${baseImage.naturalHeight}px` : "loading…"}
-            </p>
-          </div>
-          <div className="side-col">
-            <div className="card">
-              <h2 className="card-title">{t("watermark.title")}</h2>
-              <div className="field">
-                <label>{t("watermark.type")}</label>
-                <div className="radio-row">
-                  <button
-                    className={`radio-chip${type === "text" ? " active" : ""}`}
-                    onClick={() => setType("text")}
-                  >
-                    {t("watermark.text")}
-                  </button>
-                  <button
-                    className={`radio-chip${type === "image" ? " active" : ""}`}
-                    onClick={() => setType("image")}
-                  >
-                    {t("watermark.image")}
-                  </button>
-                </div>
+      {(error || source.error) && <div className="banner banner-error" role="alert">{error || source.error}</div>}
+      <div className="split">
+        <div className="workbench-main">
+          {source.loading && <p className="status-note" role="status">{t("errors.rendering")}</p>}
+          {!baseImage && !source.loading && (
+            <DropZone
+              presentation="canvas"
+              onFiles={loadFile}
+              label={t("watermark.dropLabel")}
+              multiple={false}
+              accept={CANVAS_FORMATS}
+              hint={t("common.canvasBrowseHint")}
+              onUnsupported={(files) =>
+                setError(unsupportedImageError(files.length, "JPEG, PNG, WebP or BMP"))
+              }
+              onBlockedInput={(files) => setError(blockedInputError(files))}
+            />
+          )}
+          {baseImage && (
+            <div className="canvas-panel">
+              <div className="preview-frame">
+                <canvas ref={previewRef} />
               </div>
+              <p className="status-note mt-2">
+                {baseImage.naturalWidth} × {baseImage.naturalHeight} px
+              </p>
+            </div>
+          )}
+        </div>
+        <div className="side-col">
+          <div className="card">
+            <h2 className="card-title">{t("watermark.title")}</h2>
+            <div className="field">
+              <label>{t("watermark.type")}</label>
+              <div className="radio-row">
+                <button
+                  className={`radio-chip${type === "text" ? " active" : ""}`}
+                  onClick={() => setType("text")}
+                >
+                  {t("watermark.text")}
+                </button>
+                <button
+                  className={`radio-chip${type === "image" ? " active" : ""}`}
+                  onClick={() => setType("image")}
+                >
+                  {t("watermark.image")}
+                </button>
+              </div>
+            </div>
 
-              {type === "text" && (
-                <>
-                  <div className="field">
-                    <label>{t("watermark.textLabel")}</label>
+            {type === "text" && (
+              <>
+                <div className="field">
+                  <label>{t("watermark.textLabel")}</label>
+                  <input
+                    type="text"
+                    value={text}
+                    onChange={(e) => setText(e.target.value)}
+                    placeholder={t("watermark.textPlaceholder")}
+                  />
+                </div>
+                <div className="field watermark-style-fields">
+                  <div>
+                    <label>{t("watermark.color")}</label>
                     <input
-                      type="text"
-                      value={text}
-                      onChange={(e) => setText(e.target.value)}
-                      placeholder={t("watermark.textPlaceholder")}
+                      type="color" className="swatch-input"
+                      value={textColor}
+                      onChange={(e) => setTextColor(e.target.value)}
+
                     />
                   </div>
-                  <div className="field row">
-                    <div>
-                      <label>{t("watermark.color")}</label>
-                      <input
-                        type="color" className="swatch-input"
-                        value={textColor}
-                        onChange={(e) => setTextColor(e.target.value)}
-                        
-                      />
-                    </div>
-                    <div>
-                      <label>{t("watermark.sizeOfWidth", { pct: textSizePct })}</label>
-                      <input
-                        type="range"
-                        min={1}
-                        max={20}
-                        value={textSizePct}
-                        onChange={(e) => setTextSizePct(Number(e.target.value))}
-                      />
-                    </div>
+                  <div>
+                    <label>{t("watermark.sizeOfWidth", { pct: textSizePct })}</label>
+                    <input
+                      type="range"
+                      min={1}
+                      max={20}
+                      value={textSizePct}
+                      onChange={(e) => setTextSizePct(Number(e.target.value))}
+                    />
                   </div>
-                </>
-              )}
-
-              {type === "image" && (
-                <div className="field">
-                  <label>{t("watermark.pickLogoHint")}</label>
-                  <div className="row">
-                    <button className="btn" onClick={pickLogo}>
-                      {logoPath
-                        ? logoPath.replace(/\\/g, "/").split("/").pop()
-                        : t("watermark.chooseImage")}
-                    </button>
-                  </div>
-                  {logoImage && (
-                    <div className="field mt-3">
-                      <label>{t("watermark.sizeOfWidth", { pct: logoSizePct })}</label>
-                      <input
-                        type="range"
-                        min={5}
-                        max={60}
-                        value={logoSizePct}
-                        onChange={(e) => setLogoSizePct(Number(e.target.value))}
-                      />
-                    </div>
-                  )}
                 </div>
-              )}
+              </>
+            )}
 
-              <div className="field row">
-                <div>
-                  <label>{t("watermark.opacity")} — {opacity}%</label>
+            {type === "image" && (
+              <div className="field">
+                <label>{t("watermark.pickLogoHint")}</label>
+                <div className="row">
+                  <button className="btn" onClick={pickLogo} disabled={logoLoading}>
+                    {logoPath
+                      ? logoPath.replace(/\\/g, "/").split("/").pop()
+                      : t("watermark.chooseImage")}
+                  </button>
+                </div>
+                <div className="field mt-3">
+                  <label>{t("watermark.sizeOfWidth", { pct: logoSizePct })}</label>
                   <input
                     type="range"
                     min={5}
-                    max={100}
-                    value={opacity}
-                    onChange={(e) => setOpacity(Number(e.target.value))}
-                  />
-                </div>
-                <div>
-                  <label>{t("watermark.rotation")} — {rotation}°</label>
-                  <input
-                    type="range"
-                    min={-180}
-                    max={180}
-                    value={rotation}
-                    onChange={(e) => setRotation(Number(e.target.value))}
+                    max={60}
+                    value={logoSizePct}
+                    onChange={(e) => setLogoSizePct(Number(e.target.value))}
                   />
                 </div>
               </div>
+            )}
 
+            <div className="field field-pair">
+              <div>
+                <label>{t("watermark.opacity")} — {opacity}%</label>
+                <input
+                  type="range"
+                  min={5}
+                  max={100}
+                  value={opacity}
+                  onChange={(e) => setOpacity(Number(e.target.value))}
+                />
+              </div>
+              <div>
+                <label>{t("watermark.rotation")} — {rotation}°</label>
+                <input
+                  type="range"
+                  min={-180}
+                  max={180}
+                  value={rotation}
+                  onChange={(e) => setRotation(Number(e.target.value))}
+                />
+              </div>
+            </div>
+
+            <div className="field">
+              <label>{t("watermark.placement")}</label>
+              <div className="radio-row">
+                <button
+                  className={`radio-chip${mode === "tiled" ? " active" : ""}`}
+                  onClick={() => setMode("tiled")}
+                >
+                  {t("watermark.tiled")}
+                </button>
+                <button
+                  className={`radio-chip${mode === "position" ? " active" : ""}`}
+                  onClick={() => setMode("position")}
+                >
+                  {t("watermark.singlePosition")}
+                </button>
+              </div>
+            </div>
+
+            {mode === "tiled" ? (
               <div className="field">
-                <label>{t("watermark.placement")}</label>
-                <div className="radio-row">
-                  <button
-                    className={`radio-chip${mode === "tiled" ? " active" : ""}`}
-                    onClick={() => setMode("tiled")}
-                  >
-                    {t("watermark.tiled")}
-                  </button>
-                  <button
-                    className={`radio-chip${mode === "position" ? " active" : ""}`}
-                    onClick={() => setMode("position")}
-                  >
-                    {t("watermark.singlePosition")}
-                  </button>
+                <label>{t("watermark.gap")} — {gapPct}%</label>
+                <input
+                  type="range"
+                  min={20}
+                  max={400}
+                  value={gapPct}
+                  onChange={(e) => setGapPct(Number(e.target.value))}
+                />
+              </div>
+            ) : (
+              <div className="field">
+                <label>{t("watermark.position")}</label>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(3, 34px)",
+                    gap: 4,
+                  }}
+                >
+                  {Array.from({ length: 9 }, (_, index) => (
+                    <button
+                      key={index}
+                      className={`radio-chip${position === index ? " active" : ""}`}
+                      style={{ width: 34, height: 30, padding: 0 }}
+                      onClick={() => setPosition(index)}
+                      aria-pressed={position === index}
+                      aria-label={`${t("watermark.position")} ${index + 1}`}
+                    />
+                  ))}
                 </div>
               </div>
+            )}
+          </div>
 
-              {mode === "tiled" ? (
-                <div className="field">
-                  <label>Tile gap — {gapPct}%</label>
-                  <input
-                    type="range"
-                    min={20}
-                    max={400}
-                    value={gapPct}
-                    onChange={(e) => setGapPct(Number(e.target.value))}
-                  />
-                </div>
-              ) : (
-                <div className="field">
-                  <label>{t("watermark.position")}</label>
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(3, 34px)",
-                      gap: 4,
-                    }}
-                  >
-                    {Array.from({ length: 9 }, (_, index) => (
-                      <button
-                        key={index}
-                        className={`radio-chip${position === index ? " active" : ""}`}
-                        style={{ width: 34, height: 30, padding: 0 }}
-                        onClick={() => setPosition(index)}
-                        title={`Position ${index + 1}`}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="card">
-              <h2 className="card-title">{t("settings.output")}</h2>
-              <FormatQuality
-                format={format}
-                onFormat={setFormat}
-                quality={quality}
-                onQuality={setQuality}
-                preserveExif={preserveExif}
-                onPreserveExif={setPreserveExif}
-              />
-              <OutputPanel value={output} onChange={setOutput} defaultSuffix="-watermarked" />
-              <button
-                className="btn btn-primary btn-block mt-3"
-                onClick={run}
-                disabled={!hasWatermark || busy}
-              >
-                {busy ? (
-                  <>
-                    <span className="spinner" /> {t("watermark.applying")}
-                  </>
-                ) : (
-                  t("watermark.apply")
-                )}
-              </button>
-              {error && (
-                <div className="banner banner-error mt-3">
-                  {error}
-                </div>
-              )}
-              {resultPath && (
-                <div className="banner banner-ok mt-3">
-                  <span>✓ Saved to {resultPath}</span>
-                  <span className="banner-link" onClick={() => revealItemInDir(resultPath)}>
-                    Show in folder
-                  </span>
-                </div>
-              )}
-            </div>
-
+          <div className="card">
+            <h2 className="card-title">{t("settings.output")}</h2>
+            <FormatQuality
+              format={format}
+              onFormat={setFormat}
+              quality={quality}
+              onQuality={setQuality}
+              preserveExif={preserveExif}
+              onPreserveExif={setPreserveExif}
+            />
+            <OutputPanel value={output} onChange={setOutput} defaultSuffix="-watermarked" />
             <button
-              className="btn btn-block mt-1"
-              onClick={() => {
-                setFile(null);
-                setBaseImage(null);
-                setResultPath(null);
-              }}
+              className="btn btn-primary btn-block mt-3"
+              onClick={run}
+              disabled={!canApply}
             >
+              {busy ? (
+                <>
+                  <span className="spinner" /> {t("watermark.applying")}
+                </>
+              ) : (
+                t("watermark.apply")
+              )}
+            </button>
+            {resultPath && (
+              <div className="banner banner-ok mt-3">
+                <span>✓ Saved to {resultPath}</span>
+                <span className="banner-link" onClick={() => revealItemInDir(resultPath)}>
+                  Show in folder
+                </span>
+              </div>
+            )}
+          </div>
+
+          {baseImage && (
+            <button className="btn btn-block mt-1" disabled={busy} onClick={() => {
+              setFile(null);
+              source.clear();
+              setResultPath(null);
+              setError(null);
+            }}>
               {t("common.chooseDifferentImage")}
             </button>
-          </div>
+          )}
         </div>
-      )}
+      </div>
     </PageShell>
   );
 }

@@ -8,9 +8,7 @@ macOS와 Windows에서 이미지를 편집하세요. 로컬 도구는 기기에�
 
 [English](../README.md) · [Deutsch](../docs/README.de.md) · [Español](../docs/README.es.md) · [Français](../docs/README.fr.md) · [Português (Brasil)](../docs/README.pt-BR.md) · [日本語](../docs/README.ja.md) · [한국어](../docs/README.ko.md) · [简体中文](../docs/README.zh-CN.md) · [繁體中文](../docs/README.zh-TW.md)
 
-![원본 사진과 압축된 WebP를 비교하고 일괄 내보내기 결과를 보여 주는 Image Studio](../.github/assets/workspace.svg)
-
-예제 사진 제공 [Olympic National Park](https://www.flickr.com/photos/131856925@N02/22938296331).
+![이미지 가져오기와 로컬 도구 목록이 표시된 Image Studio](../.github/assets/workspace.svg)
 
 ## 다운로드
 
@@ -29,10 +27,6 @@ macOS에서는 디스크 이미지를 열고 앱을 응용 프로그램 폴더�
 3. 미리 보기에서 결과를 확인합니다. 출력 폴더와 같은 이름의 파일을 처리하는 방법을 정한 뒤 내보냅니다.
 
 일괄 가져오기는 JPEG, PNG, WebP, GIF(첫 프레임), BMP, TIFF, ICO 및 SVG를 지원합니다. JPEG, PNG, WebP, AVIF, TIFF, BMP, ICO 및 래스터가 포함된 SVG로 내보낼 수 있습니다.
-
-## 온라인 AI
-
-이미지를 생성하거나 배경과 물체를 제거하고, 피사체를 오려 내거나 프롬프트와 마스크로 편집할 수 있습니다. 설정에 API 키를 등록하세요. 지정된 서비스에 지시와 첨부 이미지 또는 마스크가 전송되며 사용량에 따라 요금이 부과됩니다.
 
 ## 개발
 

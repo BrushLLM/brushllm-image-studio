@@ -8,9 +8,7 @@ macOS と Windows で画像を編集できます。ローカルツールは端�
 
 [English](../README.md) · [Deutsch](../docs/README.de.md) · [Español](../docs/README.es.md) · [Français](../docs/README.fr.md) · [Português (Brasil)](../docs/README.pt-BR.md) · [日本語](../docs/README.ja.md) · [한국어](../docs/README.ko.md) · [简体中文](../docs/README.zh-CN.md) · [繁體中文](../docs/README.zh-TW.md)
 
-![元の写真と圧縮した WebP を比較し、一括書き出しの結果を表示する Image Studio](../.github/assets/workspace.svg)
-
-サンプル写真は [Olympic National Park](https://www.flickr.com/photos/131856925@N02/22938296331) によるものです。
+![画像の読み込みとローカルツール一覧を表示する Image Studio](../.github/assets/workspace.svg)
 
 ## ダウンロード
 
@@ -29,10 +27,6 @@ macOS ではディスクイメージを開き、アプリを「アプリケー�
 3. プレビューで結果を確認します。出力先と同名ファイルの扱いを選択して書き出します。
 
 一括読み込みは JPEG、PNG、WebP、GIF（最初のフレーム）、BMP、TIFF、ICO、SVG に対応しています。JPEG、PNG、WebP、AVIF、TIFF、BMP、ICO、ラスターデータを埋め込んだ SVG に書き出せます。
-
-## オンライン AI
-
-画像生成、背景やオブジェクトの除去、被写体の切り抜き、プロンプトとマスクでの編集ができます。設定で API キーを登録します。プロンプトと添付画像またはマスクは設定したサービスに送信され、料金は利用量に応じて発生します。
 
 ## 開発
 

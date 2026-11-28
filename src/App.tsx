@@ -1,38 +1,52 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState, type ComponentType } from "react";
+import { useCallback, useEffect, useRef, useState, type ComponentType } from "react";
 import { ChevronLeft, ChevronRight, PanelLeftClose, PanelLeftOpen, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import CommandPalette from "./components/CommandPalette";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Sidebar from "./components/Sidebar";
-import Home from "./pages/Home";
 import { getSettings } from "./lib/ipc";
 import { readPersisted, writePersisted } from "./lib/persistedState";
 import { setAppearance } from "./lib/theme";
-import { AI_TOOL_CATALOG, isAiTool, pageLabelKey, type LocalToolId, type Page } from "./lib/tools";
+import { pageLabelKey, type LocalToolId, type Page } from "./lib/tools";
 import { blockedInputError } from "./lib/types";
 import { mergeImageFiles } from "./lib/useImageFiles";
 import { silentUpdateCheck } from "./lib/update";
+import Adjust from "./pages/Adjust";
+import ColorPicker from "./pages/ColorPicker";
+import ColorReplace from "./pages/ColorReplace";
+import Compress from "./pages/Compress";
+import Convert from "./pages/Convert";
+import CropRotate from "./pages/CropRotate";
+import Exif from "./pages/Exif";
+import Home from "./pages/Home";
+import ImageAnnotate from "./pages/ImageAnnotate";
+import Mirror from "./pages/Mirror";
+import Mosaic from "./pages/Mosaic";
+import Resize from "./pages/Resize";
+import RoundedCorners from "./pages/RoundedCorners";
+import Settings from "./pages/Settings";
+import Shadow from "./pages/Shadow";
+import Stitch from "./pages/Stitch";
+import Watermark from "./pages/Watermark";
 import "./styles.css";
 import "./studio.css";
 
-const AiRepaint = lazy(() => import("./pages/AiRepaint"));
-const Settings = lazy(() => import("./pages/Settings"));
 const LOCAL_PAGES = {
-  adjust: lazy(() => import("./pages/Adjust")),
-  annotate: lazy(() => import("./pages/ImageAnnotate")),
-  colorreplace: lazy(() => import("./pages/ColorReplace")),
-  compress: lazy(() => import("./pages/Compress")),
-  convert: lazy(() => import("./pages/Convert")),
-  crop: lazy(() => import("./pages/CropRotate")),
-  exif: lazy(() => import("./pages/Exif")),
-  mirror: lazy(() => import("./pages/Mirror")),
-  mosaic: lazy(() => import("./pages/Mosaic")),
-  picker: lazy(() => import("./pages/ColorPicker")),
-  resize: lazy(() => import("./pages/Resize")),
-  rounded: lazy(() => import("./pages/RoundedCorners")),
-  shadow: lazy(() => import("./pages/Shadow")),
-  stitch: lazy(() => import("./pages/Stitch")),
-  watermark: lazy(() => import("./pages/Watermark")),
+  adjust: Adjust,
+  annotate: ImageAnnotate,
+  colorreplace: ColorReplace,
+  compress: Compress,
+  convert: Convert,
+  crop: CropRotate,
+  exif: Exif,
+  mirror: Mirror,
+  mosaic: Mosaic,
+  picker: ColorPicker,
+  resize: Resize,
+  rounded: RoundedCorners,
+  shadow: Shadow,
+  stitch: Stitch,
+  watermark: Watermark,
 } satisfies Record<LocalToolId, ComponentType>;
 
 const COMPACT_WINDOW = "(max-width: 960px)";
@@ -89,9 +103,9 @@ export default function App() {
     }
   }, [page]);
 
-  const navigate = useCallback((next: Page, from?: Page) => {
+  const navigate = useCallback((next: Page) => {
     setHistory((history) => {
-      if (next === history.page || (from && history.page !== from)) return history;
+      if (next === history.page) return history;
       let back = history.back;
       if (next !== "home") back = [...back, history.page];
       else if (back[back.length - 1] === "home") back = back.slice(0, -1);
@@ -175,16 +189,6 @@ export default function App() {
       );
     }
     if (page === "settings") return <Settings />;
-    if (isAiTool(page)) {
-      return (
-        <AiRepaint
-          key={page}
-          tool={AI_TOOL_CATALOG[page]}
-          onSelectTool={(tool) => navigate(tool, page)}
-          onOpenSettings={() => navigate("settings")}
-        />
-      );
-    }
     const LocalPage = LOCAL_PAGES[page];
     return <LocalPage />;
   };
@@ -220,11 +224,7 @@ export default function App() {
       </header>
       <Sidebar page={page} expanded={expanded} onExpand={() => setExpanded(true)} onNavigate={navigate} />
       <main className="content" id="workspace" ref={workspace} tabIndex={-1} aria-label={t(pageLabelKey(page))}>
-        <ErrorBoundary key={page}>
-          <Suspense fallback={<p className="status-note" role="status">{t("common.processing")}</p>}>
-            {pageContent()}
-          </Suspense>
-        </ErrorBoundary>
+        <ErrorBoundary key={page}>{pageContent()}</ErrorBoundary>
       </main>
       {cmdkOpen && <CommandPalette onNavigate={navigate} onClose={() => setCmdkOpen(false)} />}
     </div>

@@ -1,15 +1,12 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { ArrowUpRight, ArrowRight, Globe, X } from "lucide-react";
+import { ArrowUpRight, ArrowRight, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import DropZone from "../components/DropZone";
 import PageShell from "../components/PageShell";
-import { AI_TOOLS, LOCAL_TOOL_GROUPS, type Page, type Tool } from "../lib/tools";
+import { LOCAL_TOOL_GROUPS, type Page, type Tool } from "../lib/tools";
 import { useUpdateBanner } from "../lib/update";
 
-const LINKS = [
-  { url: "https://brushllm.com/", label: "footer.website" },
-  { url: "https://brushllm.com/docs", label: "footer.apiDocs" },
-] as const;
+const PRODUCT_URL = "https://brushllm.com/studio/";
 
 interface Props {
   onNavigate: (page: Page) => void;
@@ -61,33 +58,24 @@ export default function Home({ onNavigate, onImport, onBlocked }: Props) {
           onBlockedInput={(blocked, accepted) => { if (!accepted.length) onBlocked(blocked); }}
         />
       </div>
-      <div className="tool-directory">
-        <section className="directory-group">
-          <header className="directory-heading"><h2>{t("home.localSection")}</h2></header>
+      <section>
+        <h2 className="directory-heading">{t("home.localSection")}</h2>
+        <div className="tool-directory">
           {LOCAL_TOOL_GROUPS.map(({ title, tools }) => (
             <div key={title} className="directory-category">
               <h3>{t(title)}</h3>
               {renderTools(tools)}
             </div>
           ))}
-        </section>
-        <section className="directory-group">
-          <header className="directory-heading">
-            <h2>{t("navigation.onlineAi")}</h2>
-            <p className="badge billing-label"><Globe aria-hidden="true" /> {t("ai.billingShort")}</p>
-          </header>
-          {renderTools(AI_TOOLS)}
-        </section>
-      </div>
+        </div>
+      </section>
       <footer className="home-footer">
-        {LINKS.map(({ url, label }) => (
-          <a key={url} href={url} onClick={(event) => {
-            event.preventDefault();
-            void openUrl(url);
-          }}>
-            {t(label)} <ArrowUpRight aria-hidden="true" />
-          </a>
-        ))}
+        <a href={PRODUCT_URL} onClick={(event) => {
+          event.preventDefault();
+          void openUrl(PRODUCT_URL);
+        }}>
+          {t("footer.website")} <ArrowUpRight aria-hidden="true" />
+        </a>
       </footer>
     </PageShell>
   );

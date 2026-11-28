@@ -88,110 +88,106 @@ export default function CropRotate() {
       subtitle={t("crop.subtitle")}
     >
       {(loadError || error) && <div className="banner banner-error" role="alert">{loadError || error}</div>}
-      {!file && (
-        <DropZone
-          presentation="canvas"
-          onFiles={loadFile}
-          label={t("crop.dropLabel")}
-          multiple={false}
-          accept={CANVAS_FORMATS}
-          hint={t("common.canvasBrowseHint")}
-          onUnsupported={(files) =>
-            setLoadError(
-              unsupportedImageError(files.length, "JPEG, PNG, WebP, GIF or BMP"),
-            )
-          }
-          onBlockedInput={(files) => setLoadError(blockedInputError(files))}
-        />
-      )}
-
-      {file && (
-        <div className="split">
-          <div className="canvas-panel">
-            <div className="toolbar">
-              {ASPECTS.map((a) => (
-                <button
-                  key={a.label}
-                  className={`radio-chip${aspect === a.value ? " active" : ""}`}
-                  aria-pressed={aspect === a.value}
-                  onClick={() => setAspect(a.value)}
-                >
-                  {a.value === null ? t("crop.free") : a.label}
-                </button>
-              ))}
-              <span className="spacer" />
-              <button className="btn btn-sm" onClick={() => rotateBy(-90)}
-                aria-label={t("crop.rotateLeft")} title={t("crop.rotateLeft")}>
-                <RotateCcw aria-hidden="true" /> 90°
-              </button>
-              <button className="btn btn-sm" onClick={() => rotateBy(90)}
-                aria-label={t("crop.rotateRight")} title={t("crop.rotateRight")}>
-                <RotateCw aria-hidden="true" /> 90°
-              </button>
+      <div className="split">
+        <div className="canvas-panel">
+          <div className="toolbar">
+            {ASPECTS.map((a) => (
               <button
-                className={`btn btn-sm${flipH ? " btn-primary" : ""}`}
-                aria-pressed={flipH}
-                onClick={() => setFlipH((v) => !v)}
+                key={a.label}
+                className={`radio-chip${aspect === a.value ? " active" : ""}`}
+                aria-pressed={aspect === a.value}
+                onClick={() => setAspect(a.value)}
               >
-                <FlipHorizontal aria-hidden="true" /> {t("crop.flipH")}
+                {a.value === null ? t("crop.free") : a.label}
               </button>
-              <button
-                className={`btn btn-sm${flipV ? " btn-primary" : ""}`}
-                aria-pressed={flipV}
-                onClick={() => setFlipV((v) => !v)}
-              >
-                <FlipVertical aria-hidden="true" /> {t("crop.flipV")}
-              </button>
-            </div>
-            {preview && (
-              <CropCanvas
-                persistKey={`local.crop.rect.${file}:${rotation}:${flipH}:${flipV}:${aspect}`}
-                ref={cropRef}
-                src={preview.data_url}
-                naturalSize={preview}
-                aspect={aspect}
-              />
-            )}
-            {loading && <p className="status-note" role="status">{t("errors.rendering")}</p>}
-            {preview && <p className="status-note mt-2">{previewSummary}</p>}
-          </div>
-          <div className="side-col">
-            <div className="card">
-              <h2 className="card-title">{t("crop.output")}</h2>
-              <FormatQuality
-                format={format}
-                onFormat={setFormat}
-                quality={quality}
-                onQuality={setQuality}
-                preserveExif={preserveExif}
-                onPreserveExif={setPreserveExif}
-              />
-              <OutputPanel value={output} onChange={setOutput} />
-            </div>
-            {file && (
-              <BatchRunner
-                tool="crop"
-                files={preview ? [file] : []}
-                runLabel={t("common.saveImage")}
-                buildJob={(files) => ({
-                  files,
-                  steps: buildSteps(),
-                  format: format === "same" ? null : format,
-                  quality,
-                  preserve_exif: preserveExif,
-                  output,
-                })}
-              />
-            )}
+            ))}
+            <span className="spacer" />
+            <button className="btn btn-sm" onClick={() => rotateBy(-90)} disabled={!file}
+              aria-label={t("crop.rotateLeft")} title={t("crop.rotateLeft")}>
+              <RotateCcw aria-hidden="true" /> 90°
+            </button>
+            <button className="btn btn-sm" onClick={() => rotateBy(90)} disabled={!file}
+              aria-label={t("crop.rotateRight")} title={t("crop.rotateRight")}>
+              <RotateCw aria-hidden="true" /> 90°
+            </button>
             <button
-              className="btn btn-block mt-3"
-              onClick={() => setFile(null)}
+              className={`btn btn-sm${flipH ? " btn-primary" : ""}`}
+              aria-pressed={flipH}
+              disabled={!file}
+              onClick={() => setFlipH((v) => !v)}
             >
-              {t("common.chooseDifferentImage")}
+              <FlipHorizontal aria-hidden="true" /> {t("crop.flipH")}
+            </button>
+            <button
+              className={`btn btn-sm${flipV ? " btn-primary" : ""}`}
+              aria-pressed={flipV}
+              disabled={!file}
+              onClick={() => setFlipV((v) => !v)}
+            >
+              <FlipVertical aria-hidden="true" /> {t("crop.flipV")}
             </button>
           </div>
+          {!file && (
+            <DropZone
+              presentation="canvas"
+              onFiles={loadFile}
+              label={t("crop.dropLabel")}
+              multiple={false}
+              accept={CANVAS_FORMATS}
+              hint={t("common.canvasBrowseHint")}
+              onUnsupported={(files) =>
+                setLoadError(
+                  unsupportedImageError(files.length, "JPEG, PNG, WebP or BMP"),
+                )
+              }
+              onBlockedInput={(files) => setLoadError(blockedInputError(files))}
+            />
+          )}
+          {preview && (
+            <CropCanvas
+              persistKey={`local.crop.rect.${file}:${rotation}:${flipH}:${flipV}:${aspect}`}
+              ref={cropRef}
+              src={preview.data_url}
+              naturalSize={preview}
+              aspect={aspect}
+            />
+          )}
+          {loading && <p className="status-note" role="status">{t("errors.rendering")}</p>}
+          {preview && <p className="status-note mt-2">{previewSummary}</p>}
         </div>
-      )}
+        <div className="side-col">
+          <div className="card">
+            <h2 className="card-title">{t("crop.output")}</h2>
+            <FormatQuality
+              format={format}
+              onFormat={setFormat}
+              quality={quality}
+              onQuality={setQuality}
+              preserveExif={preserveExif}
+              onPreserveExif={setPreserveExif}
+            />
+            <OutputPanel value={output} onChange={setOutput} />
+          </div>
+          <BatchRunner
+            tool="crop"
+            files={file && preview ? [file] : []}
+            runLabel={t("common.saveImage")}
+            buildJob={(files) => ({
+              files,
+              steps: buildSteps(),
+              format: format === "same" ? null : format,
+              quality,
+              preserve_exif: preserveExif,
+              output,
+            })}
+          />
+          {file && (
+            <button className="btn btn-block mt-3" onClick={() => setFile(null)}>
+              {t("common.chooseDifferentImage")}
+            </button>
+          )}
+        </div>
+      </div>
     </PageShell>
   );
 }

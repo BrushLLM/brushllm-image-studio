@@ -1,15 +1,14 @@
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Search, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { AI_TOOLS, LOCAL_TOOLS, SETTINGS_TOOL, isAiTool, type Page } from "../lib/tools";
+import { LOCAL_TOOLS, SETTINGS_TOOL, type Page } from "../lib/tools";
 
-const COMMANDS = [...LOCAL_TOOLS, ...AI_TOOLS, SETTINGS_TOOL];
+const COMMANDS = [...LOCAL_TOOLS, SETTINGS_TOOL];
 const SUGGESTIONS = LOCAL_TOOLS.slice(0, 5);
 const LIST_ID = "tool-search-results";
 
 function sectionKey(page: Page) {
-  if (page === "settings") return "cmdk.otherSection";
-  return isAiTool(page) ? "navigation.onlineAi" : "cmdk.localSection";
+  return page === "settings" ? "cmdk.otherSection" : "cmdk.localSection";
 }
 
 interface Props {

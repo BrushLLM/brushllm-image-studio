@@ -76,9 +76,11 @@ export default function Exif() {
   };
 
   const readOnly = file !== null && /\.tiff?$/i.test(file);
+  const canEditFields = Boolean(file && !readOnly && !busy && fields !== null);
+  const canApply = Boolean(file && !readOnly && !busy && (mode !== "edit" || canEditFields));
 
   const run = async () => {
-    if (!file || busy || readOnly) return;
+    if (!file || !canApply) return;
     setBusy(true);
     setError(null);
     setResultPath(null);
@@ -120,222 +122,231 @@ export default function Exif() {
       subtitle={t("exif.subtitle")}
     >
       {!file && error && <div className="banner banner-error">{error}</div>}
-      {!file && (
-        <DropZone
-          presentation="canvas"
-          onFiles={loadFile}
-          label={t("exif.dropLabel")}
-          multiple={false}
-          accept={EXIF_FORMATS}
-          hint={t("exif.dropHint")}
-          onUnsupported={(files) =>
-            setError(unsupportedImageError(files.length, "JPEG, PNG or TIFF"))
-          }
-          onBlockedInput={(files) => setError(blockedInputError(files))}
-        />
-      )}
-
       {file && readOnly && <div className="banner banner-info">{t("exif.readOnlyTiff")}</div>}
-      {file && (
-        <div className="split">
-          <div>
-            <div className="card">
-              <div className="row" style={{ alignItems: "center", marginBottom: 10 }}>
-                <h2 className="m-0">{t("exif.metadata")}</h2>
-                <div className="flex-1" />
-                {gpsCount > 0 && (
-                  <span className="badge badge-warn">
-                    {gpsCount} GPS fields
-                  </span>
+      <div className="split">
+        <div className="workbench-main">
+          {!file && (
+            <DropZone
+              presentation="canvas"
+              onFiles={loadFile}
+              label={t("exif.dropLabel")}
+              multiple={false}
+              accept={EXIF_FORMATS}
+              hint={t("exif.dropHint")}
+              onUnsupported={(files) =>
+                setError(unsupportedImageError(files.length, "JPEG, PNG or TIFF"))
+              }
+              onBlockedInput={(files) => setError(blockedInputError(files))}
+            />
+          )}
+          {file && (
+            <div>
+              <div className="card">
+                <div className="row" style={{ alignItems: "center", marginBottom: 10 }}>
+                  <h2 className="m-0">{t("exif.metadata")}</h2>
+                  <div className="flex-1" />
+                  {gpsCount > 0 && (
+                    <span className="badge badge-warn">
+                      {gpsCount} GPS fields
+                    </span>
+                  )}
+                </div>
+                {fields === null && !error && <p className="status-note" role="status">{t("common.processing")}</p>}
+                {fields !== null && fields.length === 0 && (
+                  <p className="status-note">
+                    {t("exif.noExif")}
+                  </p>
+                )}
+                {fields !== null && fields.length > 0 && (
+                  <div className="outcome-list" style={{ maxHeight: 340 }}>
+                    {fields.map((field, index) => (
+                      <div className="outcome-row" key={index}>
+                        <span
+                          className={`badge ${field.is_gps ? "badge-fail" : "badge-skip"}`}
+                          title={field.group}
+                        >
+                          {field.is_gps ? "GPS" : "EXIF"}
+                        </span>
+                        <span
+                          className="oc-name"
+                          title={`${field.tag} (${field.group})`}
+                          style={{ flex: "0 0 45%", userSelect: "text" }}
+                        >
+                          {field.tag}
+                        </span>
+                        <span className="oc-dim" style={{ flex: 1, userSelect: "text" }} title={field.value}>
+                          {field.value}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
-              {fields === null && <p className="status-note">{t("common.processing")}</p>}
-              {fields !== null && fields.length === 0 && (
-                <p className="status-note">
-                  {t("exif.noExif")}
-                </p>
-              )}
-              {fields !== null && fields.length > 0 && (
-                <div className="outcome-list" style={{ maxHeight: 340 }}>
-                  {fields.map((field, index) => (
-                    <div className="outcome-row" key={index}>
-                      <span
-                        className={`badge ${field.is_gps ? "badge-fail" : "badge-skip"}`}
-                        title={field.group}
-                      >
-                        {field.is_gps ? "GPS" : "EXIF"}
-                      </span>
-                      <span
-                        className="oc-name"
-                        title={`${field.tag} (${field.group})`}
-                        style={{ flex: "0 0 45%", userSelect: "text" }}
-                      >
-                        {field.tag}
-                      </span>
-                      <span className="oc-dim" style={{ flex: 1, userSelect: "text" }} title={field.value}>
-                        {field.value}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
+          )}
+        </div>
+        <div className="side-col">
+          <div className="card">
+            <h2 className="card-title">{t("exif.action")}</h2>
+            <div className="field">
+              <div className="radio-row">
+                {(
+                  [
+                    ["edit", "exif.edit"],
+                    ["strip_gps", "exif.stripGps"],
+                    ["strip_all", "exif.stripAll"],
+                  ] as [Mode, string][]
+                ).map(([value, label]) => (
+                  <button
+                    key={value}
+                    className={`radio-chip${mode === value ? " active" : ""}`}
+                    aria-pressed={mode === value}
+                    onClick={() => setMode(value)}
+                  >
+                    {t(label)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {mode === "edit" && (
+              <fieldset className="exif-fields" disabled={!canEditFields}>
+                <div className="field">
+                  <label>{t("exif.dateTime")}</label>
+                  <input
+                    type="text"
+                    value={dateTime}
+                    placeholder={t("exif.dateTimePh")}
+                    onChange={(e) => setDateTime(e.target.value)}
+                  />
+                </div>
+                <div className="field field-pair">
+                  <div>
+                    <label>{t("exif.cameraMake")}</label>
+                    <input
+                      type="text"
+                      value={make}
+                      placeholder={t("exif.cameraMakePh")}
+                      onChange={(e) => setMake(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label>{t("exif.cameraModel")}</label>
+                    <input
+                      type="text"
+                      value={model}
+                      placeholder={t("exif.cameraModelPh")}
+                      onChange={(e) => setModel(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="field field-pair">
+                  <div>
+                    <label>{t("exif.gpsLat")}</label>
+                    <input
+                      type="text"
+                      value={gpsLat}
+                      placeholder={t("exif.gpsLatPh")}
+                      onChange={(e) => setGpsLat(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label>{t("exif.gpsLon")}</label>
+                    <input
+                      type="text"
+                      value={gpsLon}
+                      placeholder={t("exif.gpsLonPh")}
+                      onChange={(e) => setGpsLon(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="field">
+                  <label>{t("exif.description")}</label>
+                  <input
+                    type="text"
+                    value={description}
+                    placeholder={t("exif.descriptionPh")}
+                    onChange={(e) => setDescription(e.target.value)}
+                  />
+                </div>
+                <div className="field">
+                  <label>{t("exif.artist")}</label>
+                  <input
+                    type="text"
+                    value={artist}
+                    placeholder={t("exif.artistPh")}
+                    onChange={(e) => setArtist(e.target.value)}
+                  />
+                </div>
+                <div className="field">
+                  <label>{t("exif.copyright")}</label>
+                  <input
+                    type="text"
+                    value={copyright}
+                    placeholder={t("exif.copyrightPh")}
+                    onChange={(e) => setCopyright(e.target.value)}
+                  />
+                </div>
+              </fieldset>
+            )}
+
+            {mode === "strip_gps" && (
+              <div className="hint mb-3">
+                {t("exif.stripGpsHint")}
+              </div>
+            )}
+            {mode === "strip_all" && (
+              <div className="hint mb-3">
+                {t("exif.stripHint")}
+              </div>
+            )}
+
+            <OutputPanel value={output} onChange={setOutput} defaultSuffix="-exif" />
           </div>
-          <div className="side-col">
-            <div className="card">
-              <h2 className="card-title">{t("exif.action")}</h2>
-              <div className="field">
-                <div className="radio-row">
-                  {(
-                    [
-                      ["edit", "exif.edit"],
-                      ["strip_gps", "exif.stripGps"],
-                      ["strip_all", "exif.stripAll"],
-                    ] as [Mode, string][]
-                  ).map(([value, label]) => (
-                    <button
-                      key={value}
-                      className={`radio-chip${mode === value ? " active" : ""}`}
-                      onClick={() => setMode(value)}
-                    >
-                      {t(label)}
-                    </button>
-                  ))}
-                </div>
-              </div>
 
-              {mode === "edit" && (
+          <div className="card">
+            <button
+              className="btn btn-primary btn-block"
+              onClick={run}
+              disabled={!canApply}
+            >
+              {busy ? (
                 <>
-                  <div className="field">
-                    <label>{t("exif.dateTime")}</label>
-                    <input
-                      type="text"
-                      value={dateTime}
-                      placeholder={t("exif.dateTimePh")}
-                      onChange={(e) => setDateTime(e.target.value)}
-                    />
-                  </div>
-                  <div className="field row">
-                    <div>
-                      <label>{t("exif.cameraMake")}</label>
-                      <input
-                        type="text"
-                        value={make}
-                        placeholder={t("exif.cameraMakePh")}
-                        onChange={(e) => setMake(e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <label>{t("exif.cameraModel")}</label>
-                      <input
-                        type="text"
-                        value={model}
-                        placeholder={t("exif.cameraModelPh")}
-                        onChange={(e) => setModel(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                  <div className="field row">
-                    <div>
-                      <label>{t("exif.gpsLat")}</label>
-                      <input
-                        type="text"
-                        value={gpsLat}
-                        placeholder={t("exif.gpsLatPh")}
-                        onChange={(e) => setGpsLat(e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <label>{t("exif.gpsLon")}</label>
-                      <input
-                        type="text"
-                        value={gpsLon}
-                        placeholder={t("exif.gpsLonPh")}
-                        onChange={(e) => setGpsLon(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                  <div className="field">
-                    <label>{t("exif.description")}</label>
-                    <input
-                      type="text"
-                      value={description}
-                      placeholder={t("exif.descriptionPh")}
-                      onChange={(e) => setDescription(e.target.value)}
-                    />
-                  </div>
-                  <div className="field">
-                    <label>{t("exif.artist")}</label>
-                    <input
-                      type="text"
-                      value={artist}
-                      placeholder={t("exif.artistPh")}
-                      onChange={(e) => setArtist(e.target.value)}
-                    />
-                  </div>
-                  <div className="field">
-                    <label>{t("exif.copyright")}</label>
-                    <input
-                      type="text"
-                      value={copyright}
-                      placeholder={t("exif.copyrightPh")}
-                      onChange={(e) => setCopyright(e.target.value)}
-                    />
-                  </div>
+                  <span className="spinner" /> {t("exif.applying")}
                 </>
+              ) : (
+                t("exif.apply")
               )}
-
-              {mode === "strip_gps" && (
-                <div className="hint mb-3">
-                  {t("exif.stripGpsHint")}
-                </div>
-              )}
-              {mode === "strip_all" && (
-                <div className="hint mb-3">
-                  {t("exif.stripHint")}
-                </div>
-              )}
-
-              <OutputPanel value={output} onChange={setOutput} defaultSuffix="-exif" />
-            </div>
-
-            <div className="card">
-              <button
-                className="btn btn-primary btn-block"
-                onClick={run}
-                disabled={readOnly || busy || (mode === "edit" && fields === null)}
+            </button>
+            {file && error && (
+              <div className="banner banner-error mt-3">
+                {error}
+              </div>
+            )}
+            {resultPath && (
+              <div
+                className="banner banner-ok mt-3"
               >
-                {busy ? (
-                  <>
-                    <span className="spinner" /> {t("exif.applying")}
-                  </>
-                ) : (
-                  t("exif.apply")
-                )}
-              </button>
-              {error && (
-                <div className="banner banner-error mt-3">
-                  {error}
-                </div>
-              )}
-              {resultPath && (
-                <div
-                  className="banner banner-ok mt-3"
-                >
-                  <span>✓ {t("common.savedTo", { path: resultPath })}</span>
-                  <span className="banner-link" onClick={() => revealItemInDir(resultPath)}>
-                    {t("common.openFolder")}
-                  </span>
-                </div>
-              )}
-            </div>
+                <span>✓ {t("common.savedTo", { path: resultPath })}</span>
+                <span className="banner-link" onClick={() => revealItemInDir(resultPath)}>
+                  {t("common.openFolder")}
+                </span>
+              </div>
+            )}
+          </div>
 
-            <button className="btn btn-block mt-1" onClick={() => setFile(null)}>
+          {file && (
+            <button className="btn btn-block mt-1" disabled={busy} onClick={() => {
+              loadTokenRef.current++;
+              setFile(null);
+              setResultPath(null);
+              setError(null);
+            }}>
               {t("common.chooseDifferentImage")}
             </button>
-          </div>
+          )}
         </div>
-      )}
+      </div>
     </PageShell>
   );
 }

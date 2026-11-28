@@ -14,9 +14,6 @@ vi.mock("./lib/ipc", () => ({
 }));
 vi.mock("./lib/theme", () => ({ setAppearance: vi.fn() }));
 vi.mock("./pages/Convert", () => ({ default: () => <h1>Convert workflow</h1> }));
-vi.mock("./pages/AiRepaint", () => ({
-  default: ({ tool }: { tool: { id: string } }) => <h1>{tool.id}</h1>,
-}));
 vi.mock("./pages/Settings", () => ({ default: () => <h1>Settings workflow</h1> }));
 
 let media: EventTarget;
@@ -45,7 +42,7 @@ afterEach(() => {
   Reflect.deleteProperty(HTMLDialogElement.prototype, "close");
 });
 
-it("condenses navigation on resize and opens the AI group from the icon rail", async () => {
+it("condenses navigation on resize and opens local tools immediately from the icon rail", () => {
   render(<App />);
   const navigation = within(screen.getByRole("navigation"));
   navigation.getByRole("button", { name: "home.convertName" }).focus();
@@ -55,22 +52,36 @@ it("condenses navigation on resize and opens the AI group from the icon rail", a
   expect(navigation.queryByRole("button", { name: "home.convertName" })).toBeNull();
   expect(document.activeElement).toBe(screen.getByRole("button", { name: "navigation.expand" }));
 
-  fireEvent.click(navigation.getByRole("button", { name: "navigation.onlineAi" }));
-  fireEvent.click(navigation.getByRole("button", { name: "ai.toolCustom" }));
-  await screen.findByRole("heading", { name: "custom" });
-  expect(navigation.getByRole("button", { name: "ai.toolCustom" }).getAttribute("aria-current")).toBe("page");
+  fireEvent.click(navigation.getByRole("button", { name: "cmdk.localSection" }));
+  fireEvent.click(navigation.getByRole("button", { name: "home.convertName" }));
+  expect(screen.getByRole("heading", { name: "Convert workflow" })).toBeTruthy();
+  expect(navigation.getByRole("button", { name: "home.convertName" }).getAttribute("aria-current")).toBe("page");
   expect(navigation.getByRole("button", { name: "common.settings" })).toBeTruthy();
 });
 
-it("keeps search, selection and back/forward available from the keyboard", async () => {
+it("does not expose online AI in the directory, sidebar or command search", () => {
+  render(<App />);
+  expect(screen.queryByRole("heading", { name: "navigation.onlineAi" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "navigation.onlineAi" })).toBeNull();
+
+  fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+  const dialog = within(screen.getByRole("dialog"));
+  const search = dialog.getByRole("combobox");
+  fireEvent.change(search, { target: { value: "generate image" } });
+  expect(dialog.getByRole("status").textContent).toBe("cmdk.empty");
+  fireEvent.keyDown(search, { key: "Enter" });
+  expect(screen.getByRole("dialog")).toBeTruthy();
+});
+
+it("opens Settings immediately from search and keeps keyboard history available", () => {
   render(<App />);
   fireEvent.keyDown(window, { key: "k", ctrlKey: true });
   const search = within(screen.getByRole("dialog")).getByRole("combobox");
   expect(document.activeElement).toBe(search);
 
-  fireEvent.change(search, { target: { value: "generate" } });
+  fireEvent.change(search, { target: { value: "settings" } });
   fireEvent.keyDown(search, { key: "Enter" });
-  await screen.findByRole("heading", { name: "generate-image" });
+  expect(screen.getByRole("heading", { name: "Settings workflow" })).toBeTruthy();
   expect(screen.queryByRole("dialog")).toBeNull();
   expect(document.activeElement).toBe(screen.getByRole("main"));
 
@@ -78,7 +89,7 @@ it("keeps search, selection and back/forward available from the keyboard", async
   expect(screen.getByRole("heading", { name: "navigation.allTools" })).toBeTruthy();
 
   fireEvent.keyDown(window, { key: "ArrowRight", altKey: true });
-  await screen.findByRole("heading", { name: "generate-image" });
+  expect(screen.getByRole("heading", { name: "Settings workflow" })).toBeTruthy();
 });
 
 it("routes a mixed drop to Convert once and only queues supported files", async () => {

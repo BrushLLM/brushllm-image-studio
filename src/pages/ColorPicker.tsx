@@ -1,10 +1,10 @@
-import { usePersistedState, usePersistedRef } from "../lib/persistedState";
+import { usePersistedState } from "../lib/persistedState";
 import { useEffect, useRef } from "react";
 import { Check, Copy } from "lucide-react";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import DropZone from "../components/DropZone";
 import PageShell from "../components/PageShell";
-import { readAssetDataUrl } from "../lib/ipc";
+import { useCanvasSource } from "../lib/useCanvasSource";
 import { CANVAS_FORMATS, unsupportedImageError } from "../lib/types";
 import { useTranslation } from "react-i18next";
 
@@ -30,47 +30,36 @@ function contrastText({ r, g, b }: Rgb): string {
 
 export default function ColorPicker() {
   const { t } = useTranslation();
-  const [file, setFile] = usePersistedState<string | null>("local.picker.file", null);
-  const [dataUrl, setDataUrl] = usePersistedState<string | null>("local.picker.dataUrl", null);
+  const source = useCanvasSource("picker");
+  const image = source.image;
   const [error, setError] = usePersistedState<string | null>("local.picker.error", null);
   const [hover, setHover] = usePersistedState<Rgb | null>("local.picker.hover", null);
   const [picked, setPicked] = usePersistedState<Rgb | null>("local.picker.picked", null);
   const [copied, setCopied] = usePersistedState<string | null>("local.picker.copied", null);
   const [swatches, setSwatches] = usePersistedState<Rgb[]>("local.picker.swatches", []);
-  const offscreenRef = usePersistedRef<HTMLCanvasElement | null>("local.picker.offscreenRef", null);
-  const imgRef = useRef<HTMLImageElement | null>(null);
+  const offscreenRef = useRef<HTMLCanvasElement | null>(null);
 
   const loadFile = (paths: string[]) => {
     const path = paths[0];
     if (!path) return;
-    setFile(path);
     setError(null);
     setHover(null);
     setPicked(null);
     setSwatches([]);
-    readAssetDataUrl(path)
-      .then((url) => {
-        const image = new Image();
-        image.onload = () => {
-          imgRef.current = image;
-          const canvas = document.createElement("canvas");
-          canvas.width = image.naturalWidth;
-          canvas.height = image.naturalHeight;
-          canvas.getContext("2d")?.drawImage(image, 0, 0);
-          offscreenRef.current = canvas;
-          setDataUrl(url);
-        };
-        image.onerror = () => {
-          setError(t("errors.cannotPreview"));
-          setFile(null);
-        };
-        image.src = url;
-      })
-      .catch((e) => {
-        setError(String(e));
-        setFile(null);
-      });
+    void source.load(path);
   };
+
+  useEffect(() => {
+    offscreenRef.current = null;
+    if (!image) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = image.naturalWidth;
+    canvas.height = image.naturalHeight;
+    const context = canvas.getContext("2d");
+    if (!context) return;
+    context.drawImage(image, 0, 0);
+    offscreenRef.current = canvas;
+  }, [image]);
 
   useEffect(() => {
     if (!copied) return;
@@ -108,119 +97,123 @@ export default function ColorPicker() {
       title={t("picker.title")}
       subtitle={t("picker.subtitle")}
     >
-      {!file && error && <div className="banner banner-error">{error}</div>}
-      {!file && (
-        <DropZone
-          presentation="canvas"
-          onFiles={loadFile}
-          label={t("picker.dropLabel")}
-          multiple={false}
-          accept={CANVAS_FORMATS}
-          hint={t("common.canvasBrowseHint")}
-          onUnsupported={(files) =>
-            setError(unsupportedImageError(files.length, "JPEG, PNG, WebP, GIF or BMP"))
-          }
-        />
-      )}
-
-      {file && dataUrl && (
-        <div className="split">
-          <div className="canvas-panel">
-            <div className="picker-view cursor-cross">
-              <img
-                src={dataUrl}
-                alt="source"
-                draggable={false}
-                onMouseMove={(e) => setHover(pixelAt(e))}
-                onMouseLeave={() => setHover(null)}
-                onClick={(e) => {
-                  const px = pixelAt(e);
-                  if (!px) return;
-                  setPicked(px);
-                  setSwatches((prev) =>
-                    prev.some((s) => toHex(s) === toHex(px)) ? prev : [px, ...prev].slice(0, 12),
-                  );
-                }}
-              />
-            </div>
-            <p className="status-note mt-2">
-              {t("picker.hoverHint")}
-            </p>
-          </div>
-          <div className="side-col">
-            <div className="card">
-              <h2 className="card-title">{t("picker.color")}</h2>
-              <div
-                style={{
-                  height: 86,
-                  borderRadius: 10,
-                  border: "1px solid var(--border)",
-                  background: current ? toHex(current) : "var(--bg-soft)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: current ? contrastText(current) : "var(--muted)",
-                  fontWeight: 700,
-                  fontSize: 15,
-                  marginBottom: 12,
-                }}
-              >
-                {current ? toHex(current).toUpperCase() : t("picker.hoverImage")}
+      {(error || source.error) && <div className="banner banner-error" role="alert">{error || source.error}</div>}
+      <div className="split">
+        <div className="workbench-main">
+          {source.loading && <p className="status-note" role="status">{t("errors.rendering")}</p>}
+          {!image && !source.loading && (
+            <DropZone
+              presentation="canvas"
+              onFiles={loadFile}
+              label={t("picker.dropLabel")}
+              multiple={false}
+              accept={CANVAS_FORMATS}
+              hint={t("common.canvasBrowseHint")}
+              onUnsupported={(files) =>
+                setError(unsupportedImageError(files.length, "JPEG, PNG, WebP, GIF or BMP"))
+              }
+            />
+          )}
+          {image && (
+            <div className="canvas-panel">
+              <div className="picker-view cursor-cross">
+                <img
+                  src={image.src}
+                  alt="source"
+                  draggable={false}
+                  onMouseMove={(e) => setHover(pixelAt(e))}
+                  onMouseLeave={() => setHover(null)}
+                  onClick={(e) => {
+                    const px = pixelAt(e);
+                    if (!px) return;
+                    setPicked(px);
+                    setSwatches((prev) =>
+                      prev.some((s) => toHex(s) === toHex(px)) ? prev : [px, ...prev].slice(0, 12),
+                    );
+                  }}
+                />
               </div>
-              {current && (
-                <>
-                  <div className="row">
-                    <button className="btn btn-sm" onClick={() => copy(toHex(current))}>
-                      {copied === toHex(current) ? <Check /> : <Copy />} HEX
-                    </button>
-                    <button className="btn btn-sm" onClick={() => copy(toRgbString(current))}>
-                      {copied === toRgbString(current) ? <Check /> : <Copy />} RGB
-                    </button>
-                  </div>
-                  <div className="hint mt-2">
-                    {toHex(current).toUpperCase()} · {toRgbString(current)}
-                  </div>
-                </>
-              )}
+              <p className="status-note mt-2">
+                {t("picker.hoverHint")}
+              </p>
             </div>
-            <div className="card">
-              <h2 className="card-title">{t("picker.samples", { count: swatches.length })}</h2>
-              {swatches.length === 0 ? (
-                <div className="hint">{t("picker.samplesHint")}</div>
-              ) : (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                  {swatches.map((s, i) => (
-                    <button
-                      key={`${toHex(s)}-${i}`}
-                      title={`${toHex(s).toUpperCase()} · click to copy`}
-                      onClick={() => copy(toHex(s))}
-                      style={{
-                        width: 46,
-                        height: 46,
-                        borderRadius: 10,
-                        border: "1px solid var(--border)",
-                        background: toHex(s),
-                        cursor: "pointer",
-                      }}
-                    />
-                  ))}
-                </div>
-              )}
+          )}
+        </div>
+        <div className="side-col">
+          <div className="card">
+            <h2 className="card-title">{t("picker.color")}</h2>
+            <div
+              style={{
+                height: 86,
+                borderRadius: 10,
+                border: "1px solid var(--border)",
+                background: current ? toHex(current) : "var(--bg-soft)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: current ? contrastText(current) : "var(--muted)",
+                fontWeight: 700,
+                fontSize: 15,
+                marginBottom: 12,
+              }}
+            >
+              {current ? toHex(current).toUpperCase() : t("picker.hoverImage")}
             </div>
+            <div className="row">
+              <button className="btn btn-sm" disabled={!current} onClick={() => current && copy(toHex(current))}>
+                {current && copied === toHex(current) ? <Check /> : <Copy />} HEX
+              </button>
+              <button className="btn btn-sm" disabled={!current} onClick={() => current && copy(toRgbString(current))}>
+                {current && copied === toRgbString(current) ? <Check /> : <Copy />} RGB
+              </button>
+            </div>
+            {current && (
+              <div className="hint mt-2">
+                {toHex(current).toUpperCase()} · {toRgbString(current)}
+              </div>
+            )}
+          </div>
+          <div className="card">
+            <h2 className="card-title">{t("picker.samples", { count: swatches.length })}</h2>
+            {swatches.length === 0 ? (
+              <div className="hint">{t("picker.samplesHint")}</div>
+            ) : (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {swatches.map((s, i) => (
+                  <button
+                    key={`${toHex(s)}-${i}`}
+                    title={`${toHex(s).toUpperCase()} · click to copy`}
+                    onClick={() => copy(toHex(s))}
+                    style={{
+                      width: 46,
+                      height: 46,
+                      borderRadius: 10,
+                      border: "1px solid var(--border)",
+                      background: toHex(s),
+                      cursor: "pointer",
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+          {image && (
             <button
               className="btn btn-block"
               onClick={() => {
-                setFile(null);
-                setDataUrl(null);
+                source.clear();
+                setError(null);
                 setSwatches([]);
                 setPicked(null);
+                setHover(null);
+                setCopied(null);
               }}
             >
               {t("common.chooseDifferentImage")}
             </button>
-          </div>
+          )}
         </div>
-      )}
+      </div>
     </PageShell>
   );
 }

@@ -1,8 +1,6 @@
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, State};
 
-use crate::api;
-use crate::api_key;
 use crate::engine::batch::{self, BatchJob, BatchReport, OutputSettings};
 use crate::engine::encode::{self, EncodeSettings, OutFormat};
 use crate::engine::stitch;
@@ -11,7 +9,6 @@ use crate::settings::Settings;
 
 /// Mutable app state managed by Tauri.
 pub struct AppState {
-    pub ai_requests: crate::requests::AiRequests,
     pub settings: std::sync::Mutex<Settings>,
     /// One active batch at a time; the token belongs to that job only, so
     /// cancelling never leaks into a later run.
@@ -562,217 +559,6 @@ pub fn batch_cancel(state: State<'_, AppState>) {
     }
 }
 
-#[derive(Serialize)]
-pub struct EditImageResult {
-    pub image_b64: String,
-    pub mime: String,
-}
-
-#[derive(Serialize)]
-pub struct EditResult {
-    /// One entry per requested image (n=1 → single entry).
-    pub images: Vec<EditImageResult>,
-    pub revised_prompt: Option<String>,
-}
-
-fn to_edit_result(resp: api::client::EditResponse) -> EditResult {
-    use base64::Engine;
-    EditResult {
-        images: resp
-            .images
-            .into_iter()
-            .map(|img| EditImageResult {
-                image_b64: base64::engine::general_purpose::STANDARD.encode(img.image),
-                mime: img.mime,
-            })
-            .collect(),
-        revised_prompt: resp.revised_prompt,
-    }
-}
-
-/// Text-to-image generation — no source image needed.
-#[tauri::command]
-pub async fn ai_generate(
-    state: State<'_, AppState>,
-    request_id: String,
-    model: String,
-    prompt: String,
-    size: Option<String>,
-    quality: Option<String>,
-    n: Option<u8>,
-) -> Result<EditResult, String> {
-    let settings = state.settings.lock().unwrap().clone();
-    let api_key = api_key::load().await?;
-
-    let resp = state
-        .ai_requests
-        .run(
-            request_id,
-            api::client::generate_image(
-                // Text-to-image runs against its own gateway.
-                &settings.base_url_t2i,
-                &api_key,
-                &model,
-                &prompt,
-                size.as_deref(),
-                quality.as_deref(),
-                n,
-            ),
-        )
-        .await?;
-
-    Ok(to_edit_result(resp))
-}
-
-#[tauri::command]
-#[allow(clippy::too_many_arguments)]
-pub async fn ai_edit(
-    state: State<'_, AppState>,
-    request_id: String,
-    model: String,
-    prompt: String,
-    image_paths: Vec<String>,
-    mask_b64: Option<String>,
-    size: Option<String>,
-    quality: Option<String>,
-    n: Option<u8>,
-) -> Result<EditResult, String> {
-    let settings = state.settings.lock().unwrap().clone();
-    use base64::Engine;
-    let api_key = api_key::load().await?;
-
-    if image_paths.is_empty() {
-        return Err("no image provided".into());
-    }
-    if image_paths.len() > guard::limits::MAX_AI_IMAGES {
-        return Err(format!(
-            "too many images ({}); the limit is {}",
-            image_paths.len(),
-            guard::limits::MAX_AI_IMAGES
-        ));
-    }
-    if prompt.chars().count() > guard::limits::MAX_PROMPT_CHARS {
-        return Err(format!(
-            "prompt is too long ({} chars); the limit is {}",
-            prompt.chars().count(),
-            guard::limits::MAX_PROMPT_CHARS
-        ));
-    }
-    let mut images: Vec<(Vec<u8>, String)> = Vec::with_capacity(image_paths.len());
-    for path in &image_paths {
-        if !guard::has_no_parent_traversal(path) {
-            return Err(format!("unsafe image path: {path}"));
-        }
-        guard::validate_input_file(std::path::Path::new(path)).map_err(|e| e.to_string())?;
-        let bytes = std::fs::read(path).map_err(|e| format!("cannot read image {path}: {e}"))?;
-        let ext = path.rsplit('.').next().unwrap_or("").to_ascii_lowercase();
-        let mime = match ext.as_str() {
-            "jpg" | "jpeg" => "image/jpeg",
-            "webp" => "image/webp",
-            _ => "image/png",
-        };
-        images.push((bytes, mime.to_string()));
-    }
-
-    let mask = match mask_b64.as_deref() {
-        None => None,
-        Some(b64) => Some(
-            base64::engine::general_purpose::STANDARD
-                .decode(b64)
-                .map_err(|e| format!("invalid mask data: {e}"))?,
-        ),
-    };
-
-    let resp = state
-        .ai_requests
-        .run(
-            request_id,
-            api::client::edit_image(
-                &settings.base_url,
-                &api_key,
-                api::client::EditRequest {
-                    model: &model,
-                    prompt: &prompt,
-                    images: &images,
-                    mask: mask.as_deref(),
-                    size: size.as_deref(),
-                    quality: quality.as_deref(),
-                    n,
-                },
-            ),
-        )
-        .await?;
-
-    Ok(to_edit_result(resp))
-}
-
-#[tauri::command]
-pub fn ai_cancel(state: State<'_, AppState>, request_id: String) {
-    state.ai_requests.cancel(request_id);
-}
-
-#[derive(Serialize)]
-pub struct TestResult {
-    /// Models visible on the image-edits gateway.
-    pub models: Vec<String>,
-    /// Models visible on the text-to-image gateway.
-    pub models_t2i: Vec<String>,
-}
-
-#[tauri::command]
-pub async fn api_test(
-    state: State<'_, AppState>,
-    base_url: Option<String>,
-    base_url_t2i: Option<String>,
-    api_key: Option<String>,
-) -> Result<TestResult, String> {
-    let settings = state.settings.lock().unwrap().clone();
-    let base = base_url.unwrap_or(settings.base_url);
-    let base_t2i = base_url_t2i.unwrap_or(settings.base_url_t2i);
-    // A freshly typed key wins (Settings tests before saving); otherwise
-    // fall back to the stored one.
-    let key = match api_key.filter(|key| !key.trim().is_empty()) {
-        Some(key) => key.trim().to_string(),
-        None => api_key::load().await?,
-    };
-    // Both gateways must answer — each AI tool depends on one of them.
-    let edits = api::client::test_key(&base, &key)
-        .await
-        .map_err(|e| format!("image-edits endpoint ({base}): {e}"))?;
-    let t2i = api::client::test_key(&base_t2i, &key)
-        .await
-        .map_err(|e| format!("text-to-image endpoint ({base_t2i}): {e}"))?;
-    Ok(TestResult {
-        models: edits.models,
-        models_t2i: t2i.models,
-    })
-}
-
-#[tauri::command]
-pub async fn api_key_status() -> bool {
-    tauri::async_runtime::spawn_blocking(api_key::exists)
-        .await
-        .unwrap_or(false)
-}
-
-#[tauri::command]
-pub async fn api_key_set(key: String) -> Result<(), String> {
-    let key = key.trim().to_string();
-    if key.len() < 8 {
-        return Err("this does not look like a valid API key".into());
-    }
-    tauri::async_runtime::spawn_blocking(move || api_key::set(&key))
-        .await
-        .map_err(|e| format!("keychain task failed: {e}"))?
-}
-
-#[tauri::command]
-pub async fn api_key_clear() -> Result<(), String> {
-    tauri::async_runtime::spawn_blocking(api_key::clear)
-        .await
-        .map_err(|e| format!("keychain task failed: {e}"))?
-}
-
 #[tauri::command]
 pub fn get_settings(state: State<'_, AppState>) -> Settings {
     state.settings.lock().unwrap().clone()
@@ -787,7 +573,7 @@ pub fn save_settings(
     // Normalize BEFORE persisting and use the SAME normalized value for the
     // in-memory state — previously the disk copy was normalized while memory
     // kept the raw input, so the current session behaved differently from a
-    // restarted one (e.g. an empty t2i URL erroring until relaunch).
+    // restarted one.
     settings.normalize();
     crate::settings::save(&app, &settings)?;
     *state.settings.lock().unwrap() = settings;
@@ -810,8 +596,7 @@ pub fn save_bytes(path: String, data_b64: String) -> Result<(), String> {
                 .map_err(|e| format!("cannot create folder {}: {e}", parent.display()))?;
         }
     }
-    // Crash-safe commit: a failed write must never truncate an existing file
-    // (e.g. an AI result saved over a previous export).
+    // A failed write must never truncate an existing export.
     match engine_output::write_output(&out, &bytes, batch::Collision::Overwrite, &[]) {
         Ok(_) => Ok(()),
         Err(e) => Err(e.to_string()),

@@ -1,7 +1,7 @@
 [package]
 name = "image-studio"
-version = "0.0.9"
-description = "BrushLLM Image Studio — local-first AI image toolbox"
+version = "0.0.10"
+description = "BrushLLM Image Studio — local image editing toolbox"
 authors = ["BrushLLM"]
 edition = "2021"
 
@@ -44,27 +44,15 @@ libwebp-sys = "0.9"
 kamadak-exif = "0.5"
 crc32fast = "1"
 
-# Cloud API client with rustls.
+# GitHub update checks.
 reqwest = { version = "0.12", default-features = false, features = [
     "json",
-    "multipart",
     "rustls-tls",
 ] }
-# Host classification for the gateway URL policy (loopback/private checks).
-# Same version reqwest already depends on, so this adds no new code.
-url = "2.5"
 base64 = "0.22"
 
-# Secrets + errors
+# Errors
 thiserror = "2"
-
-# Desktop credential storage.
-keyring = { version = "3", features = ["apple-native", "windows-native"] }
-
-[target.'cfg(target_os = "macos")'.dependencies]
-# Already used transitively by keyring; query item existence without reading
-# secret bytes or prompting for access just to render Settings.
-security-framework = "3"
 
 [profile.release]
 codegen-units = 1

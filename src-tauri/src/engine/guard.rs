@@ -16,10 +16,6 @@ pub mod limits {
     pub const MAX_SVG_PIXELS: u64 = 68_000_000;
     /// Max files per batch.
     pub const MAX_BATCH_FILES: usize = 500;
-    /// Max AI images per request (primary + references).
-    pub const MAX_AI_IMAGES: usize = 4;
-    /// Max AI prompt length.
-    pub const MAX_PROMPT_CHARS: usize = 4000;
     /// Max output filename suffix length.
     pub const MAX_SUFFIX_CHARS: usize = 64;
 }
@@ -149,7 +145,7 @@ pub fn validate_output_path(path: &Path) -> Result<PathBuf> {
     Ok(path.to_path_buf())
 }
 
-/// True when the path has no `..` components (used for AI inputs etc.).
+/// True when the path has no `..` components.
 pub fn has_no_parent_traversal(path: &str) -> bool {
     Path::new(path)
         .components()

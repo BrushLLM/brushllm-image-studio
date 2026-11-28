@@ -12,7 +12,6 @@
   --muted: #5e665e;
   --brand-teal: #20594f;
   --brand-sage: #c6ded2;
-  --brand-copper: #a55337;
   --on-sage: #202c27;
   --focus-ring: var(--brand-teal);
   --accent-hover: #19483f;
@@ -56,8 +55,6 @@
   --accent-soft: #e4eee8;
   --accent-text: var(--brand-teal);
   --accent-border: #a7c7b9;
-  --copper-soft: #f4e7df;
-  --copper-text: #8b452e;
   --tint-ok-bg: #ecfdf5;
   --tint-ok-text: #047857;
   --tint-ok-border: #a7f3d0;
@@ -100,8 +97,6 @@
   --accent-soft: #283e35;
   --accent-text: var(--brand-sage);
   --accent-border: #648b7d;
-  --copper-soft: #3b2b24;
-  --copper-text: #f2b79e;
   --tint-ok-bg: rgba(16, 185, 129, 0.13);
   --tint-ok-text: #6ee7b7;
   --tint-ok-border: rgba(16, 185, 129, 0.3);
@@ -702,7 +697,7 @@ label.check {
   }
 }
 
-/* Standalone pill chips (canvas toolbars, model pickers). */
+/* Standalone pill chips (canvas toolbars). */
 .radio-chip {
   padding: 4px 12px;
   border: 1px solid transparent;
@@ -787,32 +782,6 @@ label.check {
 .btn-primary:hover:not(:disabled) {
   background: var(--accent-hover);
   border-color: transparent;
-}
-
-.btn-danger-ghost {
-  color: var(--danger);
-}
-
-.btn-success {
-  background: var(--tint-ok-bg);
-  border-color: var(--tint-ok-border);
-  color: var(--tint-ok-text);
-}
-
-.btn-success:hover:not(:disabled) {
-  border-color: var(--tint-ok-text);
-}
-
-/* Solid red action button (Cancel generation). */
-.btn-danger {
-  background: var(--tint-fail-bg);
-  border-color: var(--tint-fail-border);
-  color: var(--tint-fail-text);
-  font-weight: 650;
-}
-
-.btn-danger:hover:not(:disabled) {
-  border-color: var(--tint-fail-text);
 }
 
 .btn-sm {
@@ -958,8 +927,6 @@ label.check {
   touch-action: none;
 }
 
-.canvas-wrap .mask-overlay { opacity: 0.55; }
-
 .toolbar {
   display: flex;
   gap: 8px;
@@ -1087,30 +1054,6 @@ label.check {
   display: block;
   max-width: 100%;
   max-height: 480px;
-}
-
-/* Multi-image AI results (n > 1). */
-.result-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 12px;
-}
-
-.result-grid-item {
-  margin: 0;
-  text-align: center;
-}
-
-.result-grid-item img {
-  width: 100%;
-  border-radius: var(--r-md);
-  border: 1px solid var(--border);
-  display: block;
-  box-shadow: var(--shadow-sm);
-}
-
-.result-grid-item figcaption {
-  margin-top: 6px;
 }
 
 /* Narrow windows: path row and action buttons wrap instead of overflowing. */

@@ -80,11 +80,6 @@ export interface BatchProgress {
 }
 
 export interface Settings {
-  /** Image-edits gateway (every AI tool except Generate Image). */
-  base_url: string;
-  /** Text-to-image gateway (Generate Image). */
-  base_url_t2i: string;
-  default_model: string;
   output_dir: string | null;
   /** "system" | "light" | "dark" — UI theme preference. */
   appearance: string;
@@ -129,17 +124,6 @@ export interface OverlayJob {
   };
 }
 
-export interface EditImage {
-  image_b64: string;
-  mime: string;
-}
-
-export interface EditResult {
-  /** One entry per requested image (n=1 → single entry). */
-  images: EditImage[];
-  revised_prompt: string | null;
-}
-
 export const ACCEPTED_EXTENSIONS = [
   "jpg",
   "jpeg",
@@ -160,9 +144,6 @@ export const ACCEPTED_EXTENSIONS = [
 // GIF is decoded first-frame-only and cannot round-trip the canvas
 // tools, so it is not accepted there (batch tools still take it).
 export const CANVAS_FORMATS = ["jpg", "jpeg", "png", "webp", "bmp"];
-
-/** AI tools send the source image to the API as-is: JPG or PNG only. */
-export const AI_FORMATS = ["jpg", "jpeg", "png"];
 
 /** JPEG/PNG support lossless editing; TIFF metadata is view-only. */
 export const EXIF_FORMATS = ["jpg", "jpeg", "png", "tif", "tiff"];

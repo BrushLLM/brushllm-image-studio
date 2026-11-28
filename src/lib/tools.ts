@@ -1,28 +1,20 @@
 import {
-  Bandage,
-  Brush,
   Combine,
   Crop,
-  Eraser,
   FlipHorizontal,
   Frame,
   Grid2x2,
-  ImageOff,
   Layers,
   Maximize2,
   Minimize2,
   PaintBucket,
-  Palette,
   PenTool,
   Pipette,
   Repeat,
-  Scissors,
   Settings as SettingsIcon,
   SlidersHorizontal,
-  Sparkles,
   Stamp,
   Tags,
-  Wand2,
   type LucideIcon,
 } from "lucide-react";
 
@@ -180,95 +172,20 @@ export const LOCAL_TOOL_GROUPS = LOCAL_GROUP_KEYS.map((group) => ({
   tools: LOCAL_TOOLS.filter((tool) => tool.group === group),
 }));
 
-export const AI_TOOL_CATALOG = {
-  "generate-image": {
-    id: "generate-image",
-    icon: Sparkles,
-    labelKey: "home.generateName",
-    descriptionKey: "home.generateDesc",
-    searchDescriptionKey: "cmdk.generateDesc",
-    keywords: ["generate", "text to image", "t2i", "ai image"],
-  },
-  "remove-background": {
-    id: "remove-background",
-    icon: ImageOff,
-    labelKey: "home.removeBgName",
-    descriptionKey: "home.removeBgDesc",
-    searchDescriptionKey: "home.removeBgDesc",
-    keywords: ["remove background", "removebackground", "background"],
-  },
-  "cutout": {
-    id: "cutout",
-    icon: Scissors,
-    labelKey: "home.cutoutName",
-    descriptionKey: "home.cutoutDesc",
-    searchDescriptionKey: "cmdk.cutoutDesc",
-    keywords: ["cutout", "cut out", "subject"],
-  },
-  "remove-watermark": {
-    id: "remove-watermark",
-    icon: Eraser,
-    labelKey: "home.removeWmName",
-    descriptionKey: "home.removeWmDesc",
-    searchDescriptionKey: "cmdk.removeWmDesc",
-    keywords: ["remove watermark", "removewatermark"],
-  },
-  "remove-object": {
-    id: "remove-object",
-    icon: Bandage,
-    labelKey: "home.removeObjectName",
-    descriptionKey: "home.removeObjDesc",
-    searchDescriptionKey: "cmdk.removeObjDesc",
-    keywords: ["remove object", "removeobject", "erase"],
-  },
-  "generative-fill": {
-    id: "generative-fill",
-    icon: Wand2,
-    labelKey: "home.fillName",
-    descriptionKey: "home.fillDesc",
-    searchDescriptionKey: "cmdk.fillDesc",
-    keywords: ["generative fill", "fill", "inpaint"],
-  },
-  "restyle": {
-    id: "restyle",
-    icon: Palette,
-    labelKey: "home.restyleName",
-    descriptionKey: "home.restyleDesc",
-    searchDescriptionKey: "cmdk.restyleDesc",
-    keywords: ["restyle", "style", "redraw"],
-  },
-  "custom": {
-    id: "custom",
-    icon: Brush,
-    labelKey: "ai.toolCustom",
-    descriptionKey: "navigation.customEditDescription",
-    searchDescriptionKey: "navigation.customEditDescription",
-    keywords: ["custom", "edit", "mask", "prompt"],
-  },
-} as const satisfies Record<string, ToolDefinition>;
-
-export const AI_TOOLS = Object.values(AI_TOOL_CATALOG);
-
 export const SETTINGS_TOOL = {
   id: "settings",
   icon: SettingsIcon,
   labelKey: "common.settings",
   descriptionKey: "cmdk.settingsDesc",
   searchDescriptionKey: "cmdk.settingsDesc",
-  keywords: ["settings", "preferences", "config", "api key"],
+  keywords: ["settings", "preferences", "theme", "language", "output folder"],
 } as const satisfies ToolDefinition;
 
 export type LocalToolId = (typeof LOCAL_TOOLS)[number]["id"];
-export type AiToolId = keyof typeof AI_TOOL_CATALOG;
-export type Page = "home" | "settings" | LocalToolId | AiToolId;
-export type AiTool = (typeof AI_TOOLS)[number];
-export type Tool = (typeof LOCAL_TOOLS)[number] | AiTool | typeof SETTINGS_TOOL;
+export type Page = "home" | "settings" | LocalToolId;
+export type Tool = (typeof LOCAL_TOOLS)[number] | typeof SETTINGS_TOOL;
 
-const TOOLS = [...LOCAL_TOOLS, ...AI_TOOLS, SETTINGS_TOOL];
-
-export function isAiTool(page: Page): page is AiToolId {
-  return Object.prototype.hasOwnProperty.call(AI_TOOL_CATALOG, page);
-}
+const TOOLS = [...LOCAL_TOOLS, SETTINGS_TOOL];
 
 export function pageLabelKey(page: Page): string {
   return TOOLS.find(({ id }) => id === page)?.labelKey ?? "navigation.allTools";

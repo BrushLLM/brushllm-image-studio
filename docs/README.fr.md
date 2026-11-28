@@ -8,9 +8,7 @@ Retouchez vos images sur macOS et Windows. Les outils locaux fonctionnent gratui
 
 [English](../README.md) · [Deutsch](../docs/README.de.md) · [Español](../docs/README.es.md) · [Français](../docs/README.fr.md) · [Português (Brasil)](../docs/README.pt-BR.md) · [日本語](../docs/README.ja.md) · [한국어](../docs/README.ko.md) · [简体中文](../docs/README.zh-CN.md) · [繁體中文](../docs/README.zh-TW.md)
 
-![Image Studio compare une photo originale et un WebP compressé, puis affiche le résultat de l’export par lot](../.github/assets/workspace.svg)
-
-Photo d’exemple du [parc national Olympique](https://www.flickr.com/photos/131856925@N02/22938296331).
+![Image Studio avec l’importation d’images et la liste des outils locaux](../.github/assets/workspace.svg)
 
 ## Téléchargement
 
@@ -29,10 +27,6 @@ Sur macOS, ouvrez l’image disque et glissez l’application dans Applications.
 3. Contrôlez le résultat dans l’aperçu. Choisissez le dossier de sortie et le traitement des noms existants, puis exportez.
 
 L’import par lot accepte les formats JPEG, PNG, WebP, GIF (première image), BMP, TIFF, ICO et SVG. L’export propose les formats JPEG, PNG, WebP, AVIF, TIFF, BMP, ICO et SVG avec données matricielles intégrées.
-
-## IA en ligne
-
-Générez des images, supprimez un arrière-plan ou un objet, détourez un sujet ou retouchez une image avec une instruction et un masque. Configurez votre clé d’API dans les paramètres. Le service configuré reçoit votre instruction et les images ou masques joints. La facturation dépend de l’usage.
 
 ## Développement
 

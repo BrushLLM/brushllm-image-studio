@@ -1,15 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, Images, WandSparkles, Wrench } from "lucide-react";
+import { ChevronDown, Images, Wrench } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import studioIcon from "../assets/image-studio.svg";
-import { AI_TOOLS, LOCAL_TOOL_GROUPS, SETTINGS_TOOL, isAiTool, type Page, type Tool } from "../lib/tools";
-
-const GROUPS = [
-  { id: "local", labelKey: "cmdk.localSection", icon: Wrench, sections: LOCAL_TOOL_GROUPS },
-  { id: "ai", labelKey: "navigation.onlineAi", icon: WandSparkles, sections: [{ tools: AI_TOOLS }] },
-] as const;
-
-type Group = (typeof GROUPS)[number]["id"];
+import { LOCAL_TOOL_GROUPS, SETTINGS_TOOL, type Page, type Tool } from "../lib/tools";
 
 interface Props {
   page: Page;
@@ -20,19 +13,20 @@ interface Props {
 
 export default function Sidebar({ page, expanded, onExpand, onNavigate }: Props) {
   const { t } = useTranslation();
-  const currentGroup = page === "home" || page === "settings" ? null : isAiTool(page) ? "ai" : "local";
-  const [openGroup, setOpenGroup] = useState<Group | null>(currentGroup ?? "local");
+  const toolSelected = page !== "home" && page !== "settings";
+  const [toolsOpen, setToolsOpen] = useState(true);
+  const open = expanded && toolsOpen;
   const activeTool = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    if (currentGroup) setOpenGroup(currentGroup);
-  }, [page, currentGroup]);
+    if (toolSelected) setToolsOpen(true);
+  }, [page, toolSelected]);
 
   useEffect(() => {
-    if (expanded && openGroup === currentGroup) {
+    if (open && toolSelected) {
       activeTool.current?.scrollIntoView({ block: "nearest" });
     }
-  }, [page, expanded, currentGroup, openGroup]);
+  }, [page, open, toolSelected]);
 
   const renderTool = (tool: Tool) => (
     <button
@@ -68,38 +62,33 @@ export default function Sidebar({ page, expanded, onExpand, onNavigate }: Props)
           <Images aria-hidden="true" />
           <span className="nav-label">{t("navigation.allTools")}</span>
         </button>
-        {GROUPS.map(({ id, labelKey, icon: Icon, sections }) => {
-          const open = expanded && openGroup === id;
-          return (
-            <div className="nav-group" key={id}>
-              <button
-                type="button"
-                className="nav-button nav-group-button"
-                data-current={currentGroup === id && !open ? true : undefined}
-                aria-expanded={open}
-                aria-controls={`studio-nav-${id}`}
-                aria-label={t(labelKey)}
-                title={t(labelKey)}
-                onClick={() => {
-                  if (!expanded) onExpand();
-                  setOpenGroup(open ? null : id);
-                }}
-              >
-                <Icon aria-hidden="true" />
-                <span className="nav-label">{t(labelKey)}</span>
-                <ChevronDown className="nav-chevron" aria-hidden="true" />
-              </button>
-              <div id={`studio-nav-${id}`} className="nav-group-tools" hidden={!open}>
-                {open && sections.map((section) => (
-                  <div key={"title" in section ? section.title : id}>
-                    {"title" in section && <p className="nav-group-label">{t(section.title)}</p>}
-                    {section.tools.map(renderTool)}
-                  </div>
-                ))}
+        <div className="nav-group">
+          <button
+            type="button"
+            className="nav-button nav-group-button"
+            data-current={toolSelected && !open ? true : undefined}
+            aria-expanded={open}
+            aria-controls="studio-nav-local"
+            aria-label={t("cmdk.localSection")}
+            title={t("cmdk.localSection")}
+            onClick={() => {
+              if (!expanded) onExpand();
+              setToolsOpen(!open);
+            }}
+          >
+            <Wrench aria-hidden="true" />
+            <span className="nav-label">{t("cmdk.localSection")}</span>
+            <ChevronDown className="nav-chevron" aria-hidden="true" />
+          </button>
+          <div id="studio-nav-local" className="nav-group-tools" hidden={!open}>
+            {open && LOCAL_TOOL_GROUPS.map(({ title, tools }) => (
+              <div key={title}>
+                <p className="nav-group-label">{t(title)}</p>
+                {tools.map(renderTool)}
               </div>
-            </div>
-          );
-        })}
+            ))}
+          </div>
+        </div>
       </div>
       <div className="sidebar-footer">{renderTool(SETTINGS_TOOL)}</div>
     </nav>

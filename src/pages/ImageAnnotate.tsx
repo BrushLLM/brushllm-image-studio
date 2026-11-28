@@ -1,5 +1,5 @@
 import { saveCanvasImage } from "../lib/canvas";
-import { usePersistedState, usePersistedRef } from "../lib/persistedState";
+import { usePersistedState } from "../lib/persistedState";
 import { useEffect, useRef, type PointerEvent as ReactPointerEvent } from "react";
 import {
   ArrowUpRight,
@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import DropZone from "../components/DropZone";
 import PageShell from "../components/PageShell";
-import { readAssetDataUrl } from "../lib/ipc";
+import { useCanvasSource } from "../lib/useCanvasSource";
 import { CANVAS_FORMATS, unsupportedImageError } from "../lib/types";
 import { useTranslation } from "react-i18next";
 
@@ -138,9 +138,8 @@ function outlineColor(color: string): string {
 
 export default function ImageAnnotate() {
   const { t } = useTranslation();
-  const [file, setFile] = usePersistedState<string | null>("local.annotate.file", null);
-  const [dataUrl, setDataUrl] = usePersistedState<string | null>("local.annotate.dataUrl", null);
-  const [naturalSize, setNaturalSize] = usePersistedState<{ width: number; height: number } | null>("local.annotate.naturalSize", null);
+  const source = useCanvasSource("annotate");
+  const image = source.image;
   const [tool, setTool] = usePersistedState<Tool>("local.annotate.tool", "rect");
   const [color, setColor] = usePersistedState("local.annotate.color", PALETTE[0]);
   const [strokeSize, setStrokeSize] = usePersistedState("local.annotate.strokeSize", 8);
@@ -151,28 +150,18 @@ export default function ImageAnnotate() {
   const [savedTo, setSavedTo] = usePersistedState<string | null>("local.annotate.savedTo", null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const activeRef = useRef<Annotation | null>(null);
-  const imgElRef = usePersistedRef<HTMLImageElement | null>("local.annotate.imgElRef", null);
 
   const loadFile = (paths: string[]) => {
     const path = paths[0];
     if (!path) return;
-    setFile(path);
     setError(null);
+    setSavedTo(null);
     setAnnotations([]);
-    readAssetDataUrl(path).then((url) => {
-      const image = new Image();
-      image.onload = () => {
-        imgElRef.current = image;
-        setNaturalSize({ width: image.naturalWidth, height: image.naturalHeight });
-        setDataUrl(url);
-      };
-      image.src = url;
-    });
+    void source.load(path);
   };
 
   const redraw = (extra?: Annotation | null) => {
     const canvas = canvasRef.current;
-    const image = imgElRef.current;
     if (!canvas || !image) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
@@ -184,12 +173,12 @@ export default function ImageAnnotate() {
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !naturalSize) return;
-    canvas.width = naturalSize.width;
-    canvas.height = naturalSize.height;
+    if (!canvas || !image) return;
+    canvas.width = image.naturalWidth;
+    canvas.height = image.naturalHeight;
     redraw();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [annotations, dataUrl, naturalSize]);
+  }, [annotations, image]);
 
   const toNatural = (event: ReactPointerEvent<HTMLCanvasElement>): Point => {
     const canvas = event.currentTarget;
@@ -252,157 +241,162 @@ export default function ImageAnnotate() {
       title={t("annotate.title")}
       subtitle={t("annotate.subtitle")}
     >
-      {!file && error && <div className="banner banner-error">{error}</div>}
-      {!file && (
-        <DropZone
-          presentation="canvas"
-          onFiles={loadFile}
-          label={t("annotate.dropLabel")}
-          multiple={false}
-          accept={CANVAS_FORMATS}
-          hint={t("common.canvasBrowseHint")}
-          onUnsupported={(files) =>
-            setError(unsupportedImageError(files.length, "JPEG, PNG, WebP, GIF or BMP"))
-          }
-        />
-      )}
-
-      {file && dataUrl && naturalSize && (
-        <div className="split">
-          <div className="canvas-panel">
-            <div className="toolbar">
-              {TOOLS.map(({ id, label, icon: Icon }) => (
-                <button
-                  key={id}
-                  className={`radio-chip${tool === id ? " active" : ""}`}
-                  onClick={() => setTool(id)}
-                  title={label}
-                >
-                  <Icon /> {t(`annotate.${label}`)}
-                </button>
-              ))}
-            </div>
-            <div className="canvas-wrap cursor-cross">
-              {/* Base image kept under the canvas for sharp rendering. */}
-              <img src={dataUrl} alt="source" draggable={false} />
-              <canvas
-                ref={canvasRef}
-                onPointerDown={onPointerDown}
-                onPointerMove={onPointerMove}
-                onPointerUp={onPointerUp}
-                onPointerCancel={onPointerUp}
-              />
-            </div>
-            <p className="status-note mt-2">
-              {tool === "text"
-                ? t("annotate.textHint", { text: textDraft })
-                : t("annotate.dragHint")}
-            </p>
-          </div>
-          <div className="side-col">
-            <div className="card">
-              <h2 className="card-title">{t("common.settingsCard")}</h2>
-              <div className="field">
-                <label>{t("annotate.color")}</label>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-                  {PALETTE.map((c) => (
-                    <button
-                      key={c}
-                      onClick={() => setColor(c)}
-                      title={c}
-                      style={{
-                        width: 30,
-                        height: 30,
-                        borderRadius: 8,
-                        border:
-                          color === c
-                            ? "2.5px solid var(--brand-teal)"
-                            : "1px solid var(--border-strong)",
-                        background: c,
-                        cursor: "pointer",
-                      }}
-                    />
-                  ))}
-                  <input
-                    type="color"
-                    value={color}
-                    onChange={(e) => setColor(e.target.value)}
-                    style={{ width: 38, height: 30, padding: 2 }}
-                    title={t("annotate.customColor")}
-                  />
-                </div>
-              </div>
-              <div className="field">
-                <label>{t("annotate.stroke")}</label>
-                <div className="radio-row">
-                  {SIZES.map((s) => (
-                    <button
-                      key={s.value}
-                      className={`radio-chip${strokeSize === s.value ? " active" : ""}`}
-                      onClick={() => setStrokeSize(s.value)}
-                    >
-                      {t(`annotate.${s.label.toLowerCase()}`)}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              {tool === "text" && (
-                <div className="field">
-                  <label>{t("annotate.textToPlace")}</label>
-                  <input
-                    type="text"
-                    value={textDraft}
-                    onChange={(e) => setTextDraft(e.target.value)}
-                    placeholder={t("annotate.textPlaceholder")}
-                    className="selectable"
-                  />
-                </div>
-              )}
-              <div className="row">
-                <button
-                  className="btn"
-                  onClick={() => setAnnotations((prev) => prev.slice(0, -1))}
-                  disabled={annotations.length === 0}
-                >
-                  Undo
-                </button>
-                <button
-                  className="btn"
-                  onClick={() => setAnnotations([])}
-                  disabled={annotations.length === 0}
-                >
-                  Clear
-                </button>
-              </div>
-            </div>
-            <div className="card">
+      {(error || source.error) && <div className="banner banner-error" role="alert">{error || source.error}</div>}
+      <div className="split">
+        <div className="canvas-panel">
+          <div className="toolbar">
+            {TOOLS.map(({ id, label, icon: Icon }) => (
               <button
-                className="btn btn-primary btn-block"
-                onClick={exportImage}
-                disabled={busy || annotations.length === 0}
+                key={id}
+                className={`radio-chip${tool === id ? " active" : ""}`}
+                onClick={() => setTool(id)}
+                title={label}
               >
-                {busy ? <><span className="spinner" /> {t("common.saving")}</> : t("annotate.savePng")}
+                <Icon /> {t(`annotate.${label}`)}
               </button>
-              {savedTo && !busy && (
-                <div className="banner banner-ok mt-3 break-all">
-                  {savedTo}
-                </div>
-              )}
+            ))}
+          </div>
+          {source.loading && <p className="status-note" role="status">{t("errors.rendering")}</p>}
+          {!image && !source.loading && (
+            <DropZone
+              presentation="canvas"
+              onFiles={loadFile}
+              label={t("annotate.dropLabel")}
+              multiple={false}
+              accept={CANVAS_FORMATS}
+              hint={t("common.canvasBrowseHint")}
+              onUnsupported={(files) =>
+                setError(unsupportedImageError(files.length, "JPEG, PNG, WebP, GIF or BMP"))
+              }
+            />
+          )}
+          {image && (
+            <>
+              <div className="canvas-wrap cursor-cross">
+                {/* Base image kept under the canvas for sharp rendering. */}
+                <img src={image.src} alt="source" draggable={false} />
+                <canvas
+                  ref={canvasRef}
+                  onPointerDown={onPointerDown}
+                  onPointerMove={onPointerMove}
+                  onPointerUp={onPointerUp}
+                  onPointerCancel={onPointerUp}
+                />
+              </div>
+              <p className="status-note mt-2">
+                {tool === "text"
+                  ? t("annotate.textHint", { text: textDraft })
+                  : t("annotate.dragHint")}
+              </p>
+            </>
+          )}
+        </div>
+        <div className="side-col">
+          <div className="card">
+            <h2 className="card-title">{t("common.settingsCard")}</h2>
+            <div className="field">
+              <label>{t("annotate.color")}</label>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                {PALETTE.map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => setColor(c)}
+                    title={c}
+                    style={{
+                      width: 30,
+                      height: 30,
+                      borderRadius: 8,
+                      border:
+                        color === c
+                          ? "2.5px solid var(--brand-teal)"
+                          : "1px solid var(--border-strong)",
+                      background: c,
+                      cursor: "pointer",
+                    }}
+                  />
+                ))}
+                <input
+                  type="color"
+                  value={color}
+                  onChange={(e) => setColor(e.target.value)}
+                  style={{ width: 38, height: 30, padding: 2 }}
+                  title={t("annotate.customColor")}
+                />
+              </div>
             </div>
+            <div className="field">
+              <label>{t("annotate.stroke")}</label>
+              <div className="radio-row">
+                {SIZES.map((s) => (
+                  <button
+                    key={s.value}
+                    className={`radio-chip${strokeSize === s.value ? " active" : ""}`}
+                    onClick={() => setStrokeSize(s.value)}
+                  >
+                    {t(`annotate.${s.label.toLowerCase()}`)}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {tool === "text" && (
+              <div className="field">
+                <label>{t("annotate.textToPlace")}</label>
+                <input
+                  type="text"
+                  value={textDraft}
+                  onChange={(e) => setTextDraft(e.target.value)}
+                  placeholder={t("annotate.textPlaceholder")}
+                  className="selectable"
+                />
+              </div>
+            )}
+            <div className="action-row">
+              <button
+                className="btn"
+                onClick={() => setAnnotations((prev) => prev.slice(0, -1))}
+                disabled={annotations.length === 0}
+              >
+                {t("common.undo")}
+              </button>
+              <button
+                className="btn"
+                onClick={() => setAnnotations([])}
+                disabled={annotations.length === 0}
+              >
+                {t("common.clear")}
+              </button>
+            </div>
+          </div>
+          <div className="card">
+            <button
+              className="btn btn-primary btn-block"
+              onClick={exportImage}
+              disabled={!image || busy || annotations.length === 0}
+            >
+              {busy ? <><span className="spinner" /> {t("common.saving")}</> : t("annotate.savePng")}
+            </button>
+            {savedTo && !busy && (
+              <div className="banner banner-ok mt-3 break-all">
+                {savedTo}
+              </div>
+            )}
+          </div>
+          {image && (
             <button
               className="btn btn-block"
+              disabled={busy}
               onClick={() => {
-                setFile(null);
-                setDataUrl(null);
-                setNaturalSize(null);
+                source.clear();
+                setSavedTo(null);
+                setError(null);
                 setAnnotations([]);
               }}
             >
               {t("common.chooseDifferentImage")}
             </button>
-          </div>
+          )}
         </div>
-      )}
+      </div>
     </PageShell>
   );
 }

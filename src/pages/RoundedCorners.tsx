@@ -68,110 +68,113 @@ export default function RoundedCorners() {
       subtitle={t("rounded.subtitle")}
     >
       {!source.image && (error || source.error) && <div className="banner banner-error" role="alert">{error || source.error}</div>}
-      {source.loading && <p className="status-note" role="status">{t("errors.rendering")}</p>}
-      {!source.image && !source.loading && (
-        <DropZone
-          presentation="canvas"
-          onFiles={loadFile}
-          label={t("rounded.dropLabel")}
-          multiple={false}
-          accept={CANVAS_FORMATS}
-          hint={t("common.canvasBrowseHint")}
-          onUnsupported={(files) =>
-            setError(unsupportedImageError(files.length, "JPEG, PNG, WebP, BMP"))
-          }
-          onBlockedInput={(files) => setError(blockedInputError(files))}
-        />
-      )}
-
-      {source.image && (
-        <div className="split">
-          <div className="canvas-panel">
-            <div className="canvas-wrap" style={format === "jpeg" ? { background: "#ffffff" } : undefined}>
-              <img
-                src={source.image.src}
-                alt={t("common.preview")}
-                style={{ borderRadius: `${radius / width * 100}% / ${radius / height * 100}%` }}
-              />
-            </div>
-            <p className="status-note mt-2">
-              {width} × {height} px · {t("rounded.radius")} {Math.round(radius)} px
-            </p>
-          </div>
-          <div className="side-col">
-            <div className="card">
-              <h2 className="card-title">{t("common.settingsCard")}</h2>
-              <div className="field">
-                <div className="range-head">
-                  <label className="mb-0" htmlFor={radiusId}>{t("rounded.radius")}</label>
-                  <span className="range-value">{radiusPct}%</span>
-                </div>
-                <input
-                  id={radiusId}
-                  type="range"
-                  className="range"
-                  min={0}
-                  max={50}
-                  value={radiusPct}
-                  style={{ "--val": `${(radiusPct / 50) * 100}%` } as React.CSSProperties}
-                  onChange={(e) => setRadiusPct(Number(e.target.value))}
+      <div className="split">
+        <div className="workbench-main">
+          {source.loading && <p className="status-note" role="status">{t("errors.rendering")}</p>}
+          {!source.image && !source.loading && (
+            <DropZone
+              presentation="canvas"
+              onFiles={loadFile}
+              label={t("rounded.dropLabel")}
+              multiple={false}
+              accept={CANVAS_FORMATS}
+              hint={t("common.canvasBrowseHint")}
+              onUnsupported={(files) =>
+                setError(unsupportedImageError(files.length, "JPEG, PNG, WebP, BMP"))
+              }
+              onBlockedInput={(files) => setError(blockedInputError(files))}
+            />
+          )}
+          {source.image && (
+            <div className="canvas-panel">
+              <div className="canvas-wrap" style={format === "jpeg" ? { background: "#ffffff" } : undefined}>
+                <img
+                  src={source.image.src}
+                  alt={t("common.preview")}
+                  style={{ borderRadius: `${radius / width * 100}% / ${radius / height * 100}%` }}
                 />
-                <div className="preset-chips">
-                  {[5, 10, 15, 25, 50].map((v) => (
-                    <button
-                      key={v}
-                      className={`chip${radiusPct === v ? " active" : ""}`}
-                      onClick={() => setRadiusPct(v)}
-                    >
-                      {v}%
-                    </button>
-                  ))}
-                </div>
-                <div className="hint">{t("rounded.radiusHint")}</div>
               </div>
-              <div className="field">
-                <label>{t("rounded.outputFormat")}</label>
-                <div className="radio-row">
-                  <button
-                    className={`radio-chip${format === "png" ? " active" : ""}`}
-                    aria-pressed={format === "png"}
-                    onClick={() => setFormat("png")}
-                  >
-                    {t("rounded.pngCorners")}
-                  </button>
-                  <button
-                    className={`radio-chip${format === "jpeg" ? " active" : ""}`}
-                    aria-pressed={format === "jpeg"}
-                    onClick={() => setFormat("jpeg")}
-                  >
-                    {t("rounded.jpegCorners")}
-                  </button>
-                </div>
-              </div>
-              <button className="btn btn-primary btn-block" onClick={exportImage} disabled={busy}>
-                {busy ? <><span className="spinner" /> {t("common.saving")}</> : t("common.saveImage")}
-              </button>
-              {savedTo && !busy && (
-                <div className="banner banner-ok mt-3 break-all">
-                  {savedTo}
-                </div>
-              )}
-              {error && (
-                <div className="banner banner-error mt-3">
-                  {error}
-                </div>
-              )}
+              <p className="status-note mt-2">
+                {width} × {height} px · {t("rounded.radius")} {Math.round(radius)} px
+              </p>
             </div>
+          )}
+        </div>
+        <div className="side-col">
+          <div className="card">
+            <h2 className="card-title">{t("common.settingsCard")}</h2>
+            <div className="field">
+              <div className="range-head">
+                <label className="mb-0" htmlFor={radiusId}>{t("rounded.radius")}</label>
+                <span className="range-value">{radiusPct}%</span>
+              </div>
+              <input
+                id={radiusId}
+                type="range"
+                className="range"
+                min={0}
+                max={50}
+                value={radiusPct}
+                style={{ "--val": `${(radiusPct / 50) * 100}%` } as React.CSSProperties}
+                onChange={(e) => setRadiusPct(Number(e.target.value))}
+              />
+              <div className="preset-chips">
+                {[5, 10, 15, 25, 50].map((v) => (
+                  <button
+                    key={v}
+                    className={`chip${radiusPct === v ? " active" : ""}`}
+                    onClick={() => setRadiusPct(v)}
+                  >
+                    {v}%
+                  </button>
+                ))}
+              </div>
+              <div className="hint">{t("rounded.radiusHint")}</div>
+            </div>
+            <div className="field">
+              <label>{t("rounded.outputFormat")}</label>
+              <div className="radio-row">
+                <button
+                  className={`radio-chip${format === "png" ? " active" : ""}`}
+                  aria-pressed={format === "png"}
+                  onClick={() => setFormat("png")}
+                >
+                  {t("rounded.pngCorners")}
+                </button>
+                <button
+                  className={`radio-chip${format === "jpeg" ? " active" : ""}`}
+                  aria-pressed={format === "jpeg"}
+                  onClick={() => setFormat("jpeg")}
+                >
+                  {t("rounded.jpegCorners")}
+                </button>
+              </div>
+            </div>
+            <button className="btn btn-primary btn-block" onClick={exportImage} disabled={!source.image || busy}>
+              {busy ? <><span className="spinner" /> {t("common.saving")}</> : t("common.saveImage")}
+            </button>
+            {savedTo && !busy && (
+              <div className="banner banner-ok mt-3 break-all">
+                {savedTo}
+              </div>
+            )}
+            {error && (
+              <div className="banner banner-error mt-3">
+                {error}
+              </div>
+            )}
+          </div>
+          {source.image && (
             <button
               className="btn btn-block"
-              onClick={() => { source.clear(); setError(null); }}
+              onClick={() => { source.clear(); setError(null); setSavedTo(null); }}
               disabled={busy}
             >
               {t("common.chooseDifferentImage")}
             </button>
-          </div>
+          )}
         </div>
-      )}
+      </div>
     </PageShell>
   );
 }
